@@ -2,8 +2,8 @@
 
 #### 介绍
 
- _ **安装：
-go get -u gitee.com/hgg_test/pkg_tool@v1.0.1** _ 
+**安装：
+go get -u gitee.com/hgg_test/pkg_tool@v1.0.2**
 
 
 {**以下是 Gitee 平台说明，您可以替换此简介**
