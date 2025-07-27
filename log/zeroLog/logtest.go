@@ -30,11 +30,19 @@ func (z *Zlog) Debug() *zerolog.Event { return z.logger.Debug() }
 func (z *Zlog) Warn() *zerolog.Event  { return z.logger.Warn() }
 func (z *Zlog) With() zerolog.Context { return z.logger.With() }
 
+// eg:
+
+//import (
+//logh "gitee.com/hgg_test/pkg_tool/log/zeroLog"
+//"github.com/rs/zerolog"
+//"os"
+//)
+
 //// InitLog 初始化zerolog日志模块【wire里可直接 InitLog】
-//func InitLog() loghgg.Zlogger {
+//func InitLog() logh.Zlogger {
 //	zerolog.TimeFieldFormat = zerolog.TimeFormatUnix
 //	// Level日志级别【可以考虑作为参数传】，测试传zerolog.InfoLevel/NoLevel不打印
 //	// 模块化: Str("module", "userService模块")
 //	logger := zerolog.New(os.Stderr).Level(zerolog.DebugLevel).With().Caller().Timestamp().Logger()
-//	return loghgg.NewZlog(&logger)
+//	return logh.NewZlog(&logger)
 //}
