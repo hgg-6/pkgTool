@@ -1,4 +1,4 @@
-package main
+package zeroLog
 
 import (
 	"github.com/rs/zerolog"
@@ -35,6 +35,6 @@ func (z *Zlog) With() zerolog.Context { return z.logger.With() }
 //	zerolog.TimeFieldFormat = zerolog.TimeFormatUnix
 //	// Level日志级别【可以考虑作为参数传】，测试传zerolog.InfoLevel/NoLevel不打印
 //	// 模块化: Str("module", "userService模块")
-//	logger := zerolog.New(os.Stderr).Level(zerolog.DebugLevel).With().Str("module", "userService模块").Timestamp().Logger()
+//	logger := zerolog.New(os.Stderr).Level(zerolog.DebugLevel).With().Caller().Str("module", "userService模块").Timestamp().Logger()
 //	return &logger
 //}
