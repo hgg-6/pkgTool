@@ -16,6 +16,6 @@ func PasswdJiaMi(password string, cost int) (string, error) {
 }
 
 // PasswdCheck 验证密码,srcHashedPwd为密文，dstPwd为明文【err == nil，验证完成】
-func PasswdCheck(srcHashedPwd, dstPwd string) error {
+func PasswdJieMi(srcHashedPwd, dstPwd string) error {
 	return bcrypt.CompareHashAndPassword([]byte(srcHashedPwd), []byte(dstPwd))
 }
