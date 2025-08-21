@@ -14,7 +14,6 @@ func TestJwt(t *testing.T) {
 	token, err := u.TokenCreate(JwtKey)
 	assert.NoError(t, err) // 断言，和require区别是：require会panic
 	t.Log("token: ", token)
-
 	err = u.TokenCheck(token, JwtKey)
 	assert.NoError(t, err)
 }
