@@ -13,7 +13,7 @@ type middlewareGinx struct {
 	Store sessions.Store
 }
 
-// NewMiddlewareGinx 创建一个中间件,【store】需要【NewStore】一个【cookie实现就cookie.NewStore，redis实现就Redis.NewStore。。。】
+// NewMiddlewareGinx 【注册到gin中间件, server.use()】【store】需要【NewStore】一个【cookie实现就cookie.NewStore，redis实现就Redis.NewStore。。。】
 //
 //	【业务逻辑一般设置】
 //	sess := sessions.Default(ctx)
