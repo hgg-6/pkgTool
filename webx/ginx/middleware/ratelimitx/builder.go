@@ -1,4 +1,4 @@
-package ratelimit
+package ratelimitx
 
 import (
 	_ "embed"
@@ -18,6 +18,9 @@ type Builder struct {
 	limiter limiter.Limiter
 }
 
+// NewBuilder 【注册到gin中间件, server.use()】
+// ratelimitx.NewBuilder(limiter.NewRedisSlideWindowKLimiter(redisClient, time.Second, 1000)).Build(),
+// 限流中间件，注册到 gin框架,使用 redis，100次请求/秒。传三个参数，第一个为redis客户端，第二个为限流时间，第三个为限流次数。
 func NewBuilder(l limiter.Limiter) *Builder {
 	return &Builder{
 		prefix:  "ip-limiter",
