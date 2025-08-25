@@ -25,8 +25,7 @@ type JwtxMiddlewareGinx struct {
 }
 
 // NewJwtxMiddlewareGinx 创建JwtxMiddlewareGinx
-//   - 【一般情况下，只用设置、【刷新】、删除三个token方法】
-//   - 【刷新token时会先验证token】
+//   - 【一般情况下，只用设置、验证、刷新、删除四个token方法】
 //   - expiresIn: token过期时间
 //   - jwtKey: 密钥
 func NewJwtxMiddlewareGinx(jwtConf JwtxMiddlewareGinxConfig) JwtHandlerx {
@@ -53,6 +52,7 @@ func NewJwtxMiddlewareGinx(jwtConf JwtxMiddlewareGinxConfig) JwtHandlerx {
 }
 
 // SetToken 设置JwtToken【ssid构造一般可以 ssid := uuid.New().String() 来生成随机数【长token】】
+//   - SetToken一般登录时设置调用
 //   - 一般情况--登录设置长短token--》验证token【会获取token验证】--》刷新token--》删除token--》退出登录
 func (j *JwtxMiddlewareGinx) SetToken(ctx *gin.Context, userId int64, name string, ssid string) (*UserClaims, error) {
 	//ok := slices.Contains(biz, "User-Agent")
@@ -93,7 +93,7 @@ func (j *JwtxMiddlewareGinx) SetToken(ctx *gin.Context, userId int64, name strin
 	}
 
 	ctx.Header(j.HeaderJwtTokenKey, tokenStr)
-	ctx.Header(j.HeaderJwtTokenKey, longTokenStr)
+	ctx.Header(j.LongHeaderJwtTokenKey, longTokenStr)
 	return &uc, nil
 }
 
