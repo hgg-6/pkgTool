@@ -28,25 +28,24 @@ type JwtxMiddlewareGinx struct {
 //   - expiresIn: token过期时间
 //   - jwtKey: 密钥
 func NewJwtxMiddlewareGinx(jwtConf JwtxMiddlewareGinxConfig) JwtHandlerx {
-	jwtConf.SigningMethod = jwt.SigningMethodHS512
-	jwtConf.HeaderJwtTokenKey = "jwt-token"
-	jwtConf.LongHeaderJwtTokenKey = "long-jwt-token"
-	jwtConf.ExpiresIn = time.Minute * 20
-	jwtConf.LongExpiresIn = time.Hour * 24 * 7
+	if jwtConf.SigningMethod == nil {
+		jwtConf.SigningMethod = jwt.SigningMethodHS512
+	}
+	if jwtConf.ExpiresIn <= 0 {
+		jwtConf.ExpiresIn = time.Minute * 20
+	}
+	if jwtConf.LongExpiresIn <= 0 {
+		jwtConf.LongExpiresIn = time.Hour * 24 * 7
+	}
+	if jwtConf.LongHeaderJwtTokenKey == "" {
+		jwtConf.LongHeaderJwtTokenKey = "long-jwt-token"
+	}
+	if jwtConf.HeaderJwtTokenKey == "" {
+		jwtConf.HeaderJwtTokenKey = "jwt-token"
+	}
+
 	return &JwtxMiddlewareGinx{
-		JwtxMiddlewareGinxConfig: JwtxMiddlewareGinxConfig{
-			SigningMethod:         jwtConf.SigningMethod,
-			ExpiresIn:             jwtConf.ExpiresIn,
-			JwtKey:                jwtConf.JwtKey,
-			LongJwtKey:            jwtConf.LongJwtKey,
-			HeaderJwtTokenKey:     jwtConf.HeaderJwtTokenKey,
-			LongHeaderJwtTokenKey: jwtConf.LongHeaderJwtTokenKey,
-		},
-		//SigningMethod:     jwt.SigningMethodHS512,
-		//ExpiresIn:         expiresIn,
-		//JwtKey:            jwtKey,
-		//LongJwtKey:        longJwtKey,
-		//HeaderJwtTokenKey: "jwt-token",
+		JwtxMiddlewareGinxConfig: jwtConf,
 	}
 }
 
