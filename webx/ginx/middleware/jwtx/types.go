@@ -2,8 +2,10 @@ package jwtx
 
 import "github.com/gin-gonic/gin"
 
+// JwtHandlerx 方法
+//   - 一般情况下，只用登录、登出、刷新三个token方法
 type JwtHandlerx interface {
-	// SetToken 生成 JwtToken【其他有关业务，都可以放入这个 biz []string，可以为nil】
+	// SetToken 生成 JwtToken
 	SetToken(ctx *gin.Context, userId int64, name string, ssid string) (*UserClaims, error)
 	// ExtractToken 获取 JwtToken
 	ExtractToken(ctx *gin.Context) string

@@ -10,27 +10,50 @@ import (
 	"time"
 )
 
+type JwtxMiddlewareGinxConfig struct {
+	SigningMethod         jwt.SigningMethod // 默认HS512加密方式jwt.SigningMethodHS512
+	ExpiresIn             time.Duration     // 默认10分钟
+	LongExpiresIn         time.Duration     // 默认7天
+	JwtKey                []byte            // 【必传】
+	LongJwtKey            []byte            // 【必传】
+	HeaderJwtTokenKey     string            // 默认jwt-token
+	LongHeaderJwtTokenKey string            // 默认long-jwt-token
+}
+
 type JwtxMiddlewareGinx struct {
-	SigningMethod     jwt.SigningMethod
-	ExpiresIn         time.Duration
-	JwtKey            []byte
-	HeaderJwtTokenKey string
+	JwtxMiddlewareGinxConfig
 }
 
 // NewJwtxMiddlewareGinx 创建JwtxMiddlewareGinx
-// - 一般情况下，只用登录、登出、刷新三个token方法
-// - expiresIn: token过期时间
-// - jwtKey: 密钥
-func NewJwtxMiddlewareGinx(expiresIn time.Duration, jwtKey []byte) JwtHandlerx {
+//   - 【一般情况下，只用设置、【刷新】、删除三个token方法】
+//   - 【刷新token时会先验证token】
+//   - expiresIn: token过期时间
+//   - jwtKey: 密钥
+func NewJwtxMiddlewareGinx(jwtConf JwtxMiddlewareGinxConfig) JwtHandlerx {
+	jwtConf.SigningMethod = jwt.SigningMethodHS512
+	jwtConf.HeaderJwtTokenKey = "jwt-token"
+	jwtConf.LongHeaderJwtTokenKey = "long-jwt-token"
+	jwtConf.ExpiresIn = time.Minute * 20
+	jwtConf.LongExpiresIn = time.Hour * 24 * 7
 	return &JwtxMiddlewareGinx{
-		SigningMethod:     jwt.SigningMethodHS512,
-		ExpiresIn:         expiresIn,
-		JwtKey:            jwtKey,
-		HeaderJwtTokenKey: "jwt-token",
+		JwtxMiddlewareGinxConfig: JwtxMiddlewareGinxConfig{
+			SigningMethod:         jwtConf.SigningMethod,
+			ExpiresIn:             jwtConf.ExpiresIn,
+			JwtKey:                jwtConf.JwtKey,
+			LongJwtKey:            jwtConf.LongJwtKey,
+			HeaderJwtTokenKey:     jwtConf.HeaderJwtTokenKey,
+			LongHeaderJwtTokenKey: jwtConf.LongHeaderJwtTokenKey,
+		},
+		//SigningMethod:     jwt.SigningMethodHS512,
+		//ExpiresIn:         expiresIn,
+		//JwtKey:            jwtKey,
+		//LongJwtKey:        longJwtKey,
+		//HeaderJwtTokenKey: "jwt-token",
 	}
 }
 
-// SetToken 设置JwtToken【ssid构造一般可以 ssid := uuid.New().String() // 生成随机数【长token】】
+// SetToken 设置JwtToken【ssid构造一般可以 ssid := uuid.New().String() 来生成随机数【长token】】
+//   - 一般情况--登录设置长短token--》验证token【会获取token验证】--》刷新token--》删除token--》退出登录
 func (j *JwtxMiddlewareGinx) SetToken(ctx *gin.Context, userId int64, name string, ssid string) (*UserClaims, error) {
 	//ok := slices.Contains(biz, "User-Agent")
 	//if ok {
@@ -52,7 +75,25 @@ func (j *JwtxMiddlewareGinx) SetToken(ctx *gin.Context, userId int64, name strin
 		var u UserClaims
 		return &u, err
 	}
+
+	uc = UserClaims{
+		Uid:       userId,
+		Name:      name,
+		Ssid:      ssid,                        // 登录唯一标识
+		UserAgent: ctx.GetHeader("User-Agent"), // 获取用户代理
+		RegisteredClaims: jwt.RegisteredClaims{
+			ExpiresAt: jwt.NewNumericDate(time.Now().Add(j.LongExpiresIn))},
+	}
+	longToken := jwt.NewWithClaims(j.SigningMethod, uc) // jwt.SigningMethodES512是加密方式，默认是HS256，返回token是结构体
+	ctx.Set("userLong", uc)
+	longTokenStr, err := longToken.SignedString(j.LongJwtKey) // tokenStr是加密后的token字符串
+	if err != nil {
+		var u UserClaims
+		return &u, err
+	}
+
 	ctx.Header(j.HeaderJwtTokenKey, tokenStr)
+	ctx.Header(j.HeaderJwtTokenKey, longTokenStr)
 	return &uc, nil
 }
 
@@ -93,10 +134,12 @@ func (j *JwtxMiddlewareGinx) VerifyToken(ctx *gin.Context) (*UserClaims, error) 
 
 // RefreshToken 刷新JwtToken【当用户操作时，直接刷新token，刷新前验证token】
 func (j *JwtxMiddlewareGinx) RefreshToken(ctx *gin.Context) (*UserClaims, error) {
+	// 验证token，确保本次请求合法
 	uc, err := j.VerifyToken(ctx)
 	if err != nil {
 		return uc, err
 	}
+	// 重新设置token
 	ssid := uuid.New().String()
 	return j.SetToken(ctx, uc.Uid, uc.Name, ssid)
 }
@@ -113,7 +156,7 @@ func (j *JwtxMiddlewareGinx) DeleteToken(ctx *gin.Context) (*UserClaims, error) 
 	return &uc, nil
 }
 
-// LoginJWT 登录【JWT方式实现：json-web-token】
+// UserClaims  登录【JWT方式实现：json-web-token】
 type UserClaims struct {
 	jwt.RegisteredClaims        // jwt.RegisteredClaims是jwt的默认结构体，里面有字段：Issuer, Subject, Audience, ExpiresAt, NotBefore, ID
 	Uid                  int64  // 用户id
