@@ -1,65 +1,124 @@
 package jwtx
 
 import (
+	"errors"
+	"fmt"
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
+	"github.com/google/uuid"
+	"strings"
 	"time"
 )
 
 type JwtxMiddlewareGinx struct {
-	SigningMethod jwt.SigningMethod
-	du            time.Duration
+	SigningMethod     jwt.SigningMethod
+	ExpiresIn         time.Duration
+	JwtKey            []byte
+	HeaderJwtTokenKey string
 }
 
-func NewJwtxMiddlewareGinx(du time.Duration) JwtHandlerx {
+// NewJwtxMiddlewareGinx 创建JwtxMiddlewareGinx
+// - 一般情况下，只用登录、登出、刷新三个token方法
+// - expiresIn: token过期时间
+// - jwtKey: 密钥
+func NewJwtxMiddlewareGinx(expiresIn time.Duration, jwtKey []byte) JwtHandlerx {
 	return &JwtxMiddlewareGinx{
-		SigningMethod: jwt.SigningMethodHS512,
-		du:            du,
+		SigningMethod:     jwt.SigningMethodHS512,
+		ExpiresIn:         expiresIn,
+		JwtKey:            jwtKey,
+		HeaderJwtTokenKey: "jwt-token",
 	}
 }
 
-// SetToken 设置JwtToken
-func (j *JwtxMiddlewareGinx) SetToken(ctx *gin.Context, userId int64, jwtKey []byte, biz ...map[string]any) (string, error) {
+// SetToken 设置JwtToken【ssid构造一般可以 ssid := uuid.New().String() // 生成随机数【长token】】
+func (j *JwtxMiddlewareGinx) SetToken(ctx *gin.Context, userId int64, name string, ssid string) (*UserClaims, error) {
 	//ok := slices.Contains(biz, "User-Agent")
 	//if ok {
 	//	ctx.GetHeader("User-Agent") // 获取用户代理
 	//}
 
 	uc := UserClaims{
-		Uid: userId,
-		//Ssid:      ssid,                        // 登录唯一标识
-		//UserAgent: ctx.GetHeader("User-Agent"), // 获取用户代理
-		biz: biz,
+		Uid:       userId,
+		Name:      name,
+		Ssid:      ssid,                        // 登录唯一标识
+		UserAgent: ctx.GetHeader("User-Agent"), // 获取用户代理
 		RegisteredClaims: jwt.RegisteredClaims{
-			ExpiresAt: jwt.NewNumericDate(time.Now().Add(j.du))},
+			ExpiresAt: jwt.NewNumericDate(time.Now().Add(j.ExpiresIn))},
 	}
 	token := jwt.NewWithClaims(j.SigningMethod, uc) // jwt.SigningMethodES512是加密方式，默认是HS256，返回token是结构体
-	return token.SignedString(jwtKey)               // tokenStr是加密后的token字符串
+	ctx.Set("user", uc)
+	tokenStr, err := token.SignedString(j.JwtKey) // tokenStr是加密后的token字符串
+	if err != nil {
+		var u UserClaims
+		return &u, err
+	}
+	ctx.Header(j.HeaderJwtTokenKey, tokenStr)
+	return &uc, nil
 }
 
-func (j *JwtxMiddlewareGinx) VerifyToken(ctx *gin.Context, token string) (int64, error) {
-	//TODO implement me
-	panic("implement me")
+// ExtractToken 获取JwtToken
+func (j *JwtxMiddlewareGinx) ExtractToken(ctx *gin.Context) string {
+	authCode := ctx.GetHeader("Authorization") // 获取请求头中的Authorization字段
+	if authCode == "" {
+		return authCode
+	}
+	// 因为Authorization: Bearer XXXXX，【Bearer XXXXX中间有空格，需要切割】
+	segs := strings.Split(authCode, " ") // 根据空格切割，得到 Bearer 和 token
+	if len(segs) != 2 {                  // 一般只有一个空格，切开变成两段，如果切割出来的数组长度不等于2，说明有问题
+		return ""
+	}
+	// 拿到token，拆成两端，token在第2段,token在下标为1的一段
+	return segs[1]
 }
 
-func (j *JwtxMiddlewareGinx) RefreshToken(ctx *gin.Context, token string) (string, error) {
-	//TODO implement me
-	panic("implement me")
+// VerifyToken 验证JwtToken
+func (j *JwtxMiddlewareGinx) VerifyToken(ctx *gin.Context) (*UserClaims, error) {
+	tokenStr := j.ExtractToken(ctx)
+	// 解析token
+	//var uc *UserClaims
+	//uc = &UserClaims{}
+	uc := &UserClaims{}
+	t, err := jwt.ParseWithClaims(tokenStr, uc, func(token *jwt.Token) (interface{}, error) {
+		return j.JwtKey, nil
+	})
+	// 验证token，t.Valid是验证token，t.Valid是bool类型，true表示验证成功，false表示验证失败
+	if t == nil || err != nil || !t.Valid {
+		//ctx.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid token"})
+		//ctx.Abort() // 阻止继续执行
+		return uc, errors.New("invalid token, token无效/伪造的token")
+	}
+	ctx.Set("user", uc)
+	return uc, nil
 }
 
-func (j *JwtxMiddlewareGinx) DeleteToken(ctx *gin.Context, token string) error {
-	//TODO implement me
-	panic("implement me")
+// RefreshToken 刷新JwtToken【当用户操作时，直接刷新token，刷新前验证token】
+func (j *JwtxMiddlewareGinx) RefreshToken(ctx *gin.Context) (*UserClaims, error) {
+	uc, err := j.VerifyToken(ctx)
+	if err != nil {
+		return uc, err
+	}
+	ssid := uuid.New().String()
+	return j.SetToken(ctx, uc.Uid, uc.Name, ssid)
+}
+
+// DeleteToken 删除JwtToken
+func (j *JwtxMiddlewareGinx) DeleteToken(ctx *gin.Context) (*UserClaims, error) {
+	ctx.Header(j.HeaderJwtTokenKey, "")
+	uc, ok := ctx.MustGet("user").(UserClaims) // 获取用户信息，断言
+	if !ok {
+		return &UserClaims{}, fmt.Errorf("user claims not found, 请求头中没有找到用户信息")
+	}
+	// 【uc】是删除Redis中的用户信息使用
+	//return h.client.Set(ctx, fmt.Sprintf("user:ssid:%s", uc.Ssid), "", h.rcExpiration).Err()
+	return &uc, nil
 }
 
 // LoginJWT 登录【JWT方式实现：json-web-token】
 type UserClaims struct {
-	jwt.RegisteredClaims       // jwt.RegisteredClaims是jwt的默认结构体，里面有字段：Issuer, Subject, Audience, ExpiresAt, NotBefore, ID
-	Uid                  int64 // 用户id
-	//Ssid                 string // 登录唯一标识
-	//UserAgent            string // 用户代理
-	biz []map[string]any // 业务标识、登录唯一标识、用户代理
+	jwt.RegisteredClaims        // jwt.RegisteredClaims是jwt的默认结构体，里面有字段：Issuer, Subject, Audience, ExpiresAt, NotBefore, ID
+	Uid                  int64  // 用户id
+	Name                 string // 用户名
+	Ssid                 string // 登录唯一标识
+	UserAgent            string // 用户代理
+	//biz map[string]any // 业务标识、登录唯一标识、用户代理
 }
-
-var JWTKey = []byte("rUwYX9LZXU0Vjiizkhzmj8VyBd3GcwrC")   // JWTKey是加密的key，需要保密，不能泄露
-var RCJWTKey = []byte("rUwYX9LZXU0Vjiizkhzmj8VyBd3GcwrF") // JWTKey是加密的key，需要保密，不能泄露

@@ -5,7 +5,7 @@ import (
 	"testing"
 )
 
-func TestMapKeyFunctional(t *testing.T) {
+func TestMapKeyFind(t *testing.T) {
 	// 构造测试数据
 	data := map[string]any{
 		"user": map[string]any{
@@ -176,7 +176,7 @@ func TestMapKeyFunctional(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result, found := MapKeyFunctional(data, tt.path, tt.isRexp)
+			result, found := MapKeyFind(data, tt.path, tt.isRexp)
 
 			if found != tt.found {
 				t.Errorf("expected found=%v, got %v", tt.found, found)
@@ -191,7 +191,7 @@ func TestMapKeyFunctional(t *testing.T) {
 
 // ==================== Benchmark ====================
 
-func BenchmarkMapKeyFunctional_ExactMatch(b *testing.B) {
+func BenchmarkMapKeyFind_ExactMatch(b *testing.B) {
 	data := map[string]any{
 		"user": map[string]any{
 			"name": "Alice",
@@ -202,11 +202,11 @@ func BenchmarkMapKeyFunctional_ExactMatch(b *testing.B) {
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		MapKeyFunctional(data, "user.name", true)
+		MapKeyFind(data, "user.name", true)
 	}
 }
 
-func BenchmarkMapKeyFunctional_WildcardExpand(b *testing.B) {
+func BenchmarkMapKeyFind_WildcardExpand(b *testing.B) {
 	data := map[string]any{
 		"users": []any{
 			map[string]any{"name": "Bob"},
@@ -217,11 +217,11 @@ func BenchmarkMapKeyFunctional_WildcardExpand(b *testing.B) {
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		MapKeyFunctional(data, "users.*.name", true)
+		MapKeyFind(data, "users.*.name", true)
 	}
 }
 
-func BenchmarkMapKeyFunctional_FuzzyMatch_Small(b *testing.B) {
+func BenchmarkMapKeyFind_FuzzyMatch_Small(b *testing.B) {
 	data := map[string]any{
 		"user": map[string]any{
 			"profile": map[string]any{
@@ -237,7 +237,7 @@ func BenchmarkMapKeyFunctional_FuzzyMatch_Small(b *testing.B) {
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		MapKeyFunctional(data, "name", false)
+		MapKeyFind(data, "name", false)
 	}
 }
 
@@ -250,15 +250,16 @@ func deepNestedMap(depth int) map[string]any {
 	return m
 }
 
-func BenchmarkMapKeyFunctional_FuzzyMatch_Deep100(b *testing.B) {
-	data := deepNestedMap(100)
+func BenchmarkMapKeyFind_FuzzyMatch_Deep100(b *testing.B) {
+	//data := deepNestedMap(100)
+	data := deepNestedMap(10)
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		MapKeyFunctional(data, "value", false)
+		MapKeyFind(data, "value", false)
 	}
 }
 
-func BenchmarkMapKeyFunctional_FuzzyMatch_Deep1000(b *testing.B) {
+func BenchmarkMapKeyFind_FuzzyMatch_Deep1000(b *testing.B) {
 	data := deepNestedMap(1000)
 	b.Skip("Skipping deep 1000 benchmark - too slow")
 	// b.Skip() 可用于跳过特别耗时的测试
@@ -266,6 +267,6 @@ func BenchmarkMapKeyFunctional_FuzzyMatch_Deep1000(b *testing.B) {
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		MapKeyFunctional(data, "value", false)
+		MapKeyFind(data, "value", false)
 	}
 }

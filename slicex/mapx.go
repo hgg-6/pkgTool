@@ -5,14 +5,15 @@ import (
 	"strings"
 )
 
-// MapKeyFunctional 支持：【注意rexp参数是如果key本身就有【.】，而非作为正则，true为正则，false为非正则，不可多传[]bool】
+// MapKeyFind 支持：【注意rexp参数是如果key本身就有【.  eg: "user.name"是一个key】，而非作为正则，true为正则，false为非正则】
+//   - 【10层以下map，直接false即可，和精确性能相似】
 //   - 【警告】模糊匹配（isRexp=false）会遍历整个结构，时间复杂度高，
 //     不建议在 >100 层或 >1000 节点的结构中使用。
 //   - 精确: user.name			【1速度,最优】
 //   - 通配展开: users.*.name	【2速度,仅次精确】
 //   - key 模糊: users.*name2, users.name*【2速度,仅次精确】
-//   - 模糊匹配: name (任意层级)	【3速度,仅用于小数据，大数据影响性能，eg: 1000层map】
-func MapKeyFunctional(data map[string]any, path string, isRexp bool) ([]any, bool) {
+//   - 模糊匹配: name (任意层级)	【3速度,仅用于小数据，大数据影响性能，eg: map嵌套100甚至1000层map】
+func MapKeyFind(data map[string]any, path string, isRexp bool) ([]any, bool) {
 	if data == nil || path == "" {
 		return nil, false
 	}
