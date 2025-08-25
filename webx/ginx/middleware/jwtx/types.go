@@ -11,7 +11,7 @@ type JwtHandlerx interface {
 	ExtractToken(ctx *gin.Context) string
 	// VerifyToken 验证 JwtToken
 	VerifyToken(ctx *gin.Context) (*UserClaims, error)
-	LongVerifyToken(ctx *gin.Context) (*UserClaims, error)
+	LongVerifyToken(ctx *gin.Context) (*RefreshUserClaims, error)
 	// RefreshToken 刷新 JwtToken 过期时间
 	RefreshToken(ctx *gin.Context) (*UserClaims, error)
 	// DeleteToken 删除 JwtToken

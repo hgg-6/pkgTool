@@ -134,7 +134,7 @@ func (j *JwtxMiddlewareGinx) VerifyToken(ctx *gin.Context) (*UserClaims, error) 
 }
 
 // LongVerifyToken 验证长JwtToken【一般是刷新token时，此方法验证长token，生成新的长短token】
-func (j *JwtxMiddlewareGinx) LongVerifyToken(ctx *gin.Context) (*UserClaims, error) {
+func (j *JwtxMiddlewareGinx) LongVerifyToken(ctx *gin.Context) (*RefreshUserClaims, error) {
 	tokenStr := j.ExtractToken(ctx)
 	uc := &RefreshUserClaims{}
 	t, err := jwt.ParseWithClaims(tokenStr, uc,
@@ -146,16 +146,10 @@ func (j *JwtxMiddlewareGinx) LongVerifyToken(ctx *gin.Context) (*UserClaims, err
 	if t == nil || err != nil || !t.Valid {
 		//ctx.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid token"})
 		//ctx.Abort() // 阻止继续执行
-		return &UserClaims{}, fmt.Errorf("invalid token, token无效/伪造的token %v", err)
+		return uc, fmt.Errorf("invalid token, token无效/伪造的token %v", err)
 	}
 	ctx.Set("userLong", uc)
-	return &UserClaims{
-		RegisteredClaims: uc.RegisteredClaims,
-		Uid:              uc.Uid,
-		Name:             uc.Name,
-		Ssid:             uc.Ssid,
-		UserAgent:        uc.UserAgent,
-	}, nil
+	return uc, nil
 }
 
 // RefreshToken 刷新JwtToken【当用户操作时，直接刷新token，刷新前验证token】
@@ -163,7 +157,8 @@ func (j *JwtxMiddlewareGinx) RefreshToken(ctx *gin.Context) (*UserClaims, error)
 	// 验证token，确保本次请求合法
 	uc, err := j.LongVerifyToken(ctx)
 	if err != nil {
-		return uc, err
+		//return uc, err
+		return &UserClaims{}, err
 	}
 	// 重新设置token
 	ssid := uuid.New().String()
