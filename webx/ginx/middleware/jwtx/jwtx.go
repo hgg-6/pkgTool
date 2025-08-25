@@ -132,6 +132,26 @@ func (j *JwtxMiddlewareGinx) VerifyToken(ctx *gin.Context) (*UserClaims, error) 
 	return uc, nil
 }
 
+// LongVerifyToken 验证长JwtToken【一般是刷新token时，此方法验证长token，生成新的长短token】
+func (j *JwtxMiddlewareGinx) LongVerifyToken(ctx *gin.Context) (*UserClaims, error) {
+	tokenStr := j.ExtractToken(ctx)
+	// 解析token
+	//var uc *UserClaims
+	//uc = &UserClaims{}
+	uc := &UserClaims{}
+	t, err := jwt.ParseWithClaims(tokenStr, uc, func(token *jwt.Token) (interface{}, error) {
+		return j.LongJwtKey, nil
+	})
+	// 验证token，t.Valid是验证token，t.Valid是bool类型，true表示验证成功，false表示验证失败
+	if t == nil || err != nil || !t.Valid {
+		//ctx.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid token"})
+		//ctx.Abort() // 阻止继续执行
+		return uc, errors.New("invalid token, token无效/伪造的token")
+	}
+	ctx.Set("user", uc)
+	return uc, nil
+}
+
 // RefreshToken 刷新JwtToken【当用户操作时，直接刷新token，刷新前验证token】
 func (j *JwtxMiddlewareGinx) RefreshToken(ctx *gin.Context) (*UserClaims, error) {
 	// 验证token，确保本次请求合法
