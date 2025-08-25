@@ -1,7 +1,6 @@
 package jwtx
 
 import (
-	"errors"
 	"fmt"
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
@@ -76,7 +75,7 @@ func (j *JwtxMiddlewareGinx) SetToken(ctx *gin.Context, userId int64, name strin
 		return &u, err
 	}
 
-	uc = UserClaims{
+	reUc := RefreshUserClaims{
 		Uid:       userId,
 		Name:      name,
 		Ssid:      ssid,                        // 登录唯一标识
@@ -84,8 +83,8 @@ func (j *JwtxMiddlewareGinx) SetToken(ctx *gin.Context, userId int64, name strin
 		RegisteredClaims: jwt.RegisteredClaims{
 			ExpiresAt: jwt.NewNumericDate(time.Now().Add(j.LongExpiresIn))},
 	}
-	longToken := jwt.NewWithClaims(j.SigningMethod, uc) // jwt.SigningMethodES512是加密方式，默认是HS256，返回token是结构体
-	ctx.Set("userLong", uc)
+	longToken := jwt.NewWithClaims(j.SigningMethod, reUc) // jwt.SigningMethodES512是加密方式，默认是HS256，返回token是结构体
+	ctx.Set("userLong", reUc)
 	longTokenStr, err := longToken.SignedString(j.LongJwtKey) // tokenStr是加密后的token字符串
 	if err != nil {
 		var u UserClaims
@@ -119,14 +118,16 @@ func (j *JwtxMiddlewareGinx) VerifyToken(ctx *gin.Context) (*UserClaims, error) 
 	//var uc *UserClaims
 	//uc = &UserClaims{}
 	uc := &UserClaims{}
-	t, err := jwt.ParseWithClaims(tokenStr, uc, func(token *jwt.Token) (interface{}, error) {
-		return j.JwtKey, nil
-	})
+	t, err := jwt.ParseWithClaims(tokenStr, uc,
+		func(token *jwt.Token) (interface{}, error) {
+			return j.JwtKey, nil
+		},
+	)
 	// 验证token，t.Valid是验证token，t.Valid是bool类型，true表示验证成功，false表示验证失败
 	if t == nil || err != nil || !t.Valid {
 		//ctx.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid token"})
 		//ctx.Abort() // 阻止继续执行
-		return uc, errors.New("invalid token, token无效/伪造的token")
+		return uc, fmt.Errorf("invalid token, token无效/伪造的token %v", err)
 	}
 	ctx.Set("user", uc)
 	return uc, nil
@@ -135,27 +136,32 @@ func (j *JwtxMiddlewareGinx) VerifyToken(ctx *gin.Context) (*UserClaims, error) 
 // LongVerifyToken 验证长JwtToken【一般是刷新token时，此方法验证长token，生成新的长短token】
 func (j *JwtxMiddlewareGinx) LongVerifyToken(ctx *gin.Context) (*UserClaims, error) {
 	tokenStr := j.ExtractToken(ctx)
-	// 解析token
-	//var uc *UserClaims
-	//uc = &UserClaims{}
-	uc := &UserClaims{}
-	t, err := jwt.ParseWithClaims(tokenStr, uc, func(token *jwt.Token) (interface{}, error) {
-		return j.LongJwtKey, nil
-	})
+	uc := &RefreshUserClaims{}
+	t, err := jwt.ParseWithClaims(tokenStr, uc,
+		func(token *jwt.Token) (interface{}, error) {
+			return j.LongJwtKey, nil
+		},
+	)
 	// 验证token，t.Valid是验证token，t.Valid是bool类型，true表示验证成功，false表示验证失败
 	if t == nil || err != nil || !t.Valid {
 		//ctx.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid token"})
 		//ctx.Abort() // 阻止继续执行
-		return uc, errors.New("invalid token, token无效/伪造的token")
+		return &UserClaims{}, fmt.Errorf("invalid token, token无效/伪造的token %v", err)
 	}
-	ctx.Set("user", uc)
-	return uc, nil
+	ctx.Set("userLong", uc)
+	return &UserClaims{
+		RegisteredClaims: uc.RegisteredClaims,
+		Uid:              uc.Uid,
+		Name:             uc.Name,
+		Ssid:             uc.Ssid,
+		UserAgent:        uc.UserAgent,
+	}, nil
 }
 
 // RefreshToken 刷新JwtToken【当用户操作时，直接刷新token，刷新前验证token】
 func (j *JwtxMiddlewareGinx) RefreshToken(ctx *gin.Context) (*UserClaims, error) {
 	// 验证token，确保本次请求合法
-	uc, err := j.VerifyToken(ctx)
+	uc, err := j.LongVerifyToken(ctx)
 	if err != nil {
 		return uc, err
 	}
@@ -183,5 +189,11 @@ type UserClaims struct {
 	Name                 string // 用户名
 	Ssid                 string // 登录唯一标识
 	UserAgent            string // 用户代理
-	//biz map[string]any // 业务标识、登录唯一标识、用户代理
+}
+type RefreshUserClaims struct {
+	jwt.RegisteredClaims        // jwt.RegisteredClaims是jwt的默认结构体，里面有字段：Issuer, Subject, Audience, ExpiresAt, NotBefore, ID
+	Uid                  int64  // 用户id
+	Name                 string // 用户名
+	Ssid                 string // 登录唯一标识
+	UserAgent            string // 用户代理
 }
