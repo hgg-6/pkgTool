@@ -27,12 +27,12 @@ type JwtxMiddlewareGinx struct {
 //   - 【一般情况下，只用设置、验证、刷新、删除四个token方法】
 //   - expiresIn: token过期时间
 //   - jwtKey: 密钥
-func NewJwtxMiddlewareGinx(jwtConf JwtxMiddlewareGinxConfig) JwtHandlerx {
+func NewJwtxMiddlewareGinx(jwtConf *JwtxMiddlewareGinxConfig) JwtHandlerx {
 	if jwtConf.SigningMethod == nil {
 		jwtConf.SigningMethod = jwt.SigningMethodHS512
 	}
 	if jwtConf.ExpiresIn <= 0 {
-		jwtConf.ExpiresIn = time.Minute * 20
+		jwtConf.ExpiresIn = time.Minute * 30
 	}
 	if jwtConf.LongExpiresIn <= 0 {
 		jwtConf.LongExpiresIn = time.Hour * 24 * 7
@@ -45,7 +45,7 @@ func NewJwtxMiddlewareGinx(jwtConf JwtxMiddlewareGinxConfig) JwtHandlerx {
 	}
 
 	return &JwtxMiddlewareGinx{
-		JwtxMiddlewareGinxConfig: jwtConf,
+		JwtxMiddlewareGinxConfig: *jwtConf,
 	}
 }
 
