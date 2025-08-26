@@ -11,8 +11,8 @@ import (
 
 type JwtxMiddlewareGinxConfig struct {
 	SigningMethod         jwt.SigningMethod // 默认HS512加密方式jwt.SigningMethodHS512
-	ExpiresIn             time.Duration     // 默认10分钟
-	LongExpiresIn         time.Duration     // 默认7天
+	DurationExpiresIn     time.Duration     // 默认30分钟
+	LongDurationExpiresIn time.Duration     // 默认7天
 	JwtKey                []byte            // 【必传】
 	LongJwtKey            []byte            // 【必传】
 	HeaderJwtTokenKey     string            // 默认jwt-token
@@ -31,11 +31,11 @@ func NewJwtxMiddlewareGinx(jwtConf *JwtxMiddlewareGinxConfig) JwtHandlerx {
 	if jwtConf.SigningMethod == nil {
 		jwtConf.SigningMethod = jwt.SigningMethodHS512
 	}
-	if jwtConf.ExpiresIn <= 0 {
-		jwtConf.ExpiresIn = time.Minute * 30
+	if jwtConf.DurationExpiresIn <= 0 {
+		jwtConf.DurationExpiresIn = time.Minute * 30
 	}
-	if jwtConf.LongExpiresIn <= 0 {
-		jwtConf.LongExpiresIn = time.Hour * 24 * 7
+	if jwtConf.LongDurationExpiresIn <= 0 {
+		jwtConf.LongDurationExpiresIn = time.Hour * 24 * 7
 	}
 	if jwtConf.LongHeaderJwtTokenKey == "" {
 		jwtConf.LongHeaderJwtTokenKey = "long-jwt-token"
@@ -64,7 +64,7 @@ func (j *JwtxMiddlewareGinx) SetToken(ctx *gin.Context, userId int64, name strin
 		Ssid:      ssid,                        // 登录唯一标识
 		UserAgent: ctx.GetHeader("User-Agent"), // 获取用户代理
 		RegisteredClaims: jwt.RegisteredClaims{
-			ExpiresAt: jwt.NewNumericDate(time.Now().Add(j.ExpiresIn))},
+			ExpiresAt: jwt.NewNumericDate(time.Now().Add(j.DurationExpiresIn))},
 	}
 	token := jwt.NewWithClaims(j.SigningMethod, uc) // jwt.SigningMethodES512是加密方式，默认是HS256，返回token是结构体
 	ctx.Set("user", uc)
@@ -80,7 +80,7 @@ func (j *JwtxMiddlewareGinx) SetToken(ctx *gin.Context, userId int64, name strin
 		Ssid:      ssid,                        // 登录唯一标识
 		UserAgent: ctx.GetHeader("User-Agent"), // 获取用户代理
 		RegisteredClaims: jwt.RegisteredClaims{
-			ExpiresAt: jwt.NewNumericDate(time.Now().Add(j.LongExpiresIn))},
+			ExpiresAt: jwt.NewNumericDate(time.Now().Add(j.LongDurationExpiresIn))},
 	}
 	longToken := jwt.NewWithClaims(j.SigningMethod, reUc) // jwt.SigningMethodES512是加密方式，默认是HS256，返回token是结构体
 	ctx.Set("userLong", reUc)
