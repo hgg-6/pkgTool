@@ -4,31 +4,22 @@ import (
 	"github.com/rs/zerolog"
 )
 
-// Logger 接口（依赖抽象）
-type Zlogger interface {
-	Info() *zerolog.Event
-	Error() *zerolog.Event
-	Debug() *zerolog.Event
-	Warn() *zerolog.Event
-	With() zerolog.Context
-}
-
 // Zlog 封装 zerolog.Logger
-type Zlog struct {
+type ZeroLogStrx struct {
 	logger *zerolog.Logger
 }
 
-func NewZlog(l *zerolog.Logger) Zlogger {
-	return &Zlog{
+func NewZeroLogx(l *zerolog.Logger) Zlogger {
+	return &ZeroLogStrx{
 		logger: l,
 	}
 }
 
-func (z *Zlog) Info() *zerolog.Event  { return z.logger.Info() }
-func (z *Zlog) Error() *zerolog.Event { return z.logger.Error() }
-func (z *Zlog) Debug() *zerolog.Event { return z.logger.Debug() }
-func (z *Zlog) Warn() *zerolog.Event  { return z.logger.Warn() }
-func (z *Zlog) With() zerolog.Context { return z.logger.With() }
+func (z *ZeroLogStrx) Info() *zerolog.Event  { return z.logger.Info() }
+func (z *ZeroLogStrx) Error() *zerolog.Event { return z.logger.Error() }
+func (z *ZeroLogStrx) Debug() *zerolog.Event { return z.logger.Debug() }
+func (z *ZeroLogStrx) Warn() *zerolog.Event  { return z.logger.Warn() }
+func (z *ZeroLogStrx) With() zerolog.Context { return z.logger.With() }
 
 // eg:
 

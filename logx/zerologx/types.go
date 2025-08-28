@@ -1,0 +1,12 @@
+package zerologx
+
+import "github.com/rs/zerolog"
+
+// Logger 接口（依赖抽象）
+type Zlogger interface {
+	Info() *zerolog.Event
+	Error() *zerolog.Event
+	Debug() *zerolog.Event
+	Warn() *zerolog.Event
+	With() zerolog.Context
+}
