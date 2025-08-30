@@ -19,7 +19,6 @@ type GormLogStrx struct {
 // NewGormLogStrx 初始化GORM日志适配器
 //   - 需先初始化日志模块，参考测试用例InitLog()方法
 //   - gorm.Open(mysql.Open(dsn), &gorm.Config{Logger: NewGormLogStrx(time.Second, InitLog())})
-//   - NewGormLogStrx(time.Second)可在ioc构造日志模块时初始化，参考此包中InitGormLogConfig()注释
 func NewGormLogStrx(slowThreshold time.Duration, logx zerologx.Zlogger) GormLogIn {
 	return &GormLogStrx{SlowThreshold: slowThreshold, logx: logx}
 }
