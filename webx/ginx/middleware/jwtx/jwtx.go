@@ -182,6 +182,12 @@ func (j *JwtxMiddlewareGinx) RefreshToken(ctx *gin.Context, ssid string) (*UserC
 		//return uc, err
 		return &UserClaims{}, err
 	}
+	// 合法请求，删除原token
+	_, err = j.DeleteToken(ctx)
+	if err != nil {
+		return &UserClaims{}, err
+	}
+
 	// 重新设置token
 	//ssid := uuid.New().String()
 	return j.SetToken(ctx, uc.Uid, uc.Name, ssid)
