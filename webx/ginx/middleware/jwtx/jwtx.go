@@ -162,7 +162,7 @@ func (j *JwtxMiddlewareGinx) LongVerifyToken(ctx *gin.Context) (*RefreshUserClai
 	// 验证token，t.Valid是验证token，t.Valid是bool类型，true表示验证成功，false表示验证失败
 	if t == nil || err != nil || !t.Valid {
 		//ctx.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid token"})
-		//ctx.Abort() // 阻止继续执行
+		//ctx.Abort() // 阻止继续执行.
 		return uc, fmt.Errorf("invalid token, token无效/伪造的token %v", err)
 	}
 	// 验证redis中的 token
