@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
-	"github.com/google/uuid"
+	"github.com/redis/go-redis/v9"
 	"strings"
 	"time"
 )
@@ -20,6 +20,7 @@ type JwtxMiddlewareGinxConfig struct {
 }
 
 type JwtxMiddlewareGinx struct {
+	cache redis.Cmdable
 	JwtxMiddlewareGinxConfig
 }
 
@@ -27,7 +28,7 @@ type JwtxMiddlewareGinx struct {
 //   - 【一般情况下，只用设置、验证、刷新、删除四个token方法】
 //   - expiresIn: token过期时间
 //   - jwtKey: 密钥
-func NewJwtxMiddlewareGinx(jwtConf *JwtxMiddlewareGinxConfig) JwtHandlerx {
+func NewJwtxMiddlewareGinx(jwtConf *JwtxMiddlewareGinxConfig, cache redis.Cmdable) JwtHandlerx {
 	if jwtConf.SigningMethod == nil {
 		jwtConf.SigningMethod = jwt.SigningMethodHS512
 	}
@@ -45,6 +46,7 @@ func NewJwtxMiddlewareGinx(jwtConf *JwtxMiddlewareGinxConfig) JwtHandlerx {
 	}
 
 	return &JwtxMiddlewareGinx{
+		cache:                    cache,
 		JwtxMiddlewareGinxConfig: *jwtConf,
 	}
 }
@@ -73,6 +75,11 @@ func (j *JwtxMiddlewareGinx) SetToken(ctx *gin.Context, userId int64, name strin
 		var u UserClaims
 		return &u, err
 	}
+	err = j.cache.Set(ctx, "user:token:"+ssid, tokenStr, j.DurationExpiresIn).Err()
+	if err != nil {
+		var u UserClaims
+		return &u, err
+	}
 
 	reUc := RefreshUserClaims{
 		Uid:       userId,
@@ -85,6 +92,11 @@ func (j *JwtxMiddlewareGinx) SetToken(ctx *gin.Context, userId int64, name strin
 	longToken := jwt.NewWithClaims(j.SigningMethod, reUc) // jwt.SigningMethodES512是加密方式，默认是HS256，返回token是结构体
 	ctx.Set("userLong", reUc)
 	longTokenStr, err := longToken.SignedString(j.LongJwtKey) // tokenStr是加密后的token字符串
+	if err != nil {
+		var u UserClaims
+		return &u, err
+	}
+	err = j.cache.Set(ctx, "user:longToken:"+ssid, longTokenStr, j.LongDurationExpiresIn).Err()
 	if err != nil {
 		var u UserClaims
 		return &u, err
@@ -128,6 +140,12 @@ func (j *JwtxMiddlewareGinx) VerifyToken(ctx *gin.Context) (*UserClaims, error) 
 		//ctx.Abort() // 阻止继续执行
 		return uc, fmt.Errorf("invalid token, token无效/伪造的token %v", err)
 	}
+
+	// 验证redis中的 token
+	rdGet, err := j.cache.Get(ctx, "user:token:"+uc.Ssid).Result()
+	if err != nil && tokenStr != rdGet {
+		return uc, fmt.Errorf("invalid token, token无效/伪造的token %v", err)
+	}
 	ctx.Set("user", uc)
 	return uc, nil
 }
@@ -147,12 +165,17 @@ func (j *JwtxMiddlewareGinx) LongVerifyToken(ctx *gin.Context) (*RefreshUserClai
 		//ctx.Abort() // 阻止继续执行
 		return uc, fmt.Errorf("invalid token, token无效/伪造的token %v", err)
 	}
+	// 验证redis中的 token
+	rdGet, err := j.cache.Get(ctx, "user:longToken:"+uc.Ssid).Result()
+	if err != nil && tokenStr != rdGet {
+		return uc, fmt.Errorf("invalid token, 长token无效/伪造的token %v", err)
+	}
 	ctx.Set("userLong", uc)
 	return uc, nil
 }
 
 // RefreshToken 刷新JwtToken【当用户操作时，直接刷新token，刷新前验证token】
-func (j *JwtxMiddlewareGinx) RefreshToken(ctx *gin.Context) (*UserClaims, error) {
+func (j *JwtxMiddlewareGinx) RefreshToken(ctx *gin.Context, ssid string) (*UserClaims, error) {
 	// 验证token，确保本次请求合法
 	uc, err := j.LongVerifyToken(ctx)
 	if err != nil {
@@ -160,25 +183,38 @@ func (j *JwtxMiddlewareGinx) RefreshToken(ctx *gin.Context) (*UserClaims, error)
 		return &UserClaims{}, err
 	}
 	// 重新设置token
-	ssid := uuid.New().String()
+	//ssid := uuid.New().String()
 	return j.SetToken(ctx, uc.Uid, uc.Name, ssid)
 }
 
 // DeleteToken 删除JwtToken
 func (j *JwtxMiddlewareGinx) DeleteToken(ctx *gin.Context) (*UserClaims, error) {
+	tokenStr := j.ExtractToken(ctx)
+	// 解析token
+	//var uc *UserClaims
+	//uc = &UserClaims{}
+	uc := &UserClaims{}
+	t, err := jwt.ParseWithClaims(tokenStr, uc,
+		func(token *jwt.Token) (interface{}, error) {
+			return j.JwtKey, nil
+		},
+	)
+	// 验证token，t.Valid是验证token，t.Valid是bool类型，true表示验证成功，false表示验证失败
+	if t == nil || err != nil || !t.Valid {
+		//ctx.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid token"})
+		//ctx.Abort() // 阻止继续执行
+		return uc, fmt.Errorf("invalid token, token无效/伪造的token %v", err)
+	}
+
 	ctx.Header(j.HeaderJwtTokenKey, "")
 	ctx.Header(j.LongHeaderJwtTokenKey, "")
-	uc, ok := ctx.MustGet("user").(UserClaims) // 获取用户信息，断言
-	if !ok {
-		return &UserClaims{}, fmt.Errorf("user claims not found, 请求头中没有找到用户信息")
+
+	// 删除Redis中的用户信息使用
+	err = j.cache.Del(ctx, "user:token:"+uc.Ssid).Err()
+	if err != nil {
+		return uc, fmt.Errorf("delete redis token info error: %v", err)
 	}
-	uc, ok = ctx.MustGet("userLong").(UserClaims) // 获取用户信息，断言
-	if !ok {
-		return &UserClaims{}, fmt.Errorf("user claims not found, 请求头中没有找到用户信息")
-	}
-	// 【uc】是删除Redis中的用户信息使用
-	//return h.client.Set(ctx, fmt.Sprintf("user:ssid:%s", uc.Ssid), "", h.rcExpiration).Err()
-	return &uc, nil
+	return uc, j.cache.Del(ctx, "user:longToken:"+uc.Ssid).Err()
 }
 
 // UserClaims  登录【JWT方式实现：json-web-token】

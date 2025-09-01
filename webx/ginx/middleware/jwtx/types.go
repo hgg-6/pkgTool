@@ -13,7 +13,7 @@ type JwtHandlerx interface {
 	VerifyToken(ctx *gin.Context) (*UserClaims, error)
 	LongVerifyToken(ctx *gin.Context) (*RefreshUserClaims, error)
 	// RefreshToken 刷新 JwtToken 过期时间
-	RefreshToken(ctx *gin.Context) (*UserClaims, error)
+	RefreshToken(ctx *gin.Context, ssid string) (*UserClaims, error)
 	// DeleteToken 删除 JwtToken
 	DeleteToken(ctx *gin.Context) (*UserClaims, error)
 }
