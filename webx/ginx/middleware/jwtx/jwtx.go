@@ -28,7 +28,7 @@ type JwtxMiddlewareGinx struct {
 //   - 【一般情况下，只用设置、验证、刷新、删除四个token方法】
 //   - expiresIn: token过期时间
 //   - jwtKey: 密钥
-func NewJwtxMiddlewareGinx(jwtConf *JwtxMiddlewareGinxConfig, cache redis.Cmdable) JwtHandlerx {
+func NewJwtxMiddlewareGinx(cache redis.Cmdable, jwtConf *JwtxMiddlewareGinxConfig) JwtHandlerx {
 	if jwtConf.SigningMethod == nil {
 		jwtConf.SigningMethod = jwt.SigningMethodHS512
 	}
@@ -143,7 +143,7 @@ func (j *JwtxMiddlewareGinx) VerifyToken(ctx *gin.Context) (*UserClaims, error) 
 
 	// 验证redis中的 token
 	rdGet, err := j.cache.Get(ctx, "user:token:"+uc.Ssid).Result()
-	if err != nil && tokenStr != rdGet {
+	if err != nil || tokenStr != rdGet {
 		return uc, fmt.Errorf("invalid token, token无效/伪造的token %v", err)
 	}
 	ctx.Set("user", uc)
@@ -167,7 +167,7 @@ func (j *JwtxMiddlewareGinx) LongVerifyToken(ctx *gin.Context) (*RefreshUserClai
 	}
 	// 验证redis中的 token
 	rdGet, err := j.cache.Get(ctx, "user:longToken:"+uc.Ssid).Result()
-	if err != nil && tokenStr != rdGet {
+	if err != nil || tokenStr != rdGet {
 		return uc, fmt.Errorf("invalid token, 长token无效/伪造的token %v", err)
 	}
 	ctx.Set("userLong", uc)
