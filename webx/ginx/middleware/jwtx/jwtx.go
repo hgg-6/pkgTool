@@ -167,7 +167,12 @@ func (j *JwtxMiddlewareGinx) RefreshToken(ctx *gin.Context) (*UserClaims, error)
 // DeleteToken 删除JwtToken
 func (j *JwtxMiddlewareGinx) DeleteToken(ctx *gin.Context) (*UserClaims, error) {
 	ctx.Header(j.HeaderJwtTokenKey, "")
+	ctx.Header(j.LongHeaderJwtTokenKey, "")
 	uc, ok := ctx.MustGet("user").(UserClaims) // 获取用户信息，断言
+	if !ok {
+		return &UserClaims{}, fmt.Errorf("user claims not found, 请求头中没有找到用户信息")
+	}
+	uc, ok = ctx.MustGet("userLong").(UserClaims) // 获取用户信息，断言
 	if !ok {
 		return &UserClaims{}, fmt.Errorf("user claims not found, 请求头中没有找到用户信息")
 	}

@@ -2,9 +2,9 @@ package middleware
 
 import (
 	"bytes"
+	"fmt"
 	"gitee.com/hgg_test/pkg_tool/v2/logx/zerologx"
 	"github.com/gin-gonic/gin"
-	"github.com/google/uuid"
 	"io"
 	"net/http"
 	"time"
@@ -97,12 +97,12 @@ func initAccessLog(c *gin.Context, startTime time.Time) *AccessLog {
 		al.Path = al.Path[:1024]
 	}
 	// 请求id，用于追踪请求
-	al.Id = startTime.Format(time.RFC3339) + "@" + uuid.New().String()
+	al.LogId = startTime.Format("20060102150405") + fmt.Sprintf("%d", startTime.Nanosecond())
 	return al
 }
 
 type AccessLog struct {
-	Id         string      `json:"id"`        // 请求id
+	LogId      string      `json:"id"`        // 请求id
 	Path       string      `json:"path"`      //  请求路径
 	Method     string      `json:"method"`    //  请求方法
 	Query      string      `json:"query"`     // 请求参数
@@ -144,11 +144,11 @@ func (a *AccessLog) ReqLogPrint(logx zerologx.Zlogger) {
 	} else if a.Status >= http.StatusInternalServerError {
 		event = logx.Error()
 	}
-	event.Str("id", a.Id).
-		Str("path", a.Path).
-		Str("method", a.Method).
+	event.Str("log_id", a.LogId).
 		Str("client_ip", a.ClientIP).
 		Str("proto", a.Proto).
+		Str("method", a.Method).
+		Str("path", a.Path).
 		Any("headers", a.Headers).
 		Str("req_body", a.ReqBody).
 		Int64("start_time", a.StartTime).
@@ -164,7 +164,7 @@ func (a *AccessLog) RespLogPrint(logx zerologx.Zlogger) {
 	} else if a.Status >= http.StatusInternalServerError {
 		event = logx.Error()
 	}
-	event.Str("id", a.Id).
+	event.Str("log_id", a.LogId).
 		Int("status", a.Status).
 		Str("method", a.Method).
 		Any("headers", a.RespHeader).
