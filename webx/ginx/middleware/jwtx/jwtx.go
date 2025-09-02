@@ -176,14 +176,14 @@ func (j *JwtxMiddlewareGinx) LongVerifyToken(ctx *gin.Context) (*RefreshUserClai
 
 // RefreshToken 刷新JwtToken【当用户操作时，直接刷新token，刷新前验证token】
 func (j *JwtxMiddlewareGinx) RefreshToken(ctx *gin.Context, ssid string) (*UserClaims, error) {
-	// 验证token，确保本次请求合法
-	uc, err := j.LongVerifyToken(ctx)
-	if err != nil {
-		//return uc, err
-		return &UserClaims{}, err
-	}
+	// 验证token，确保本次请求合法【gin的middleware中间件校验】
+	//uc, err := j.LongVerifyToken(ctx)
+	//if err != nil {
+	//	//return uc, err
+	//	return &UserClaims{}, err
+	//}
 	// 合法请求，删除原token
-	_, err = j.DeleteToken(ctx)
+	uc, err := j.DeleteToken(ctx)
 	if err != nil {
 		return &UserClaims{}, err
 	}
