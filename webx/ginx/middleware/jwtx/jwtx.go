@@ -195,21 +195,9 @@ func (j *JwtxMiddlewareGinx) RefreshToken(ctx *gin.Context, ssid string) (*UserC
 
 // DeleteToken 删除JwtToken
 func (j *JwtxMiddlewareGinx) DeleteToken(ctx *gin.Context) (*UserClaims, error) {
-	tokenStr := j.ExtractToken(ctx)
-	// 解析token
-	//var uc *UserClaims
-	//uc = &UserClaims{}
-	uc := &UserClaims{}
-	t, err := jwt.ParseWithClaims(tokenStr, uc,
-		func(token *jwt.Token) (interface{}, error) {
-			return j.JwtKey, nil
-		},
-	)
-	// 验证token，t.Valid是验证token，t.Valid是bool类型，true表示验证成功，false表示验证失败
-	if t == nil || err != nil || !t.Valid {
-		//ctx.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid token"})
-		//ctx.Abort() // 阻止继续执行
-		return uc, fmt.Errorf("invalid token, token无效/伪造的token %v", err)
+	uc, err := j.VerifyToken(ctx)
+	if err != nil {
+		return uc, err
 	}
 
 	ctx.Header(j.HeaderJwtTokenKey, "")
