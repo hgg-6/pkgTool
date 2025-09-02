@@ -75,7 +75,7 @@ func (j *JwtxMiddlewareGinx) SetToken(ctx *gin.Context, userId int64, name strin
 		var u UserClaims
 		return &u, err
 	}
-	err = j.cache.Set(ctx, "user:token:"+ssid, tokenStr, j.DurationExpiresIn).Err()
+	err = j.cache.Set(ctx, "user:token:info:"+fmt.Sprintf("%s", userId), tokenStr, j.DurationExpiresIn).Err()
 	if err != nil {
 		var u UserClaims
 		return &u, err
@@ -96,7 +96,7 @@ func (j *JwtxMiddlewareGinx) SetToken(ctx *gin.Context, userId int64, name strin
 		var u UserClaims
 		return &u, err
 	}
-	err = j.cache.Set(ctx, "user:longToken:"+ssid, longTokenStr, j.LongDurationExpiresIn).Err()
+	err = j.cache.Set(ctx, "user:longToken:info:"+fmt.Sprintf("%s", userId), longTokenStr, j.LongDurationExpiresIn).Err()
 	if err != nil {
 		var u UserClaims
 		return &u, err
@@ -142,7 +142,7 @@ func (j *JwtxMiddlewareGinx) VerifyToken(ctx *gin.Context) (*UserClaims, error) 
 	}
 
 	// 验证redis中的 token
-	rdGet, err := j.cache.Get(ctx, "user:token:"+uc.Ssid).Result()
+	rdGet, err := j.cache.Get(ctx, "user:token:info:"+fmt.Sprintf("%s", uc.Uid)).Result()
 	if err != nil || tokenStr != rdGet {
 		return uc, fmt.Errorf("invalid token, token无效/伪造的token %v", err)
 	}
@@ -166,7 +166,7 @@ func (j *JwtxMiddlewareGinx) LongVerifyToken(ctx *gin.Context) (*RefreshUserClai
 		return uc, fmt.Errorf("invalid token, token无效/伪造的token %v", err)
 	}
 	// 验证redis中的 token
-	rdGet, err := j.cache.Get(ctx, "user:longToken:"+uc.Ssid).Result()
+	rdGet, err := j.cache.Get(ctx, "user:longToken:info:"+fmt.Sprintf("%s", uc.Uid)).Result()
 	if err != nil || tokenStr != rdGet {
 		return uc, fmt.Errorf("invalid token, 长token无效/伪造的token %v", err)
 	}
@@ -216,11 +216,11 @@ func (j *JwtxMiddlewareGinx) DeleteToken(ctx *gin.Context) (*UserClaims, error) 
 	ctx.Header(j.LongHeaderJwtTokenKey, "")
 
 	// 删除Redis中的用户信息使用
-	err = j.cache.Del(ctx, "user:token:"+uc.Ssid).Err()
+	err = j.cache.Del(ctx, "user:token:info:"+fmt.Sprintf("%s", uc.Uid)).Err()
 	if err != nil {
 		return uc, fmt.Errorf("delete redis token info error: %v", err)
 	}
-	return uc, j.cache.Del(ctx, "user:longToken:"+uc.Ssid).Err()
+	return uc, j.cache.Del(ctx, "user:longToken:info:"+fmt.Sprintf("%s", uc.Uid)).Err()
 }
 
 // UserClaims  登录【JWT方式实现：json-web-token】
