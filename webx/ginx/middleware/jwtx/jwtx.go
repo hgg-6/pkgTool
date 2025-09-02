@@ -176,17 +176,23 @@ func (j *JwtxMiddlewareGinx) LongVerifyToken(ctx *gin.Context) (*RefreshUserClai
 
 // RefreshToken 刷新JwtToken【当用户操作时，直接刷新token，刷新前验证token】
 func (j *JwtxMiddlewareGinx) RefreshToken(ctx *gin.Context, ssid string) (*UserClaims, error) {
-	// 验证token，确保本次请求合法【gin的middleware中间件校验】
-	//uc, err := j.LongVerifyToken(ctx)
-	//if err != nil {
-	//	//return uc, err
-	//	return &UserClaims{}, err
-	//}
-	// 合法请求，删除原token
-	uc, err := j.DeleteToken(ctx)
+	// 验证长token，确保本次请求合法【一般gin的middleware中间件校验】
+	uc, err := j.LongVerifyToken(ctx)
 	if err != nil {
+		//return uc, err
 		return &UserClaims{}, err
 	}
+
+	// 合法请求，删除原token
+	ctx.Header(j.HeaderJwtTokenKey, "")
+	ctx.Header(j.LongHeaderJwtTokenKey, "")
+	// 删除Redis中的用户信息使用
+	err = j.cache.Del(ctx, "user:token:info:"+fmt.Sprintf("%s", uc.Uid)).Err()
+	if err != nil {
+		var u *UserClaims
+		return u, fmt.Errorf("delete redis token info error: %v", err)
+	}
+	err = j.cache.Del(ctx, "user:longToken:info:"+fmt.Sprintf("%s", uc.Uid)).Err()
 
 	// 重新设置token
 	//ssid := uuid.New().String()
