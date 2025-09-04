@@ -199,7 +199,7 @@ func (j *JwtxMiddlewareGinx) RefreshToken(ctx *gin.Context, ssid string) (*UserC
 	return j.SetToken(ctx, uc.Uid, uc.Name, ssid)
 }
 
-// DeleteToken 删除JwtToken
+// DeleteToken 删除JwtToken【多用于退出登录~】
 func (j *JwtxMiddlewareGinx) DeleteToken(ctx *gin.Context) (*UserClaims, error) {
 	uc, err := j.VerifyToken(ctx)
 	if err != nil {

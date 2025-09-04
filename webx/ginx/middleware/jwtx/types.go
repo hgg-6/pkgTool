@@ -4,6 +4,7 @@ import "github.com/gin-gonic/gin"
 
 // JwtHandlerx 方法
 //   - 一般情况下，只用登录、登出、验证、刷新四个token方法
+//go:generate mockgen -source=./types.go -package=jwtmocks -destination=mocks/jwtHdl.mock.go JwtHandlerx
 type JwtHandlerx interface {
 	// SetToken 生成 JwtToken
 	SetToken(ctx *gin.Context, userId int64, name string, ssid string) (*UserClaims, error)
