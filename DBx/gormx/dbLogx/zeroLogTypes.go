@@ -6,6 +6,7 @@ import (
 	"time"
 )
 
+//go:generate mockgen -source=./zeroLogTypes.go -package=dbLogxmocks -destination=mocks/dbLogx.mock.go GormLogIn
 type GormLogIn interface {
 	LogMode(level glogger.LogLevel) glogger.Interface
 	Info(ctx context.Context, msg string, data ...interface{})
