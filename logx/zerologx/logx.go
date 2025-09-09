@@ -21,6 +21,10 @@ func (z *ZeroLogStrx) Debug() *zerolog.Event { return z.logger.Debug() }
 func (z *ZeroLogStrx) Warn() *zerolog.Event  { return z.logger.Warn() }
 func (z *ZeroLogStrx) With() zerolog.Context { return z.logger.With() }
 
+func (z *ZeroLogStrx) GetZerolog() *zerolog.Logger {
+	return z.logger
+}
+
 // eg:
 
 //import (

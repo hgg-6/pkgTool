@@ -14,6 +14,7 @@ func TestInitLog(t *testing.T) {
 	// 模块化: Str("module", "userService模块")
 	logger := zerolog.New(os.Stderr).Level(zerolog.DebugLevel).With().Caller().Str("module", "userService模块").Timestamp().Logger()
 
-	l := logger.Info()
-	l.Err(errors.New("test error")).Int64("uid", 555).Msg("hello")
+	l := NewZeroLogx(&logger)
+	l.Error().Err(errors.New("test error")).Int64("uid", 555).Msg("hello")
+
 }
