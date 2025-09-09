@@ -25,7 +25,7 @@ func (v *ViperConfigStr) GetViper() *viper.Viper {
 func (v *ViperConfigStr) InitViperLocal(filePath string, defaultConfig ...DefaultConfig) error {
 	//cfilg := pflag.String("config", "config/dev.yaml", "配置文件路径") // pflag.String是设置命令行参数，用于指定配置文件路径
 	cfilg := pflag.String("config", filePath, "配置文件路径") // pflag.String是设置命令行参数，用于指定配置文件路径
-	pflag.Parse()                                       // 解析命令行参数，pflag.String时cfilg还没有值，需要调一下pflag.Parse()，cfilg才有值config/config.yaml
+	pflag.Parse()                                             // 解析命令行参数，pflag.String时cfilg还没有值，需要调一下pflag.Parse()，cfilg才有值config/config.yaml
 
 	viper.SetConfigFile(*cfilg) // 配置文件名称【pflag.String时cfilg指定配置文件路径】
 
@@ -83,10 +83,10 @@ func (v *ViperConfigStr) InitViperRemote(provider, endpoint, path string) error 
 // initViperLocalWatch
 //   - filePath是文件路径 精确到文件名，如：config/dev.yaml
 //   - defaultConfig是默认配置项【viper.SetDefault("mysql.dsn", "root:root@tcp(localhost:3306)/webook")】
-func (v *ViperConfigStr) initViperLocalWatch(filePath string, defaultConfig ...DefaultConfig) error {
+func (v *ViperConfigStr) InitViperLocalWatch(filePath string, defaultConfig ...DefaultConfig) error {
 	//cfilg := pflag.String("config", "config/dev.yaml", "配置文件路径") // pflag.String是设置命令行参数，用于指定配置文件路径
 	cfilg := pflag.String("config", filePath, "配置文件路径") // pflag.String是设置命令行参数，用于指定配置文件路径
-	pflag.Parse()                                       // 解析命令行参数，pflag.String时cfilg还没有值，需要调一下pflag.Parse()，cfilg才有值config/config.yaml
+	pflag.Parse()                                             // 解析命令行参数，pflag.String时cfilg还没有值，需要调一下pflag.Parse()，cfilg才有值config/config.yaml
 
 	viper.SetConfigFile(*cfilg) // 配置文件名称【pflag.String时cfilg指定配置文件路径】
 

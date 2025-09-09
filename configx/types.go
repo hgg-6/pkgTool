@@ -16,7 +16,7 @@ type ViperConfigIn interface {
 	// initViperLocalWatch
 	//   - filePath是文件路径 精确到文件名，如：config/dev.yaml
 	//   - defaultConfig是默认配置项【viper.SetDefault("mysql.dsn", "root:root@tcp(localhost:3306)/webook")】
-	initViperLocalWatch(filePath string, defaultConfig ...DefaultConfig) error
+	InitViperLocalWatch(filePath string, defaultConfig ...DefaultConfig) error
 	// InitViperRemote
 	//   - provider 是远程配置的提供者，这里使用的是etcd3
 	//   - endpoint 是远程配置的访问地址
