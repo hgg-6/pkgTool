@@ -18,6 +18,7 @@ type GormLogStrx struct {
 
 // NewGormLogStrx 初始化GORM日志适配器
 //   - 需先初始化日志模块，参考测试用例InitLog()方法
+//   - showThreshold: 慢查询阈值，单位为秒
 //   - gorm.Open(mysql.Open(dsn), &gorm.Config{Logger: NewGormLogStrx(time.Second, InitLog())})
 func NewGormLogStrx(slowThreshold time.Duration, logx zerologx.Zlogger) GormLogIn {
 	return &GormLogStrx{SlowThreshold: slowThreshold, logx: logx}
