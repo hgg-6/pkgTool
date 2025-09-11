@@ -48,7 +48,7 @@ func (v *ViperConfigStr) GetNamedViper(name string) (*viper.Viper, error) {
 func (v *ViperConfigStr) InitViperLocal(filePath string, defaultConfig ...DefaultConfig) error {
 	//cfilg := pflag.String("config", "config/dev.yaml", "配置文件路径") // pflag.String是设置命令行参数，用于指定配置文件路径
 	cfilg := pflag.String("config", filePath, "配置文件路径") // pflag.String是设置命令行参数，用于指定配置文件路径
-	pflag.Parse()                                             // 解析命令行参数，pflag.String时cfilg还没有值，需要调一下pflag.Parse()，cfilg才有值config/config.yaml
+	pflag.Parse()                                       // 解析命令行参数，pflag.String时cfilg还没有值，需要调一下pflag.Parse()，cfilg才有值config/config.yaml
 
 	v.Config.SetConfigFile(*cfilg) // 配置文件名称【pflag.String时cfilg指定配置文件路径】
 
@@ -112,7 +112,7 @@ func (v *ViperConfigStr) InitViperRemote(provider, endpoint, path string) error 
 func (v *ViperConfigStr) InitViperLocalWatch(filePath string, defaultConfig ...DefaultConfig) error {
 	//cfilg := pflag.String("config", "config/dev.yaml", "配置文件路径") // pflag.String是设置命令行参数，用于指定配置文件路径
 	cfilg := pflag.String("config", filePath, "配置文件路径") // pflag.String是设置命令行参数，用于指定配置文件路径
-	pflag.Parse()                                             // 解析命令行参数，pflag.String时cfilg还没有值，需要调一下pflag.Parse()，cfilg才有值config/config.yaml
+	pflag.Parse()                                       // 解析命令行参数，pflag.String时cfilg还没有值，需要调一下pflag.Parse()，cfilg才有值config/config.yaml
 
 	v.Config.SetConfigFile(*cfilg) // 配置文件名称【pflag.String时cfilg指定配置文件路径】
 
@@ -212,12 +212,18 @@ type DefaultConfig struct {
 	Val any
 }
 
-// Get 获取配置项【当整个项目读取一个配置文件，fileName文件名留空，但整个项目读取多个配置文件,需传入文件名eg: db.yaml】
-//   - 新版本从configx.Get单独读取配置
+// Get 获取配置项【当整个项目读取Init一个配置文件，fileName文件名留空，但整个项目读取Init多个配置文件,需传入文件名eg: db.yaml】
+//   - 新版本从configx.Get单独读取配置文件
 //   - 注意=============注意=============注意=============
 func (v *ViperConfigStr) Get(key string, fileName ...string) any {
-	if len(fileName) == 0 {
+	if len(fileName) == 0 || v.Configs[fileName[0]] == nil {
 		return v.Config.Get(key)
 	}
 	return v.Configs[fileName[0]].Get(key)
+}
+func (v *ViperConfigStr) GetUnmarshalKey(key string, rawVal any, fileName ...string) error {
+	if len(fileName) == 0 || v.Configs[fileName[0]] == nil {
+		return v.Config.UnmarshalKey(key, &rawVal)
+	}
+	return v.Configs[fileName[0]].UnmarshalKey(key, &rawVal)
 }

@@ -1,2 +1,5 @@
 mysql:
   dsn: "test1"
+
+testKey:
+  val: 6666

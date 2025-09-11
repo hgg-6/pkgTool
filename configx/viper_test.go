@@ -13,7 +13,7 @@ const (
 
 // TestInitViperLocals 测试读取多个配置文件
 func TestInitViperLocals(t *testing.T) {
-
+	t.Log(time.Now().UnixMilli())
 	// 初始化viper
 	conf := NewViperConfigStr()
 	// 初始化读取配置文件1
@@ -25,12 +25,32 @@ func TestInitViperLocals(t *testing.T) {
 	// 正常项目已经可在此返回ViperConfigIn接口了
 	//return conf
 
-	// 获取配置文件信息
+	// 获取配置文件信息==========================
 	//	- 调用configx的单独Get方法，基于泛型约束，自动匹配返回值类型
 	//	- conf参数为configx.ConfigIn接口，初始化配置文件时返回
 	dbConf := Get[string](conf, "mysql.dsn", DbConfFile)
+	testKey := Get[int16](conf, "testKey.val", DbConfFile)
 	redisConf := Get[string](conf, "redis.addr", RedisConfFile)
 	t.Logf("dbConf: %s, redisConf: %s", dbConf, redisConf)
+	t.Logf("testKey: %d", testKey)
+	t.Log(time.Now().UnixMilli())
+
+	// 获取配置文件信息，并反序列化为结构体==========================
+	type confDB struct {
+		Dsn string `yaml:"dsn"`
+	}
+	type confRedis struct {
+		Addr string `yaml:"addr"`
+	}
+	var confDb confDB
+	var confRe confRedis
+	err = GetUnmarshalStruct(conf, "mysql", &confDb, DbConfFile)
+	assert.NoError(t, err)
+	err = GetUnmarshalStruct(conf, "redis", &confRe, RedisConfFile)
+	assert.NoError(t, err)
+	t.Logf("confDb: %s", confDb.Dsn)
+	t.Logf("confRe: %s", confRe.Addr)
+	t.Log(time.Now().UnixMilli())
 }
 
 // TestInitViperLocalsWatchs 测试读取多个配置文件并监听文件变化

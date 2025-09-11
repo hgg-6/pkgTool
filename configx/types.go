@@ -59,10 +59,12 @@ type ConfigIn interface {
 			此部分为读取读取配置文件接口
 		====================================================
 	*/
-	// Get 获取配置项【当整个项目读取一个配置文件，fileName文件名留空，但整个项目读取多个配置文件,需传入文件名eg: db.yaml】
-	//   - 新版本从configx.Get单独读取配置
+	// Get 获取配置项【当整个项目读取Init一个配置文件，fileName文件名留空，但整个项目读取Init多个配置文件,需传入文件名eg: db.yaml】
+	//	 - - 注意=============注意=============注意=============
+	//   - 新版本从【configx.Get】单独读取配置文件
 	//   - 注意=============注意=============注意=============
 	Get(key string, fileName ...string) any
+	GetUnmarshalKey(key string, rawVal any, fileName ...string) error
 }
 
 //func InitConfigViper() configx.ViperConfigIn {
