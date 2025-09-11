@@ -213,16 +213,20 @@ type DefaultConfig struct {
 }
 
 // Get 获取配置项【当整个项目读取Init一个配置文件，fileName文件名留空，但整个项目读取Init多个配置文件,需传入文件名eg: db.yaml】
-//   - 新版本从configx.Get单独读取配置文件
+//   - 新版本从configx.Get()单独读取配置文件
 //   - 注意=============注意=============注意=============
 func (v *ViperConfigStr) Get(key string, fileName ...string) any {
-	if len(fileName) == 0 || v.Configs[fileName[0]] == nil {
+	if len(fileName) == 0 || len(v.Configs) == 0 {
 		return v.Config.Get(key)
 	}
 	return v.Configs[fileName[0]].Get(key)
 }
+
+// GetUnmarshalKey 获取配置项【当整个项目读取Init一个配置文件，fileName文件名留空，但整个项目读取Init多个配置文件,需传入文件名eg: db.yaml】
+//   - 新版本从configx.GetUnmarshalStruct()单独读取配置文件
+//   - 注意=============注意=============注意=============
 func (v *ViperConfigStr) GetUnmarshalKey(key string, rawVal any, fileName ...string) error {
-	if len(fileName) == 0 || v.Configs[fileName[0]] == nil {
+	if len(fileName) == 0 || len(v.Configs) == 0 {
 		return v.Config.UnmarshalKey(key, &rawVal)
 	}
 	return v.Configs[fileName[0]].UnmarshalKey(key, &rawVal)

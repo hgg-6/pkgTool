@@ -26,7 +26,7 @@ type configValue interface {
 // GetUnmarshalStruct 从配置文件读取到的值，反序列化为结构体
 //   - key是配置项的 key，如 "mysql.port"
 //   - rawVal 存储转换结果，读取结果存入结构体，要传指针
-//   - fileName 文件名，如 "app.yaml"
+//   - 如项目中有多个配置文件读取，需传入 fileName 文件名 参数指定,例如: Get[int](cfg, "port", "app.yaml")
 func GetUnmarshalStruct(cfg ConfigIn, key string, rawVal any, fileName ...string) error {
 	return cfg.GetUnmarshalKey(key, rawVal, fileName[0])
 }
