@@ -28,14 +28,21 @@ type configValue interface {
 //   - rawVal 存储转换结果，读取结果存入结构体，要传指针
 //   - 如项目中有多个配置文件读取，需传入 fileName 文件名 参数指定,例如: Get[int](cfg, "port", "app.yaml")
 func GetUnmarshalStruct(cfg ConfigIn, key string, rawVal any, fileName ...string) error {
-	return cfg.GetUnmarshalKey(key, rawVal, fileName[0])
+	//if len(fileName) == 0 {
+	//	return cfg.GetUnmarshalKey(key, rawVal)
+	//}
+	return cfg.GetUnmarshalKey(key, rawVal, fileName...)
 }
 
 // Get 从 ConfigIn 安全获取指定类型的配置值
 //   - 利用泛型约束，支持自动类型转换指定返回值（如 float64 → int, string → bool 等）
 //   - 如项目中有多个配置文件读取，需传入 fileName 文件名 参数指定,例如: Get[int](cfg, "port", "app.yaml")
 func Get[T configValue](cfg ConfigIn, key string, fileName ...string) T {
-	raw := cfg.Get(key, fileName[0])
+	//if len(fileName) == 0 {
+	//	raw := cfg.Get(key)
+	//	return convertToType[T](raw, key)
+	//}
+	raw := cfg.Get(key, fileName...)
 	return convertToType[T](raw, key)
 }
 
