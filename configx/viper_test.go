@@ -29,10 +29,10 @@ func TestInitViperLocals(t *testing.T) {
 	//	- 调用configx的单独Get方法，基于泛型约束，自动匹配返回值类型
 	//	- conf参数为configx.ConfigIn接口，初始化配置文件时返回
 	dbConf := Get[string](conf, "mysql.dsn", DbConfFile)
-	testKey := Get[int16](conf, "testKey.val", DbConfFile)
+	testKey := Get[time.Duration](conf, "testKey.val", DbConfFile)
 	redisConf := Get[string](conf, "redis.addr", RedisConfFile)
 	t.Logf("dbConf: %s, redisConf: %s", dbConf, redisConf)
-	t.Logf("testKey: %d", testKey)
+	t.Logf("testKey: %v", testKey)
 	t.Log(time.Now().UnixMilli())
 
 	// 获取配置文件信息，并反序列化为结构体==========================

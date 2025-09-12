@@ -12,15 +12,15 @@ import (
 type configValue interface {
 	// 基础类型
 	~int | ~int8 | ~int16 | ~int32 | ~int64 |
-		~uint | ~uint8 | ~uint16 | ~uint32 | ~uint64 |
-		~float32 | ~float64 |
-		~string | ~bool |
-		// 时间类型
-		time.Time |
-		// 切片类型
-		~[]string | ~[]int | ~[]int64 | ~[]float64 |
-		// map 类型
-		~map[string]string | ~map[string]any
+	~uint | ~uint8 | ~uint16 | ~uint32 | ~uint64 |
+	~float32 | ~float64 |
+	~string | ~bool |
+	// 时间类型
+	time.Time |
+	// 切片类型
+	~[]string | ~[]int | ~[]int64 | ~[]float64 |
+	// map 类型
+	~map[string]string | ~map[string]any
 }
 
 // GetUnmarshalStruct 从配置文件读取到的值，反序列化为结构体
@@ -367,12 +367,64 @@ func convertToType[T configValue](raw any, key string) T {
 					return any(t).(T)
 				}
 			}
+		case int:
+			return any(time.Unix(int64(val), 0)).(T)
+		case int8:
+			return any(time.Unix(int64(val), 0)).(T)
+		case int16:
+			return any(time.Unix(int64(val), 0)).(T)
+		case int32:
+			return any(time.Unix(int64(val), 0)).(T)
 		case int64:
 			return any(time.Unix(val, 0)).(T)
+		case float32:
+			return any(time.Unix(int64(val), 0)).(T)
 		case float64:
 			return any(time.Unix(int64(val), 0)).(T)
+		case uint:
+			return any(time.Unix(int64(val), 0)).(T)
+		case uint8:
+			return any(time.Unix(int64(val), 0)).(T)
+		case uint16:
+			return any(time.Unix(int64(val), 0)).(T)
+		case uint32:
+			return any(time.Unix(int64(val), 0)).(T)
+		case uint64:
+			return any(time.Unix(int64(val), 0)).(T)
+		}
+	case time.Duration:
+		switch val := raw.(type) {
+		case string:
+			if d, err := time.ParseDuration(val); err == nil {
+				return any(d).(T)
+			}
+		case int:
+			return any(time.Duration(val)).(T)
+		case int8:
+			return any(time.Duration(val)).(T)
+		case int16:
+			return any(time.Duration(val)).(T)
+		case int32:
+			return any(time.Duration(val)).(T)
+		case int64:
+			return any(time.Duration(val)).(T)
+		case float32:
+			return any(time.Duration(val)).(T)
+		case float64:
+			return any(time.Duration(val)).(T)
+		case uint:
+			return any(time.Duration(val)).(T)
+		case uint8:
+			return any(time.Duration(val)).(T)
+		case uint16:
+			return any(time.Duration(val)).(T)
+		case uint32:
+			return any(time.Duration(val)).(T)
+		case uint64:
+			return any(time.Duration(val)).(T)
 		}
 
+	// ========== 映射类型 ==========
 	case map[string]string:
 		result := make(map[string]string)
 		switch val := raw.(type) {
