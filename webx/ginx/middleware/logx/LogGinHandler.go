@@ -18,18 +18,22 @@ type GinLogx struct {
 
 // NewGinLogx 自定义Gin日志中间件
 func NewGinLogx(logx logx.Loggerx) *GinLogx {
-	return &GinLogx{logx: logx}
+	return &GinLogx{
+		logx:          logx,
+		allowReqBody:  true,
+		allowRespBody: true,
+	}
 }
 
 // AllowReqBody 允许打印请求体
-func (l *GinLogx) AllowReqBody() *GinLogx {
-	l.allowReqBody = true
+func (l *GinLogx) AllowReqBody(isPrint bool) *GinLogx {
+	l.allowReqBody = isPrint
 	return l
 }
 
 // AllowRespBody 允许打印响应体
-func (l *GinLogx) AllowRespBody() *GinLogx {
-	l.allowRespBody = true
+func (l *GinLogx) AllowRespBody(isPrint bool) *GinLogx {
+	l.allowRespBody = isPrint
 	return l
 }
 
