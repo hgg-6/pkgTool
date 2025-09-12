@@ -3,7 +3,7 @@ package middleware
 import (
 	"bytes"
 	"fmt"
-	"gitee.com/hgg_test/pkg_tool/v2/logx/zerologx"
+	"gitee.com/hgg_test/pkg_tool/v2/logx"
 	"github.com/gin-gonic/gin"
 	"io"
 	"net/http"
@@ -11,13 +11,13 @@ import (
 )
 
 type GinLogx struct {
-	logx          zerologx.Zlogger
+	logx          logx.Loggerx
 	allowReqBody  bool //  是否允许打印请求体
 	allowRespBody bool // 是否允许打印响应体
 }
 
 // NewGinLogx 自定义Gin日志中间件
-func NewGinLogx(logx zerologx.Zlogger) *GinLogx {
+func NewGinLogx(logx logx.Loggerx) *GinLogx {
 	return &GinLogx{logx: logx}
 }
 
@@ -136,41 +136,73 @@ func (w *responseWriter) WriteHeader(statusCode int) {
 }
 
 // ReqLogPrint 请求日志打印
-func (a *AccessLog) ReqLogPrint(logx zerologx.Zlogger) {
+func (a *AccessLog) ReqLogPrint(log logx.Loggerx) {
 	// 创建日志事件
-	event := logx.Info()
 	if a.Status >= http.StatusBadRequest && a.Status < http.StatusInternalServerError {
-		event = logx.Warn()
+		log.Warn("HTTP request", logx.String("log_id", a.LogId),
+			logx.String("client_ip", a.ClientIP),
+			logx.String("proto", a.Proto),
+			logx.String("method", a.Method),
+			logx.String("path", a.Path),
+			logx.Any("headers", a.Headers),
+			logx.String("req_body", a.ReqBody),
+			logx.Int64("start_time", a.StartTime),
+		)
 	} else if a.Status >= http.StatusInternalServerError {
-		event = logx.Error()
+		log.Error("HTTP request", logx.String("log_id", a.LogId),
+			logx.String("client_ip", a.ClientIP),
+			logx.String("proto", a.Proto),
+			logx.String("method", a.Method),
+			logx.String("path", a.Path),
+			logx.Any("headers", a.Headers),
+			logx.String("req_body", a.ReqBody),
+			logx.Int64("start_time", a.StartTime),
+		)
+	} else {
+		log.Info("HTTP request, 日志解析状态码错误", logx.String("log_id", a.LogId),
+			logx.String("client_ip", a.ClientIP),
+			logx.String("proto", a.Proto),
+			logx.String("method", a.Method),
+			logx.String("path", a.Path),
+			logx.Any("headers", a.Headers),
+			logx.String("req_body", a.ReqBody),
+			logx.Int64("start_time", a.StartTime),
+		)
 	}
-	event.Str("log_id", a.LogId).
-		Str("client_ip", a.ClientIP).
-		Str("proto", a.Proto).
-		Str("method", a.Method).
-		Str("path", a.Path).
-		Any("headers", a.Headers).
-		Str("req_body", a.ReqBody).
-		Int64("start_time", a.StartTime).
-		Msg("HTTP request")
 }
 
 // RespLogPrint 响应日志打印
-func (a *AccessLog) RespLogPrint(logx zerologx.Zlogger) {
+func (a *AccessLog) RespLogPrint(log logx.Loggerx) {
 	// 创建日志事件
-	event := logx.Info()
 	if a.Status >= http.StatusBadRequest && a.Status < http.StatusInternalServerError {
-		event = logx.Warn()
+		log.Warn("HTTP response", logx.String("log_id", a.LogId),
+			logx.Int("status", a.Status),
+			logx.String("method", a.Method),
+			logx.Any("headers", a.RespHeader),
+			logx.String("resp_body", a.RespBody),
+			logx.Int64("start_time", a.StartTime),
+			logx.Int64("end_time", a.StopTime),
+			logx.Int64("duration", a.Duration),
+		)
 	} else if a.Status >= http.StatusInternalServerError {
-		event = logx.Error()
+		log.Error("HTTP response", logx.String("log_id", a.LogId),
+			logx.Int("status", a.Status),
+			logx.String("method", a.Method),
+			logx.Any("headers", a.RespHeader),
+			logx.String("resp_body", a.RespBody),
+			logx.Int64("start_time", a.StartTime),
+			logx.Int64("end_time", a.StopTime),
+			logx.Int64("duration", a.Duration),
+		)
+	} else {
+		log.Info("HTTP response, 日志解析状态码错误", logx.String("log_id", a.LogId),
+			logx.Int("status", a.Status),
+			logx.String("method", a.Method),
+			logx.Any("headers", a.RespHeader),
+			logx.String("resp_body", a.RespBody),
+			logx.Int64("start_time", a.StartTime),
+			logx.Int64("end_time", a.StopTime),
+			logx.Int64("duration", a.Duration),
+		)
 	}
-	event.Str("log_id", a.LogId).
-		Int("status", a.Status).
-		Str("method", a.Method).
-		Any("headers", a.RespHeader).
-		Str("resp_body", a.RespBody).
-		Int64("start_time", a.StartTime).
-		Int64("end_time", a.StopTime).
-		Int64("duration", a.Duration).
-		Msg("HTTP response")
 }

@@ -1,7 +1,8 @@
 package dbLogx
 
 import (
-	"gitee.com/hgg_test/pkg_tool/logx/zerologx"
+	"gitee.com/hgg_test/pkg_tool/v2/logx"
+	"gitee.com/hgg_test/pkg_tool/v2/logx/zerologx"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 	"github.com/stretchr/testify/assert"
@@ -22,7 +23,7 @@ type User struct {
 	UpdatedAt time.Time `gorm:"autoUpdateTime"`
 }
 
-func InitLog() zerologx.Zlogger {
+func InitLog() logx.Loggerx {
 	//	// #########################控制台彩色打印#########################
 	//	//output := zerolog.ConsoleWriter{Out: os.Stdout, TimeFormat: time.RFC3339}
 	//	//output.FormatLevel = func(i interface{}) string {
@@ -46,8 +47,8 @@ func InitLog() zerologx.Zlogger {
 	}
 
 	//log.Logger = zerolog.New(os.Stderr).Level(zerolog.DebugLevel).With().Caller().Timestamp().Logger()
-	logger := zerolog.New(lumberjackLogger).Level(zerolog.DebugLevel).With().Caller().Timestamp().Logger()
-	return zerologx.NewZlog(&logger)
+	logger := zerolog.New(lumberjackLogger).With().Timestamp().Logger()
+	return zerologx.NewZeroLogger(&logger)
 }
 func TestLog(t *testing.T) {
 	// #########################控制台彩色打印#########################
@@ -78,7 +79,7 @@ func TestLog(t *testing.T) {
 	// 创建自定义日志适配器
 	gormConf := NewGormLogStrx(time.Second, InitLog())
 
-	db, err := gorm.Open(mysql.Open("root:root@tcp(127.0.0.1:3306)/hgg"), &gorm.Config{Logger: gormConf})
+	db, err := gorm.Open(mysql.Open("root:root@tcp(127.0.0.1:13306)/hgg"), &gorm.Config{Logger: gormConf})
 	assert.NoError(t, err)
 	err = db.Where("id = ?", 1).First(&User{}).Error
 }

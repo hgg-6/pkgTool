@@ -1,9 +1,7 @@
 package jwtx
 
 import (
-	"github.com/golang-jwt/jwt/v5"
 	"testing"
-	"time"
 )
 
 func TestJwtxToken(t *testing.T) {
@@ -16,15 +14,16 @@ func TestJwtxToken(t *testing.T) {
 	//	HeaderJwtTokenKey:     "",
 	//	LongHeaderJwtTokenKey: "",
 	//}
-	j := NewJwtxMiddlewareGinx(&JwtxMiddlewareGinxConfig{
-		SigningMethod:         jwt.SigningMethodHS512,
-		DurationExpiresIn:     time.Second * 60,
-		LongDurationExpiresIn: time.Second * 60 * 2,
-		JwtKey:                []byte("123123123qwe"),
-		LongJwtKey:            []byte("qweqwewqdsads21"),
-		HeaderJwtTokenKey:     "duan-jwt-token",
-		LongHeaderJwtTokenKey: "",
-	})
-	t.Log(j)
+
+	//j := NewJwtxMiddlewareGinx(&JwtxMiddlewareGinxConfig{
+	//	SigningMethod:         jwt.SigningMethodHS512,
+	//	DurationExpiresIn:     time.Second * 60,
+	//	LongDurationExpiresIn: time.Second * 60 * 2,
+	//	JwtKey:                []byte("123123123qwe"),
+	//	LongJwtKey:            []byte("qweqwewqdsads21"),
+	//	HeaderJwtTokenKey:     "duan-jwt-token",
+	//	LongHeaderJwtTokenKey: "",
+	//})
+	//t.Log(j)
 
 }

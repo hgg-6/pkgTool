@@ -134,7 +134,7 @@ func toIfType(f logx.Field, event *zerolog.Event) {
 //)
 
 //// InitLog 初始化zerolog日志模块【wire里可直接 InitLog】
-//func InitLog() zerologx.Zlogger {
+//func InitLog() logx.Loggerx {
 //	zerolog.TimeFieldFormat = zerolog.TimeFormatUnix
 //	// Level日志级别【可以考虑作为参数传】，测试传zerolog.InfoLevel/NoLevel不打印
 //	// 模块化: Str("module", "userService模块")
