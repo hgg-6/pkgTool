@@ -12,15 +12,15 @@ import (
 type configValue interface {
 	// 基础类型
 	~int | ~int8 | ~int16 | ~int32 | ~int64 |
-	~uint | ~uint8 | ~uint16 | ~uint32 | ~uint64 |
-	~float32 | ~float64 |
-	~string | ~bool |
-	// 时间类型
-	time.Time |
-	// 切片类型
-	~[]string | ~[]int | ~[]int64 | ~[]float64 |
-	// map 类型
-	~map[string]string | ~map[string]any
+		~uint | ~uint8 | ~uint16 | ~uint32 | ~uint64 |
+		~float32 | ~float64 |
+		~string | ~bool |
+		// 时间类型
+		time.Time |
+		// 切片类型
+		~[]string | ~[]int | ~[]int64 | ~[]float64 |
+		// map 类型
+		~map[string]string | ~map[string]any
 }
 
 // GetUnmarshalStruct 从配置文件读取到的值，反序列化为结构体
@@ -28,9 +28,6 @@ type configValue interface {
 //   - rawVal 存储转换结果，读取结果存入结构体，要传指针
 //   - 如项目中有多个配置文件读取，需传入 fileName 文件名 参数指定,例如: Get[int](cfg, "port", "app.yaml")
 func GetUnmarshalStruct(cfg ConfigIn, key string, rawVal any, fileName ...string) error {
-	//if len(fileName) == 0 {
-	//	return cfg.GetUnmarshalKey(key, rawVal)
-	//}
 	return cfg.GetUnmarshalKey(key, rawVal, fileName...)
 }
 
@@ -38,10 +35,6 @@ func GetUnmarshalStruct(cfg ConfigIn, key string, rawVal any, fileName ...string
 //   - 利用泛型约束，支持自动类型转换指定返回值（如 float64 → int, string → bool 等）
 //   - 如项目中有多个配置文件读取，需传入 fileName 文件名 参数指定,例如: Get[int](cfg, "port", "app.yaml")
 func Get[T configValue](cfg ConfigIn, key string, fileName ...string) T {
-	//if len(fileName) == 0 {
-	//	raw := cfg.Get(key)
-	//	return convertToType[T](raw, key)
-	//}
 	raw := cfg.Get(key, fileName...)
 	return convertToType[T](raw, key)
 }
