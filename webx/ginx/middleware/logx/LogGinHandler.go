@@ -159,7 +159,7 @@ func (a *AccessLog) ReqLogPrint(log logx.Loggerx) {
 			logx.Int64("start_time", a.StartTime),
 		)
 	} else {
-		log.Info("HTTP request, 日志解析状态码错误", logx.String("log_id", a.LogId),
+		log.Info("HTTP request", logx.String("log_id", a.LogId),
 			logx.String("client_ip", a.ClientIP),
 			logx.String("proto", a.Proto),
 			logx.String("method", a.Method),
@@ -195,7 +195,7 @@ func (a *AccessLog) RespLogPrint(log logx.Loggerx) {
 			logx.Int64("duration", a.Duration),
 		)
 	} else {
-		log.Info("HTTP response, 日志解析状态码错误", logx.String("log_id", a.LogId),
+		log.Info("HTTP response", logx.String("log_id", a.LogId),
 			logx.Int("status", a.Status),
 			logx.String("method", a.Method),
 			logx.Any("headers", a.RespHeader),
