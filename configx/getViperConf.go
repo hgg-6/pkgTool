@@ -16,7 +16,7 @@ type configValue interface {
 		~float32 | ~float64 |
 		~string | ~bool |
 		// 时间类型
-		time.Time |
+		time.Time | time.Duration |
 		// 切片类型
 		~[]string | ~[]int | ~[]int64 | ~[]float64 |
 		// map 类型

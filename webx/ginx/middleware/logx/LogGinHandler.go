@@ -16,7 +16,7 @@ type GinLogx struct {
 	allowRespBody bool // 是否允许打印响应体
 }
 
-// NewGinLogx 自定义Gin日志中间件
+// NewGinLogx 自定义Gin日志中间件【基于zeroLog高性能日志库】
 func NewGinLogx(logx logx.Loggerx) *GinLogx {
 	return &GinLogx{
 		logx:          logx,
@@ -38,7 +38,7 @@ func (l *GinLogx) AllowRespBody(isPrint bool) *GinLogx {
 }
 
 // ZerologLogger 自定义Gin日志中间件
-//   - 【注意，中间件需在gin的注册中间件最后，否则可能会获取不到请求内容】
+//   - 【注意，中间件需在gin的Handler注册中间件最前，否则可能会获取不到请求内容】
 func (g *GinLogx) BuildGinHandlerLog() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		startTime := time.Now()
