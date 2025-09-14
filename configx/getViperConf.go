@@ -12,15 +12,16 @@ import (
 type configValue interface {
 	// 基础类型
 	~int | ~int8 | ~int16 | ~int32 | ~int64 |
-		~uint | ~uint8 | ~uint16 | ~uint32 | ~uint64 |
-		~float32 | ~float64 |
-		~string | ~bool |
-		// 时间类型
-		time.Time | time.Duration |
-		// 切片类型
-		~[]string | ~[]int | ~[]int64 | ~[]float64 |
-		// map 类型
-		~map[string]string | ~map[string]any
+	~uint | ~uint8 | ~uint16 | ~uint32 | ~uint64 |
+	~float32 | ~float64 |
+	~string | ~bool |
+	// 时间类型
+	time.Time |
+	//time.Duration |
+	// 切片类型
+	~[]string | ~[]int | ~[]int64 | ~[]float64 |
+	// map 类型
+	~map[string]string | ~map[string]any
 }
 
 // GetUnmarshalStruct 从配置文件读取到的值，反序列化为结构体
