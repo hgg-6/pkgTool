@@ -1,6 +1,7 @@
 package ristrettox
 
 import (
+	"gitee.com/hgg_test/pkg_tool/v2/cachex"
 	"github.com/dgraph-io/ristretto/v2"
 	"github.com/stretchr/testify/assert"
 	"testing"
@@ -70,8 +71,8 @@ func TestRistretto(t *testing.T) {
 	cache.Del("key")
 }
 
-func TestRistrettoV1(t *testing.T) {
-	cache, err := ristretto.NewCache(&ristretto.Config[string, string]{
+func TestRistrettoV1[K cachex.Key, V any](t *testing.T) {
+	cache, err := ristretto.NewCache(&ristretto.Config[string, any]{
 		NumCounters: 1e7,     // 按键跟踪次数为（10M）。
 		MaxCost:     1 << 30, // 最大缓存成本（1GB）“位左移运算符”。
 		BufferItems: 64,      // 每个Get缓冲区的键数。
@@ -79,7 +80,7 @@ func TestRistrettoV1(t *testing.T) {
 	//defer cache.Close()
 
 	assert.NoError(t, err)
-	ca := NewCacheLocalRistrettoStr(cache)
+	ca := NewCacheLocalRistrettoStr[string, any](cache)
 	defer ca.Close()
 
 	t.Log("set cache: ", time.Now().UnixMilli())

@@ -12,7 +12,9 @@ type CacheLocalRistrettoStr[K cachex.Key, V any] struct {
 }
 
 func NewCacheLocalRistrettoStr[K cachex.Key, V any](cache *ristretto.Cache[K, V]) cachex.CacheLocalIn[K, V] {
-	return &CacheLocalRistrettoStr[K, V]{cache: cache}
+	return &CacheLocalRistrettoStr[K, V]{
+		cache: cache,
+	}
 }
 
 //func NewCacheLocalRistrettoStrV1[K cachex.Key, V any](cache *ristretto.Cache[K, V]) *CacheLocalRistrettoStr[K, V] {
@@ -36,6 +38,7 @@ func (c *CacheLocalRistrettoStr[K, V]) Get(key K) (V, error) {
 	if !ok {
 		return v, errors.New("get localCache error, no key --> value, 查询缓存失败, Key不存在")
 	} else if val <= time.Duration(0) {
+		c.cache.Del(key)
 		return v, errors.New("get localCache error, key --> value is expired, 查询缓存失败, 缓存已过期")
 	}
 	if value, isok := c.cache.Get(key); isok {
