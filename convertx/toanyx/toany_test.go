@@ -17,7 +17,7 @@ func TestToAny(t *testing.T) {
 			src:    int64(1),
 			wanRes: "1",
 		},
-		// ..............
+		// ...............
 	}
 
 	for _, tc := range testCases {
