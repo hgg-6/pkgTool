@@ -12,7 +12,7 @@ type CacheLocalIn[K Key, V any] interface {
 	Get(key K) (V, error)
 	Del(key K) error
 
-	// WaitSet 等待值通过缓冲区【除非有重要的缓存，实时性要求特别较高，要堵塞直至等待缓冲写入通过，否则不用管 也就毫秒级甚至还不到】
+	// WaitSet 等待值通过缓冲区【除非有重要的缓存，实时性要求特别较高，要堵塞直至等待缓冲写入通过，否则不用管 也就毫秒纳秒级甚至还不到】
 	WaitSet()
 	// Close 关闭会停止所有goroutines并关闭所有频道。【ristretto实现一定记着】 defer cache.Close()
 	Close()

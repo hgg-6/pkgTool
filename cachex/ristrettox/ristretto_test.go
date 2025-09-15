@@ -1,7 +1,6 @@
 package ristrettox
 
 import (
-	"gitee.com/hgg_test/pkg_tool/v2/cachex"
 	"github.com/dgraph-io/ristretto/v2"
 	"github.com/stretchr/testify/assert"
 	"testing"
@@ -71,7 +70,7 @@ func TestRistretto(t *testing.T) {
 	cache.Del("key")
 }
 
-func TestRistrettoV1[K cachex.Key, V any](t *testing.T) {
+func TestRistrettoV1(t *testing.T) {
 	cache, err := ristretto.NewCache(&ristretto.Config[string, any]{
 		NumCounters: 1e7,     // 按键跟踪次数为（10M）。
 		MaxCost:     1 << 30, // 最大缓存成本（1GB）“位左移运算符”。
@@ -83,17 +82,19 @@ func TestRistrettoV1[K cachex.Key, V any](t *testing.T) {
 	ca := NewCacheLocalRistrettoStr[string, any](cache)
 	defer ca.Close()
 
-	t.Log("set cache: ", time.Now().UnixMilli())
+	// 打印时间单位为微秒
+	t.Log("set cache: ", time.Now().UnixMicro())
 	err = ca.Set("key", "value", time.Second*5, VipUserCost)
 	// 等待值通过缓冲区
 	ca.WaitSet()
 	//time.Sleep(time.Second * 1)
 
 	assert.NoError(t, err)
-	t.Log("set cache ok: ", time.Now().UnixMilli())
+	t.Log("set cache ok: ", time.Now().UnixMicro())
+	t.Log("get cache: ", time.Now().UnixMicro())
 	val, err := ca.Get("key")
 	assert.NoError(t, err)
 	t.Log("val: ", val)
-	t.Log("get cache: ", time.Now().UnixMilli())
+	t.Log("get cache ok: ", time.Now().UnixMicro())
 	ca.Del("key")
 }

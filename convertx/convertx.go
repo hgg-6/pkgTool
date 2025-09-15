@@ -22,7 +22,7 @@ func Deref[T any](t *T) T {
 	return *new(T)
 }
 
-// DerefOr 安全解引用指针，nil 时返回指定默认值or
+// DerefOr 安全解引用指针，如果为nil时返回指定默认值or
 func DerefOr[T any](ptr *T, or T) T {
 	if ptr != nil {
 		return *ptr
