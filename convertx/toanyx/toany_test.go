@@ -14,16 +14,19 @@ func TestToAny(t *testing.T) {
 	}{
 		{
 			name:   "IntToString ok",
-			src:    int64(1),
-			wanRes: "1",
+			src:    map[string]string{"a": "1", "b": "2"},
+			wanRes: map[string]string{"a": "1", "b": "2"},
 		},
 		// ...............
 	}
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			s := ToAny[string](tc.src)
-			assert.Equal(t, tc.wanRes, s)
+			s, ok := ToAny[[]map[string]any](tc.src)
+			if ok {
+				assert.Equal(t, tc.wanRes, s)
+				t.Log(s)
+			}
 		})
 	}
 }

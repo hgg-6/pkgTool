@@ -1,4 +1,4 @@
-package ristrettox
+package cacheLocalRistrettox
 
 import (
 	"github.com/dgraph-io/ristretto/v2"

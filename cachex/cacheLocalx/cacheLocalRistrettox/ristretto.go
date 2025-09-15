@@ -1,4 +1,4 @@
-package ristrettox
+package cacheLocalRistrettox
 
 import (
 	"errors"
@@ -11,6 +11,7 @@ type CacheLocalRistrettoStr[K cachex.Key, V any] struct {
 	cache *ristretto.Cache[K, V]
 }
 
+// NewCacheLocalRistrettoStr 是高性能、并发安全、带准入策略的内存缓存库【初始化参考测试用例 V1 版本】
 func NewCacheLocalRistrettoStr[K cachex.Key, V any](cache *ristretto.Cache[K, V]) cachex.CacheLocalIn[K, V] {
 	return &CacheLocalRistrettoStr[K, V]{
 		cache: cache,

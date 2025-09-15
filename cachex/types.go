@@ -6,7 +6,7 @@ type Key interface {
 	uint64 | string | []byte | byte | int | uint | int32 | uint32 | int64
 }
 
-// CacheLocalIn 本地抽象缓存接口
+// CacheLocalIn 抽象缓存接口
 type CacheLocalIn[K Key, V any] interface {
 	Set(key K, value V, ttl time.Duration, weight ...int64) error
 	Get(key K) (V, error)
@@ -19,7 +19,8 @@ type CacheLocalIn[K Key, V any] interface {
 }
 
 /*
-	✅ 最佳实践cost权重建议：【Set时的cost权重配置建议】
+	本地缓存：
+	✅ 最佳实践cost权重建议：【Set时的cost权重配置建议】【一般用于缓存过期时间没到，但是内存阈值到了，根据weight权重释放一些本地缓存】
 	【场景:】							【推荐 cost 设置:】
 	缓存 []byte、string					cost = len(value)
 	缓存结构体							估算大小，或统一设为 1（按条数）
