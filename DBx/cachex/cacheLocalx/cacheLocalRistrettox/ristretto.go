@@ -2,7 +2,7 @@ package cacheLocalRistrettox
 
 import (
 	"errors"
-	"gitee.com/hgg_test/pkg_tool/v2/cachex"
+	"gitee.com/hgg_test/pkg_tool/v2/DBx/cachex"
 	"github.com/dgraph-io/ristretto/v2"
 	"time"
 )

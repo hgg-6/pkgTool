@@ -7,12 +7,14 @@ import (
 
 // key 生成缓存键
 func (i *Count[K, V]) key(biz string, bizId int64) string {
-	return fmt.Sprintf("%s:%s:%d", i.ServiceTypeName, biz, bizId)
+	//return fmt.Sprintf("%s:%s:%d", i.ServiceTypeName, biz, bizId)
+	return fmt.Sprintf("cnt:%s:%s:%d", i.ServiceTypeName, biz, bizId)
 }
 
 // rankKey 生成排行榜键
 func (i *Count[K, V]) rankKey(biz string) string {
-	return fmt.Sprintf("%s:%s:rank", i.ServiceTypeName, biz)
+	//return fmt.Sprintf("%s:%s:rank", i.ServiceTypeName, biz)
+	return fmt.Sprintf("rank_cnt:%s:%s:rank", i.ServiceTypeName, biz)
 }
 
 // SetCntOpt : true为增加，false为减少【默认为增加】
@@ -27,7 +29,7 @@ func (i *Count[K, V]) SetExpiration(expiration time.Duration) *Count[K, V] {
 	return i
 }
 
-// SetServiceTypeName : 设置服务名【默认为count_service】
+// SetServiceTypeName : 设置服务名eg: like_cnt 【默认为count_service】
 func (i *Count[K, V]) SetServiceTypeName(ServiceTypeName string) *Count[K, V] {
 	i.ServiceTypeName = ServiceTypeName
 	return i
@@ -56,5 +58,17 @@ func (i *Count[K, V]) SetLuaCnt(LuaCnt string) *Count[K, V] {
 func (i *Count[K, V]) SetGetLuaGetRank(LuaGetRank string) *Count[K, V] {
 	i.LuaGetRank = LuaGetRank
 	// 如果需要，这里可以自动调用 SCRIPT LOAD 并设置 getRankScriptSha
+	return i
+}
+
+// SetRankCount : 设置是否统计排行榜数据
+func (i *Count[K, V]) SetRankCount(rankCount bool) *Count[K, V] {
+	i.RankCount = rankCount
+	return i
+}
+
+// SetCntTypeConf : 设置获取排行榜数据时的参数
+func (i *Count[K, V]) SetCntTypeConf(setCntTypeConf GetCntType) *Count[K, V] {
+	i.CntTypeConf = setCntTypeConf
 	return i
 }
