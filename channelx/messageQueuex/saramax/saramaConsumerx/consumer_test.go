@@ -53,7 +53,7 @@ func TestNewConsumerGroupHandler(t *testing.T) {
 	//ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
 	ctx, cancel := context.WithCancel(context.Background()) // 持续消费
 	defer cancel()
-	err = csr.ReceiveMessage(ctx, []messageQueuex.KeyOrTopic{{Topic: "test_topic111"}})
+	err = csr.ReceiveMessage(ctx, []messageQueuex.Tp{{Topic: "test_topic111"}})
 	assert.NoError(t, err)
 }
 
@@ -84,7 +84,7 @@ func TestNewConsumerGroupHandler_Offset(t *testing.T) {
 	//ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
 	log.Println("第一次消费")
 	ctx, cancel := context.WithCancel(context.Background()) // 持续消费
-	err = csr.ReceiveMessage(ctx, []messageQueuex.KeyOrTopic{{Topic: "test_topic111"}})
+	err = csr.ReceiveMessage(ctx, []messageQueuex.Tp{{Topic: "test_topic111"}})
 	cancel()
 	assert.NoError(t, err)
 }
@@ -118,7 +118,7 @@ func TestNewConsumerGroupHandler_batch(t *testing.T) {
 	//ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
 	log.Println("第一次消费")
 	ctx, cancel := context.WithCancel(context.Background()) // 持续消费
-	err = csr.ReceiveMessage(ctx, []messageQueuex.KeyOrTopic{{Topic: "test_topic111"}})
+	err = csr.ReceiveMessage(ctx, []messageQueuex.Tp{{Topic: "test_topic111"}})
 	cancel()
 	assert.NoError(t, err)
 }

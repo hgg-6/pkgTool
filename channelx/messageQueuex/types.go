@@ -9,16 +9,18 @@ type KeyOrTopic struct {
 	// .......
 }
 
+type Tp KeyOrTopic
+
 // ProducerIn 生产者抽象接口
 //   - 当使用 sarama.NewSyncProducer() 创建生产者时，请使用 NewSaramaProducerStr()
 //   - 请在main函数最顶层defer住生产者的Producer.Close()，优雅关闭防止goroutine泄露
 type ProducerIn[ProducerTyp any] interface {
-	SendMessage(ctx context.Context, keyOrTopic KeyOrTopic, value []byte) error
+	SendMessage(ctx context.Context, keyOrTopic Tp, value []byte) error
 	// CloseProducer 关闭生产者Producer，请在main函数最顶层defer住生产者的Producer.Close()，优雅关闭防止goroutine泄露
 	CloseProducer() error
 }
 
 // ConsumerIn 消费者抽象接口
 type ConsumerIn interface {
-	ReceiveMessage(ctx context.Context, keyOrTopic []KeyOrTopic) error
+	ReceiveMessage(ctx context.Context, keyOrTopic []Tp) error
 }

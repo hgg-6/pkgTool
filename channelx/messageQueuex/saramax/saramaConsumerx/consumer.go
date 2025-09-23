@@ -24,7 +24,7 @@ func NewConsumerIn(consumerGroup sarama.ConsumerGroup, ConsumerGroupHandlers sar
 	return c
 }
 
-func (c *ConsumerGroup) ReceiveMessage(ctx context.Context, keyOrTopic []messageQueuex.KeyOrTopic) error {
+func (c *ConsumerGroup) ReceiveMessage(ctx context.Context, keyOrTopic []messageQueuex.Tp) error {
 	var topic []string
 	for _, v := range keyOrTopic {
 		topic = append(topic, v.Topic)

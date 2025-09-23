@@ -35,7 +35,7 @@ func TestNewSaramaProducerStrSync(t *testing.T) {
 
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	// 同步发送
-	err = pro.SendMessage(ctx, messageQueuex.KeyOrTopic{Key: []byte("hgg-18"), Topic: "test_topic"}, value)
+	err = pro.SendMessage(ctx, messageQueuex.Tp{Key: []byte("hgg-18"), Topic: "test_topic"}, value)
 	assert.NoError(t, err)
 	cancel()
 
@@ -64,7 +64,7 @@ func TestNewSaramaProducerStrAsync(t *testing.T) {
 
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	// 异步发送
-	err = pro.SendMessage(ctx, messageQueuex.KeyOrTopic{Key: []byte("hgg-18"), Topic: "test_topic111"}, value)
+	err = pro.SendMessage(ctx, messageQueuex.Tp{Key: []byte("hgg-18"), Topic: "test_topic111"}, value)
 	cancel()
 	assert.NoError(t, err)
 }
@@ -104,7 +104,7 @@ func TestNewSaramaProducerStrAsyncs(t *testing.T) {
 
 	// 同步单条发送【并发执行】
 	eg.Go(func() error {
-		err = pro.SendMessage(context.Background(), messageQueuex.KeyOrTopic{Key: []byte("hgg-同步发送"), Topic: "test_topic"}, value)
+		err = pro.SendMessage(context.Background(), messageQueuex.Tp{Key: []byte("hgg-同步发送"), Topic: "test_topic"}, value)
 		return err
 	})
 
@@ -113,7 +113,7 @@ func TestNewSaramaProducerStrAsyncs(t *testing.T) {
 		var errs error
 		for i := 0; i < 20; i++ {
 			ctx, cancel := context.WithTimeout(context.Background(), time.Second)
-			er := pros.SendMessage(ctx, messageQueuex.KeyOrTopic{Key: []byte("hgg-异步批量发送-" + strconv.Itoa(i+1)), Topic: "test_topic"}, value)
+			er := pros.SendMessage(ctx, messageQueuex.Tp{Key: []byte("hgg-异步批量发送-" + strconv.Itoa(i+1)), Topic: "test_topic"}, value)
 			cancel()
 			time.Sleep(time.Millisecond * 100)
 			errs = er

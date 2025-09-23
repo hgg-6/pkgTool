@@ -88,7 +88,7 @@ func NewSaramaProducerStr[ProducerTyp any, /*ProducerTyp: sarama.SyncProducer & 
 //}
 
 // SendMessage Producer生产者发送消息
-func (s *SaramaProducerStr[ProducerTyp]) SendMessage(ctx context.Context, keyOrTopic messageQueuex.KeyOrTopic, value []byte) error {
+func (s *SaramaProducerStr[ProducerTyp]) SendMessage(ctx context.Context, keyOrTopic messageQueuex.Tp, value []byte) error {
 	switch s.ProducerTyp {
 	case 0:
 		return s.sendMessageSync(ctx, keyOrTopic, value)
@@ -129,7 +129,7 @@ func (s *SaramaProducerStr[ProducerTyp]) CloseProducer() error {
 // ========================内部逻辑=======================
 
 // sendMessageSync 同步发送消息
-func (s *SaramaProducerStr[ProducerTyp]) sendMessageSync(ctx context.Context, keyOrTopic messageQueuex.KeyOrTopic, value []byte) error {
+func (s *SaramaProducerStr[ProducerTyp]) sendMessageSync(ctx context.Context, keyOrTopic messageQueuex.Tp, value []byte) error {
 	//if s.ProducerTyp != 0 {
 	//	return fmt.Errorf("kafka Producer Invalid producer type, kafka Producer无效的卡夫卡的生产者类型【使用的非sarama.SyncProducer】")
 	//}
@@ -149,7 +149,7 @@ func (s *SaramaProducerStr[ProducerTyp]) sendMessageSync(ctx context.Context, ke
 //   - 异步批量发送，必须配置sarama.NewConfig的批量发送配置
 //   - cfg.Producer.Flush.Frequency = 5 * time.Second // 5秒刷新一次，不管有没有达到批量发送数量条件【只有提交了才会写入broker，success/errors通道才会有消息】
 //   - cfg.Producer.Flush.Messages = 5	// 触发刷新所需的最大消息数,5条消息刷新批量发送一次
-func (s *SaramaProducerStr[ProducerTyp]) sendMessageAsync(ctx context.Context, keyOrTopic messageQueuex.KeyOrTopic, value []byte) error {
+func (s *SaramaProducerStr[ProducerTyp]) sendMessageAsync(ctx context.Context, keyOrTopic messageQueuex.Tp, value []byte) error {
 	if s.ProducerTyp != 1 {
 		return fmt.Errorf("kafka Producer Invalid producer type, kafka Producer无效的卡夫卡的生产者类型【使用的非sarama.AsyncProducer】")
 	}
