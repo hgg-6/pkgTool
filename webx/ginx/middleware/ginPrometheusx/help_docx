@@ -1,0 +1,42 @@
+// 业务中需有专门给 prometheus 用的端口，用于Prometheus向业务中拉去数据用的端口
+// Prometheus知道去8081拉去端口，是因为在Prometheus服务中的Prometheus.yaml配置文件中标注，去哪拉取数据
+// 【不要使用gin和业务端口混合】
+func initPrometheus() {
+	go func() {
+		http.Handle("/metrics", promhttp.Handler())
+		err := http.ListenAndServe(":8081", nil)
+		if err != nil {
+			log.Println("【error】prometheus启动失败", err)
+		}
+	}()
+}
+
+
+/*
+    切不可全局共用一个prometheusx.NewBuilder，如下示例
+        每一个都    hgg_Help响应时间统计、hgg_Help活跃请求统计
+        【都重新 New一个新的使用  prometheusx.NewBuilder】
+*/
+func PrometheusVectorBuildResponseTime() gin.HandlerFunc {
+	budConf := prometheusx.BuilderConfig{
+		Namespace:  "hgg",
+		Subsystem:  "hgg_Subsystem",
+		Name:       "hgg_Name",
+		InstanceId: "123123",
+		Help:       "hgg_Help响应时间统计",
+	}
+	p := prometheusx.NewBuilder(budConf)
+	return p.BuildResponseTime()
+}
+
+func PrometheusVectorBuildBuildActiveRequest() gin.HandlerFunc {
+	budConf := prometheusx.BuilderConfig{
+		Namespace:  "hgg",
+		Subsystem:  "hgg_Subsystem",
+		Name:       "hgg_Name",
+		InstanceId: "123123",
+		Help:       "hgg_Help活跃请求统计",
+	}
+	p := prometheusx.NewBuilder(budConf)
+	return p.BuildActiveRequest()
+}

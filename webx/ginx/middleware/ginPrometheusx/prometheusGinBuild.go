@@ -1,4 +1,4 @@
-package prometheusx
+package ginPrometheusx
 
 import (
 	"github.com/gin-gonic/gin"
@@ -73,7 +73,7 @@ func (b *Builder) BuildActiveRequest() gin.HandlerFunc {
 		Namespace: b.Namespace,
 		Subsystem: b.Subsystem,
 		// 不能用 Namespace 和 Subsystem 和 Name都不能有除下划线 _ 以外的特殊字符
-		Name: b.Name + "_active_req",
+		Name: b.Name + "_http_req",
 		ConstLabels: map[string]string{
 			"instance_id": b.InstanceId,
 		},

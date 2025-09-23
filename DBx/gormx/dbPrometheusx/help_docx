@@ -1,0 +1,43 @@
+// 自定义监控指标，统计sql执行时间
+	cb := gormx.NewCallbacks(prometheus2.SummaryOpts{
+		Namespace: "hgg_XiaoWeiShu",
+		Subsystem: "webook",
+		Name:      "gorm_db",
+		Help:      "统计 GORM 的数据库查询",
+		ConstLabels: map[string]string{
+			"instance_id": "my_instance",
+		},
+		Objectives: map[float64]float64{
+			0.5:   0.01,
+			0.75:  0.01,
+			0.9:   0.01,
+			0.99:  0.001,
+			0.999: 0.0001,
+		},
+	})
+	err = db.Use(cb)
+	if err != nil {
+		panic(err)
+	}
+
+
+
+ // GORM自己也有一个prometheus，启用监控
+        err = db.Use(prometheus.New(prometheus.Config{
+                DBName:          "webook", // 数据库名称
+                RefreshInterval: 15,       // 刷新间隔，多久向连接池发送一次监控数据
+                //PushAddr:         "",       // 推送地址
+                //PushUser:         "",	// 推送用户名
+                //PushPassword:   "",
+                //StartServer:    false,
+                //HTTPServerPort: 0,
+                MetricsCollector: []prometheus.MetricsCollector{ // 自定义监控指标
+                        &prometheus.MySQL{
+                                VariableNames: []string{"thread_running"}, // 监控的变量名
+                        },
+                },
+                //Labels: nil,
+        }))
+        if err != nil {
+                panic(err)
+        }

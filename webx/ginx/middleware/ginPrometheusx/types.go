@@ -1,4 +1,4 @@
-package prometheusx
+package ginPrometheusx
 
 import "github.com/gin-gonic/gin"
 
