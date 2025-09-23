@@ -2,17 +2,17 @@ package cacheLocalRistrettox
 
 import (
 	"errors"
-	"gitee.com/hgg_test/pkg_tool/v2/DBx/cachex"
+	"gitee.com/hgg_test/pkg_tool/v2/DBx/cachex/cacheLocalx"
 	"github.com/dgraph-io/ristretto/v2"
 	"time"
 )
 
-type CacheLocalRistrettoStr[K cachex.Key, V any] struct {
+type CacheLocalRistrettoStr[K cacheLocalx.Key, V any] struct {
 	cache *ristretto.Cache[K, V]
 }
 
 // NewCacheLocalRistrettoStr 是高性能、并发安全、带准入策略的内存缓存库【初始化参考测试用例 V1 版本】
-func NewCacheLocalRistrettoStr[K cachex.Key, V any](cache *ristretto.Cache[K, V]) cachex.CacheLocalIn[K, V] {
+func NewCacheLocalRistrettoStr[K cacheLocalx.Key, V any](cache *ristretto.Cache[K, V]) cacheLocalx.CacheLocalIn[K, V] {
 	return &CacheLocalRistrettoStr[K, V]{
 		cache: cache,
 	}
@@ -59,4 +59,9 @@ func (c *CacheLocalRistrettoStr[K, V]) Close() {
 
 func (c *CacheLocalRistrettoStr[K, V]) WaitSet() {
 	c.cache.Wait()
+}
+
+// init方法会被自动调用
+func (c *CacheLocalRistrettoStr[K, V]) initClose() {
+	defer c.cache.Close()
 }

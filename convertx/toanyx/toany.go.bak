@@ -37,20 +37,20 @@ type dstTypeValue interface {
 	- var e [5]int： 数组的零值是所有元素为其零值的状态（例如 [0, 0, 0, 0, 0]）。
 	- .................
 */
-func ToAny[T dstTypeValue](v any) T {
-	return convertToType[T](v)
+func ToAny[EvenT dstTypeValue](v any) EvenT {
+	return convertToType[EvenT](v)
 }
 
 // convertToType 核心转换逻辑
-func convertToType[T dstTypeValue](src any) T {
-	var zero T
+func convertToType[EvenT dstTypeValue](src any) EvenT {
+	var zero EvenT
 
 	if src == nil {
 		return zero
 	}
 
 	// 尝试直接类型断言
-	if v, ok := src.(T); ok {
+	if v, ok := src.(EvenT); ok {
 		return v
 	}
 
@@ -61,62 +61,62 @@ func convertToType[T dstTypeValue](src any) T {
 	case int:
 		switch val := src.(type) {
 		case float64:
-			return any(int(val)).(T)
+			return any(int(val)).(EvenT)
 		case int64:
-			return any(int(val)).(T)
+			return any(int(val)).(EvenT)
 		case string:
 			if i, err := strconv.Atoi(val); err == nil {
-				return any(i).(T)
+				return any(i).(EvenT)
 			}
 		}
 	case int8:
 		switch val := src.(type) {
 		case float64:
-			return any(int8(val)).(T)
+			return any(int8(val)).(EvenT)
 		case int64:
-			return any(int8(val)).(T)
+			return any(int8(val)).(EvenT)
 		case int:
-			return any(int8(val)).(T)
+			return any(int8(val)).(EvenT)
 		case string:
 			if i, err := strconv.ParseInt(val, 10, 8); err == nil {
-				return any(int8(i)).(T)
+				return any(int8(i)).(EvenT)
 			}
 		}
 	case int16:
 		switch val := src.(type) {
 		case float64:
-			return any(int16(val)).(T)
+			return any(int16(val)).(EvenT)
 		case int64:
-			return any(int16(val)).(T)
+			return any(int16(val)).(EvenT)
 		case int:
-			return any(int16(val)).(T)
+			return any(int16(val)).(EvenT)
 		case string:
 			if i, err := strconv.ParseInt(val, 10, 16); err == nil {
-				return any(int16(i)).(T)
+				return any(int16(i)).(EvenT)
 			}
 		}
 	case int32:
 		switch val := src.(type) {
 		case float64:
-			return any(int32(val)).(T)
+			return any(int32(val)).(EvenT)
 		case int64:
-			return any(int32(val)).(T)
+			return any(int32(val)).(EvenT)
 		case int:
-			return any(int32(val)).(T)
+			return any(int32(val)).(EvenT)
 		case string:
 			if i, err := strconv.ParseInt(val, 10, 32); err == nil {
-				return any(int32(i)).(T)
+				return any(int32(i)).(EvenT)
 			}
 		}
 	case int64:
 		switch val := src.(type) {
 		case int:
-			return any(int64(val)).(T)
+			return any(int64(val)).(EvenT)
 		case float64:
-			return any(int64(val)).(T)
+			return any(int64(val)).(EvenT)
 		case string:
 			if i, err := strconv.ParseInt(val, 10, 64); err == nil {
-				return any(i).(T)
+				return any(i).(EvenT)
 			}
 		}
 
@@ -124,76 +124,76 @@ func convertToType[T dstTypeValue](src any) T {
 	case uint:
 		switch val := src.(type) {
 		case float64:
-			return any(uint(val)).(T)
+			return any(uint(val)).(EvenT)
 		case int64:
 			if val >= 0 {
-				return any(uint(val)).(T)
+				return any(uint(val)).(EvenT)
 			}
 		case string:
 			if u, err := strconv.ParseUint(val, 10, 64); err == nil {
-				return any(uint(u)).(T)
+				return any(uint(u)).(EvenT)
 			}
 		}
 	case uint8:
 		switch val := src.(type) {
 		case float64:
-			return any(uint8(val)).(T)
+			return any(uint8(val)).(EvenT)
 		case int64:
 			if val >= 0 && val <= 255 {
-				return any(uint8(val)).(T)
+				return any(uint8(val)).(EvenT)
 			}
 		case uint:
-			return any(uint8(val)).(T)
+			return any(uint8(val)).(EvenT)
 		case string:
 			if u, err := strconv.ParseUint(val, 10, 8); err == nil {
-				return any(uint8(u)).(T)
+				return any(uint8(u)).(EvenT)
 			}
 		}
 	case uint16:
 		switch val := src.(type) {
 		case float64:
-			return any(uint16(val)).(T)
+			return any(uint16(val)).(EvenT)
 		case int64:
 			if val >= 0 && val <= 65535 {
-				return any(uint16(val)).(T)
+				return any(uint16(val)).(EvenT)
 			}
 		case uint:
-			return any(uint16(val)).(T)
+			return any(uint16(val)).(EvenT)
 		case string:
 			if u, err := strconv.ParseUint(val, 10, 16); err == nil {
-				return any(uint16(u)).(T)
+				return any(uint16(u)).(EvenT)
 			}
 		}
 	case uint32:
 		switch val := src.(type) {
 		case float64:
-			return any(uint32(val)).(T)
+			return any(uint32(val)).(EvenT)
 		case int64:
 			if val >= 0 && val <= 0xFFFFFFFF {
-				return any(uint32(val)).(T)
+				return any(uint32(val)).(EvenT)
 			}
 		case uint:
-			return any(uint32(val)).(T)
+			return any(uint32(val)).(EvenT)
 		case string:
 			if u, err := strconv.ParseUint(val, 10, 32); err == nil {
-				return any(uint32(u)).(T)
+				return any(uint32(u)).(EvenT)
 			}
 		}
 	case uint64:
 		switch val := src.(type) {
 		case int64:
 			if val >= 0 {
-				return any(uint64(val)).(T)
+				return any(uint64(val)).(EvenT)
 			}
 		case float64:
 			if val >= 0 {
-				return any(uint64(val)).(T)
+				return any(uint64(val)).(EvenT)
 			}
 		case uint:
-			return any(uint64(val)).(T)
+			return any(uint64(val)).(EvenT)
 		case string:
 			if u, err := strconv.ParseUint(val, 10, 64); err == nil {
-				return any(u).(T)
+				return any(u).(EvenT)
 			}
 		}
 
@@ -201,44 +201,44 @@ func convertToType[T dstTypeValue](src any) T {
 	case float32:
 		switch val := src.(type) {
 		case int, int64:
-			return any(float32(val.(int64))).(T)
+			return any(float32(val.(int64))).(EvenT)
 		case float64:
-			return any(float32(val)).(T)
+			return any(float32(val)).(EvenT)
 		case string:
 			if f, err := strconv.ParseFloat(val, 32); err == nil {
-				return any(float32(f)).(T)
+				return any(float32(f)).(EvenT)
 			}
 		}
 	case float64:
 		switch val := src.(type) {
 		case int, int64:
-			return any(float64(val.(int64))).(T)
+			return any(float64(val.(int64))).(EvenT)
 		case float32:
-			return any(float64(val)).(T)
+			return any(float64(val)).(EvenT)
 		case string:
 			if f, err := strconv.ParseFloat(val, 64); err == nil {
-				return any(f).(T)
+				return any(f).(EvenT)
 			}
 		}
 
 	// ========== 字符串、布尔 ==========
 	case string:
-		return any(fmt.Sprintf("%v", src)).(T)
+		return any(fmt.Sprintf("%v", src)).(EvenT)
 	case bool:
 		switch val := src.(type) {
 		case string:
 			switch strings.ToLower(val) {
 			case "true", "1", "on", "yes":
-				return any(true).(T)
+				return any(true).(EvenT)
 			case "false", "0", "off", "no":
-				return any(false).(T)
+				return any(false).(EvenT)
 			}
 		case int, int64:
-			return any(val != 0).(T)
+			return any(val != 0).(EvenT)
 		case float64:
-			return any(val != 0).(T)
+			return any(val != 0).(EvenT)
 		case uint, uint64:
-			return any(val != 0).(T)
+			return any(val != 0).(EvenT)
 		}
 
 	// ========== 切片类型 ==========
@@ -271,7 +271,7 @@ func convertToType[T dstTypeValue](src any) T {
 			}
 		}
 		if result != nil {
-			return any(result).(T)
+			return any(result).(EvenT)
 		}
 
 	case []int:
@@ -298,7 +298,7 @@ func convertToType[T dstTypeValue](src any) T {
 				result = []int{}
 			}
 		}
-		return any(result).(T)
+		return any(result).(EvenT)
 
 	case []int64:
 		var result []int64
@@ -324,7 +324,7 @@ func convertToType[T dstTypeValue](src any) T {
 				result = []int64{}
 			}
 		}
-		return any(result).(T)
+		return any(result).(EvenT)
 
 	case []float64:
 		var result []float64
@@ -350,7 +350,7 @@ func convertToType[T dstTypeValue](src any) T {
 				result = []float64{}
 			}
 		}
-		return any(result).(T)
+		return any(result).(EvenT)
 
 	// ========== 时间、Map 类型 ==========
 	case time.Time:
@@ -366,64 +366,64 @@ func convertToType[T dstTypeValue](src any) T {
 				time.RFC1123,
 			} {
 				if t, err := time.Parse(layout, val); err == nil {
-					return any(t).(T)
+					return any(t).(EvenT)
 				}
 			}
 		case int:
-			return any(time.Unix(int64(val), 0)).(T)
+			return any(time.Unix(int64(val), 0)).(EvenT)
 		case int8:
-			return any(time.Unix(int64(val), 0)).(T)
+			return any(time.Unix(int64(val), 0)).(EvenT)
 		case int16:
-			return any(time.Unix(int64(val), 0)).(T)
+			return any(time.Unix(int64(val), 0)).(EvenT)
 		case int32:
-			return any(time.Unix(int64(val), 0)).(T)
+			return any(time.Unix(int64(val), 0)).(EvenT)
 		case int64:
-			return any(time.Unix(val, 0)).(T)
+			return any(time.Unix(val, 0)).(EvenT)
 		case float32:
-			return any(time.Unix(int64(val), 0)).(T)
+			return any(time.Unix(int64(val), 0)).(EvenT)
 		case float64:
-			return any(time.Unix(int64(val), 0)).(T)
+			return any(time.Unix(int64(val), 0)).(EvenT)
 		case uint:
-			return any(time.Unix(int64(val), 0)).(T)
+			return any(time.Unix(int64(val), 0)).(EvenT)
 		case uint8:
-			return any(time.Unix(int64(val), 0)).(T)
+			return any(time.Unix(int64(val), 0)).(EvenT)
 		case uint16:
-			return any(time.Unix(int64(val), 0)).(T)
+			return any(time.Unix(int64(val), 0)).(EvenT)
 		case uint32:
-			return any(time.Unix(int64(val), 0)).(T)
+			return any(time.Unix(int64(val), 0)).(EvenT)
 		case uint64:
-			return any(time.Unix(int64(val), 0)).(T)
+			return any(time.Unix(int64(val), 0)).(EvenT)
 		}
 	case time.Duration:
 		switch val := src.(type) {
 		case string:
 			if d, err := time.ParseDuration(val); err == nil {
-				return any(d).(T)
+				return any(d).(EvenT)
 			}
 		case int:
-			return any(time.Duration(val)).(T)
+			return any(time.Duration(val)).(EvenT)
 		case int8:
-			return any(time.Duration(val)).(T)
+			return any(time.Duration(val)).(EvenT)
 		case int16:
-			return any(time.Duration(val)).(T)
+			return any(time.Duration(val)).(EvenT)
 		case int32:
-			return any(time.Duration(val)).(T)
+			return any(time.Duration(val)).(EvenT)
 		case int64:
-			return any(time.Duration(val)).(T)
+			return any(time.Duration(val)).(EvenT)
 		case float32:
-			return any(time.Duration(val)).(T)
+			return any(time.Duration(val)).(EvenT)
 		case float64:
-			return any(time.Duration(val)).(T)
+			return any(time.Duration(val)).(EvenT)
 		case uint:
-			return any(time.Duration(val)).(T)
+			return any(time.Duration(val)).(EvenT)
 		case uint8:
-			return any(time.Duration(val)).(T)
+			return any(time.Duration(val)).(EvenT)
 		case uint16:
-			return any(time.Duration(val)).(T)
+			return any(time.Duration(val)).(EvenT)
 		case uint32:
-			return any(time.Duration(val)).(T)
+			return any(time.Duration(val)).(EvenT)
 		case uint64:
-			return any(time.Duration(val)).(T)
+			return any(time.Duration(val)).(EvenT)
 		}
 
 	// ========== 映射类型 ==========
@@ -434,18 +434,18 @@ func convertToType[T dstTypeValue](src any) T {
 			for k, v := range val {
 				result[k] = fmt.Sprintf("%v", v)
 			}
-			return any(result).(T)
+			return any(result).(EvenT)
 		case map[string]string:
-			return any(val).(T)
+			return any(val).(EvenT)
 		}
 
 	case map[string]any:
 		if m, ok := src.(map[string]any); ok {
-			return any(m).(T)
+			return any(m).(EvenT)
 		}
 	}
 
 	// 转换失败，返回零值（或 panic）
-	// panic(fmt.Sprintf("config key '%s': cannot convert %T to %T", key, src, zero))
+	// panic(fmt.Sprintf("config Key '%s': cannot convert %EvenT to %EvenT", Key, src, zero))
 	return zero
 }

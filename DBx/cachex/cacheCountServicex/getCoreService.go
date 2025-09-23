@@ -74,7 +74,7 @@ func (i *Count[K, V]) getCnt(ctx context.Context, biz string, bizId int64, opt .
 
 // getRankList 获取排行榜
 func (i *Count[K, V]) getRankList(ctx context.Context, biz string, opt GetCntType) ([]RankItem, error) {
-	rankKey := i.rankKey(biz)
+	rankKey := i.RankKey(biz)
 
 	// 先尝试从本地缓存获取排行榜
 	if cacheData, err := i.LocalCache.Get(rankKey); err == nil {
@@ -86,7 +86,7 @@ func (i *Count[K, V]) getRankList(ctx context.Context, biz string, opt GetCntTyp
 		}
 	}
 	// 如果本地缓存没有，尝试从Redis获取
-	//if cacheData, err := i.RedisCache.Get(ctx, rankKey).Result(); err == nil {
+	//if cacheData, err := i.RedisCache.Get(ctx, RankKey).Result(); err == nil {
 	//	var rankList []RankItem
 	//	if err := json.Unmarshal([]byte(cacheData), &rankList); err == nil {
 	//		// 返回请求的范围
@@ -107,7 +107,7 @@ func (i *Count[K, V]) getRankList(ctx context.Context, biz string, opt GetCntTyp
 		if err != nil {
 			return nil, err
 		}
-		//err = i.RedisCache.Set(ctx, rankKey, data, i.RankCacheExpiration).Err()
+		//err = i.RedisCache.Set(ctx, RankKey, data, i.RankCacheExpiration).Err()
 		//if err != nil {
 		//	return nil, err
 		//}
@@ -142,7 +142,7 @@ func (i *Count[K, V]) calculateRange(opt GetCntType, total int) (int, int) {
 // getRankFromRedis 从Redis获取排行榜
 func (i *Count[K, V]) getRankFromRedis(ctx context.Context, biz string, opt GetCntType) ([]RankItem, error) {
 	// 使用Lua脚本原子性地获取排名和分数
-	keys := []string{i.rankKey(biz)}
+	keys := []string{i.RankKey(biz)}
 	args := []interface{}{opt.Offset, opt.Offset + opt.Limit - 1}
 
 	result, err := i.RedisCache.Eval(ctx, i.LuaGetRank, keys, args...).Result()
@@ -185,7 +185,7 @@ func (i *Count[K, V]) getRankFromRedis(ctx context.Context, biz string, opt GetC
 
 // getSingleCnt 获取单个业务的计数
 func (i *Count[K, V]) getSingleCnt(ctx context.Context, biz string, bizId int64) (int64, error) {
-	key := i.key(biz, bizId)
+	key := i.Key(biz, bizId)
 
 	// 先尝试从本地缓存获取
 	if val, err := i.LocalCache.Get(key); err == nil {

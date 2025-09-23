@@ -5,14 +5,14 @@ import (
 	"time"
 )
 
-// key 生成缓存键
-func (i *Count[K, V]) key(biz string, bizId int64) string {
+// Key 生成缓存键
+func (i *Count[K, V]) Key(biz string, bizId int64) string {
 	//return fmt.Sprintf("%s:%s:%d", i.ServiceTypeName, biz, bizId)
 	return fmt.Sprintf("cnt:%s:%s:%d", i.ServiceTypeName, biz, bizId)
 }
 
-// rankKey 生成排行榜键
-func (i *Count[K, V]) rankKey(biz string) string {
+// RankKey 生成排行榜键
+func (i *Count[K, V]) RankKey(biz string) string {
 	//return fmt.Sprintf("%s:%s:rank", i.ServiceTypeName, biz)
 	return fmt.Sprintf("rank_cnt:%s:%s:rank", i.ServiceTypeName, biz)
 }

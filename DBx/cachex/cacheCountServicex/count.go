@@ -4,7 +4,7 @@ package cacheCountServicex
 import (
 	"context"
 	_ "embed"
-	"gitee.com/hgg_test/pkg_tool/v2/DBx/cachex"
+	"gitee.com/hgg_test/pkg_tool/v2/DBx/cachex/cacheLocalx"
 	"github.com/redis/go-redis/v9"
 	"sync"
 	"time"
@@ -34,10 +34,10 @@ type RankItem struct {
 }
 
 // Count 计数服务
-type Count[K cachex.Key, V any] struct {
+type Count[K cacheLocalx.Key, V any] struct {
 	RedisCache redis.Cmdable
 	initOnce   sync.Once // 初始化锁
-	LocalCache cachex.CacheLocalIn[string, string]
+	LocalCache cacheLocalx.CacheLocalIn[string, string]
 	// 缓存计数操作，true为增加，false为减少
 	CntOpt bool
 
@@ -68,7 +68,7 @@ type Count[K cachex.Key, V any] struct {
 
 // NewCount 创建一个计数服务
 //   - 计数服务名,ServiceTypeName建议显示set设置，每个业务用不同的
-func NewCount[K cachex.Key, V any](redisCache redis.Cmdable, localCache cachex.CacheLocalIn[string, string]) *Count[K, V] {
+func NewCount[K cacheLocalx.Key, V any](redisCache redis.Cmdable, localCache cacheLocalx.CacheLocalIn[string, string]) *Count[K, V] {
 	return &Count[K, V]{
 		RedisCache: redisCache,
 		LocalCache: localCache,
@@ -130,10 +130,10 @@ func (i *Count[K, V]) ResRank() ([]RankItem, error) {
 // DelCnt 删除计数, 默认为全部删除【localCache、RedisCache】
 func (i *Count[K, V]) DelCnt(ctx context.Context, biz string, bizId int64) error {
 	// 删除本地缓存计数
-	key := i.key(biz, bizId)
+	key := i.Key(biz, bizId)
 	_ = i.LocalCache.Del(key)
 	// 删除本地缓存排行榜
-	rankKey := i.rankKey(biz)
+	rankKey := i.RankKey(biz)
 	_ = i.LocalCache.Del(rankKey)
 	// 删除redis缓存计数
 	err := i.RedisCache.Del(ctx, key).Err()

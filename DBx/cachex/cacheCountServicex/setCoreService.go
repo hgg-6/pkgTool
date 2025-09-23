@@ -65,7 +65,7 @@ func (i *Count[K, V]) setCnt(ctx context.Context, biz string, bizId int64, num .
 	i.Error = nil
 
 	// redis中缓存key数据
-	key := i.key(biz, bizId)
+	key := i.Key(biz, bizId)
 	err := i.rdsCache(ctx, key, num...)
 	if err != nil {
 		i.Error = err
@@ -73,7 +73,7 @@ func (i *Count[K, V]) setCnt(ctx context.Context, biz string, bizId int64, num .
 	}
 
 	// 更新成功后，使排行榜本地缓存失效
-	rankKey := i.rankKey(biz)
+	rankKey := i.RankKey(biz)
 	_ = i.LocalCache.Del(rankKey)
 
 	// 同步更新本地内存缓存中的计数值
