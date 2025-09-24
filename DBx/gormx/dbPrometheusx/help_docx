@@ -1,5 +1,6 @@
 // 自定义监控指标，统计sql执行时间
-	cb := gormx.NewCallbacks(prometheus2.SummaryOpts{
+    db, err := gorm.Open(mysql.Open(cfg.DSN), &gorm.Config{Logger: l})
+	prometheusConf := dbPrometheusx.PrometheusSummaryOpts{
 		Namespace: "hgg_XiaoWeiShu",
 		Subsystem: "webook",
 		Name:      "gorm_db",
@@ -14,7 +15,8 @@
 			0.99:  0.001,
 			0.999: 0.0001,
 		},
-	})
+	}
+	cb := dbPrometheusx.NewCallbacks(prometheusConf)
 	err = db.Use(cb)
 	if err != nil {
 		panic(err)

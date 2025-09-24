@@ -12,31 +12,20 @@ func initPrometheus() {
 }
 
 
-/*
-    切不可全局共用一个prometheusx.NewBuilder，如下示例
-        每一个都    hgg_Help响应时间统计、hgg_Help活跃请求统计
-        【都重新 New一个新的使用  prometheusx.NewBuilder】
-*/
-func PrometheusVectorBuildResponseTime() gin.HandlerFunc {
-	budConf := prometheusx.BuilderConfig{
+/**/
+func NewPrometheusHttpIntrMiddleware() ginPrometheusx.PrometheusGinBuilder {
+	budConf := ginPrometheusx.BuilderConfig{
 		Namespace:  "hgg",
 		Subsystem:  "hgg_Subsystem",
 		Name:       "hgg_Name",
 		InstanceId: "123123",
-		Help:       "hgg_Help响应时间统计",
+		Help:       "hgg_HTTP接口统计",
 	}
-	p := prometheusx.NewBuilder(budConf)
-	return p.BuildResponseTime()
+	return ginPrometheusx.NewBuilder(budConf)
 }
 
-func PrometheusVectorBuildBuildActiveRequest() gin.HandlerFunc {
-	budConf := prometheusx.BuilderConfig{
-		Namespace:  "hgg",
-		Subsystem:  "hgg_Subsystem",
-		Name:       "hgg_Name",
-		InstanceId: "123123",
-		Help:       "hgg_Help活跃请求统计",
-	}
-	p := prometheusx.NewBuilder(budConf)
-	return p.BuildActiveRequest()
-}
+// middleware中间件可以集成
+ph := middleware2.NewPrometheusHttpIntrMiddleware() // Prometheus-SummaryVec统计HTTP接口响应时间
+// 测试Prometheus响应时间
+		ph.BuildActiveRequest(),
+		ph.BuildResponseTime(),
