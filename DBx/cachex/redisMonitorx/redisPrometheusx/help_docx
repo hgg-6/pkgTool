@@ -1,0 +1,40 @@
+// eg: 装饰器模式，基于Prometheus监控统计redis缓存
+// 【监控redis命令耗时】、【监控redis缓存命中率】，使用哪个，初始化redis时，利用redis的Hook能力加入Prometheus
+
+// 初始化redis客户端
+	client := redis.NewClient(&redis.Options{
+		Addr: "localhost:6379",
+	})
+
+    // 基于prometheus，监控redis命令耗时【利用redis的Hook能力】
+	clientHookTime := redisx.NewPrometheusRedisHookTime(prometheus.HistogramOpts{
+		Namespace: "hgg",
+		Subsystem: "hggXiaoWeiShu",
+		Name:      "redisCommandTime",
+		Help:      "监控redis缓存命令耗时",
+		Buckets: []float64{ // 各个分桶值单位为秒【1ms一个桶，1ms以内的响应时间都在一个桶内】
+			0.001, 0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0, 10.0,
+		},
+	})
+
+	// 监控redis缓存命中率【利用redis的Hook能力】
+	clientHookKeyRate := redisx.NewPrometheusHookKeyRate(prometheus.SummaryOpts{
+		Namespace: "hgg",
+		Subsystem: "hggXiaoWeiShu",
+		Name:      "redisKeyRate",
+		Help:      "监控redis缓存命中率",
+		Objectives: map[float64]float64{
+			0.5:   0.01,   // 以响应时间为例：50%的观测值响应时间，在0.01的百分比内【误差在 %1】
+			0.75:  0.01,   // 以响应时间为例：75%的观测值响应时间，在0.01的百分比内【误差在 %1】
+			0.90:  0.005,  // 以响应时间为例：90%的观测值响应时间，在0.005的百分比内【误差在 %0.5】
+			0.98:  0.002,  // 以响应时间为例：98%的观测值响应时间，在0.002的百分比内【误差在 %0.2】
+			0.99:  0.001,  // 以响应时间为例：99%的观测值响应时间，在0.001的百分比内【误差在 %0.1】
+			0.999: 0.0001, // 以响应时间为例：99.9%的观测值响应时间，在0.0001的百分比内【误差在 %0.01】
+		},
+	})
+
+	client.AddHook(clientHookKeyRate)
+	client.AddHook(clientHookTime)
+
+
+
