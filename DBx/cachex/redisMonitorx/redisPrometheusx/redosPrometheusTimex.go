@@ -42,7 +42,11 @@ func (p *PrometheusHookTime) ProcessHook(next redis.ProcessHook) redis.ProcessHo
 		cmdName := strings.ToLower(cmd.Name())  // 统一小写，避免 cardinality 爆炸
 
 		// 提取业务标识 biz
-		biz, ok := ctx.Value("biz").(string)
+		// 官方推荐context.WithValue中key用结构体
+		type key struct {
+			key1 string
+		}
+		biz, ok := ctx.Value(key{key1: "biz"}).(string)
 		if biz == "" || !ok {
 			biz = "unknown"
 		}
