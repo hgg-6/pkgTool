@@ -22,27 +22,27 @@ type GetCntType struct {
 	Limit  int64
 }
 
-// GetCnt 获取计数或排行榜【获取排行榜，调用者如果SetCnt只获取了err，建议一分钟调用一次getCnt获取榜单自行计算存储数据库，因为缓存计数数据只缓存5分钟】
+// GetCnt 获取单个某一个业务计数
 //   - biz: 业务名、biz_Id: 业务id
-//   - opt: 查询选项，是查询单个服务计数还是排行榜取值范围【单个服务计数可不传opt】
-//   - 【返回值[]RankItem注意】当opt为空时，返回查询的单个业务计数【返回值排名无效，为0值，忽略即可，[]RankItem[0].Rank】
-func (i *Count[K, V]) GetCnt(ctx context.Context, biz string, bizId int64, opt ...GetCntType) ([]RankItem, error) {
+func (i *Count[K, V]) GetCnt(ctx context.Context, biz string, bizId int64) ([]RankItem, error) {
 	// 如果没有指定查询选项，返回单个业务的计数
-	if len(opt) == 0 {
-		if cnt, err := i.getSingleCnt(ctx, biz, bizId); err == nil {
-			return []RankItem{{
-				BizID: bizId,
-				Rank:  0,
-				Score: cnt,
-			}}, nil
-		}
-		return nil, fmt.Errorf("获取计数数据失败, biz: %s, biz_id: %d", biz, bizId)
+	if cnt, err := i.getSingleCnt(ctx, biz, bizId); err == nil {
+		return []RankItem{{
+			BizID: bizId,
+			Rank:  0,
+			Score: cnt,
+		}}, nil
 	}
+	return nil, fmt.Errorf("获取计数数据失败, biz: %s, biz_id: %d", biz, bizId)
+}
 
+// GetCntRank
+// - opt: 查询选项，查询排行榜取值范围
+func (i *Count[K, V]) GetCntRank(ctx context.Context, biz string, opt GetCntType) ([]RankItem, error) {
 	// 获取排行榜
-	rankItem, err := i.getRankList(ctx, biz, opt[0])
-	if err != nil || len(rankItem) <= 0 {
-		return nil, fmt.Errorf("获取biz: %s, biz_id: %d 排行榜数据失败 / 未获取到排行榜【%d--%d】的数据, err: %v", biz, bizId, opt[0].Offset, opt[0].Limit, err)
+	rankItem, err := i.getRankList(ctx, biz, opt)
+	if err != nil {
+		return nil, fmt.Errorf("获取biz: %s, 排行榜数据失败 / 未获取到排行榜【%d--%d】的数据, err: %v", biz, opt.Offset, opt.Limit, err)
 	}
 	return rankItem, nil
 }
@@ -122,21 +122,34 @@ func (i *Count[K, V]) getRankList(ctx context.Context, biz string, opt GetCntTyp
 //   - opt.Offset: 起始索引，负数表示从末尾开始计算
 //   - opt.Limit: 获取的记录数
 //   - total: 排行榜的总记录数
-func (i *Count[K, V]) calculateRange(opt GetCntType, total int) (int, int) {
-	start := int(opt.Offset)
-	//if start < 0 {
-	//	start = 0
-	//}
+func (i *Count[K, V]) calculateRange(opt GetCntType, total int) (start, end int) {
+	// 转换为 int 并处理边界
+	offset := int(opt.Offset)
+	limit := int(opt.Limit)
+
+	// 处理负数
+	if offset < 0 {
+		offset = 0
+	}
+	if limit < 0 {
+		limit = 0
+	}
+
+	start = offset
+	end = offset + limit
+
+	// 确保不越界
 	if start > total {
 		start = total
 	}
-
-	end := opt.Offset + opt.Limit
-	if int(end) > total {
-		end = int64(total)
+	if end > total {
+		end = total
+	}
+	if start > end {
+		start = end // 防止 start > end（理论上不会，但保险）
 	}
 
-	return start, int(end)
+	return start, end
 }
 
 // getRankFromRedis 从Redis获取排行榜

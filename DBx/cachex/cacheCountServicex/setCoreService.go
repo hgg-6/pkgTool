@@ -44,7 +44,7 @@ func (i *Count[K, V]) SetCnt(ctx context.Context, biz string, bizId int64, num .
 				// 重置计数服务时间为1分钟后
 				i.targetTime = time.Now().Add(time.Minute).UnixMilli()
 				// 系统第一次计数，需要计算热榜
-				rank, er := i.GetCnt(ctx, biz, bizId, i.CntTypeConf)
+				rank, er := i.getCnt(ctx, biz, bizId, i.CntTypeConf)
 				i.Rank = rank
 				if er != nil {
 					i.Error = er

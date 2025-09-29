@@ -12,5 +12,6 @@ type CntServiceIn[K cacheLocalx.Key, V any] interface {
 
 	SetCnt(ctx context.Context, biz string, bizId int64, num ...int64) *Count[K, V]
 	DelCnt(ctx context.Context, biz string, bizId int64) error
-	GetCnt(ctx context.Context, biz string, bizId int64, opt ...GetCntType) ([]RankItem, error)
+	GetCnt(ctx context.Context, biz string, bizId int64) ([]RankItem, error)
+	GetCntRank(ctx context.Context, biz string, opt ...GetCntType) ([]RankItem, error)
 }

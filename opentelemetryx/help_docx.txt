@@ -1,0 +1,91 @@
+// 需先全局注册，eg:
+1、ioc里配置初始化
+    package ioc
+    import (
+    	"gitee.com/hgg_test/pkg_tool/v2/opentelemetryx"
+    	"go.opentelemetry.io/otel/exporters/zipkin"
+    )
+    func InitOTEL() opentelemetryx.CtxFn {
+    	// 使用zipkin的实现trace.SpanExporter
+    	exporter, err := zipkin.New("http://localhost:9411/api/v2/spans") // zipkin exporter
+    	if err != nil {
+    		panic(err)
+    	}
+
+    	ct, err := opentelemetryx.NewOtelStr(opentelemetryx.SvcInfo{ServiceName: "hgg_XiaoWeiShu", ServiceVersion: "v0.0.1"}, exporter)
+    	if err != nil {
+    		panic(err)
+    	}
+    	return ct
+    }
+
+2、main方法里配置初始化以及defer住
+    package main
+
+    tpCancel := ioc.InitOTEL() // 初始化open telemetry 【otle】
+    	defer func() {
+    		ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+    		defer cancel()
+    		tpCancel(ctx)
+    	}()
+
+
+3.1、=============================业务中接入=============================
+3.1、=============================业务中接入=============================
+3.1、=============================业务中接入=============================
+// InitOTELTracer 初始化 trace，需先初始化上面的全局
+func InitOTELTracer() trace.Tracer {
+	otr := opentelemetryx.NewOtelTracerStr()
+	tracer := otr.NewTracer("gitee.com/hgg_test/jksj-study/opentelemetry")
+	return tracer
+}
+
+type userSvc struct {
+	repo   repository.UserRepo
+	tracer trace.Tracer         // 注入trace.Tracer
+}
+
+func NewUserSvc(repo repository.UserRepo, tracer trace.Tracer) UserSvc {    // 构造方法传入trace.Tracer
+	return &userSvc{
+		repo:   repo,
+		tracer: tracer,
+	}
+}
+
+func (u *userSvc) Profile(ctx context.Context, uid int64) (domain.User, error) {
+    // ================业务中使用================
+	ctx, span := u.tracer.Start(ctx, "UserProfile")
+	defer span.End()
+	span.AddEvent("IsServiceProfileInterface")                          // 添加事件，发生了某事
+	span.SetAttributes(attribute.String("uid", strconv.Itoa(int(uid)))) // 添加属性, 强调在上下文里面有什么数据
+    // ================业务中使用================
+
+	return u.repo.FindById(ctx, uid)
+}
+
+
+
+
+
+3.2、=============================gin中接入=============================
+3.2、=============================gin中接入=============================
+3.2、=============================gin中接入=============================
+// openTelemetry提供有gin的接入，直接在gin的middleware中使用即可
+// gin.HandlerFunc中接入openTelemetry，链路追踪
+		otelgin.Middleware("hgg_XiaoWeiShu"),
+
+
+
+
+3.3、=============================gorm中接入=============================
+3.3、=============================gorm中接入=============================
+3.3、=============================gorm中接入=============================
+// openTelemetry提供有gorm的接入，直接在gorm的注册use接入使用即可
+// ==================================GORM自己带的openTelemetry链路追踪==================================
+    db, err := gorm.Open
+	err = db.Use(tracing.NewPlugin(tracing.WithoutMetrics()))
+	if err != nil {
+		panic(err)
+	}
+
+

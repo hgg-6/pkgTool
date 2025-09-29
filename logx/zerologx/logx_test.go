@@ -13,7 +13,7 @@ func TestNewZeroLogger(t *testing.T) {
 	zerolog.TimeFieldFormat = zerolog.TimeFormatUnix
 	// Level日志级别【可以考虑作为参数传】，测试传zerolog.InfoLevel/NoLevel不打印
 	// 模块化: Str("module", "userService模块")
-	logger := zerolog.New(os.Stderr).Level(zerolog.DebugLevel).With().Str("module", "userService模块").Timestamp().Logger()
+	logger := zerolog.New(os.Stderr).Level(zerolog.DebugLevel).With().CallerWithSkipFrameCount(4).Str("module", "userService模块").Timestamp().Logger()
 
 	l := NewZeroLogger(&logger)
 	t.Log(time.Now().UnixMilli())

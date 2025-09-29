@@ -6,9 +6,15 @@ import (
 	"github.com/dgraph-io/ristretto/v2"
 	"github.com/redis/go-redis/v9"
 	"github.com/stretchr/testify/assert"
+	"gorm.io/driver/mysql"
+	"gorm.io/gorm"
+	"log"
 	"testing"
 	"time"
 )
+
+// 【此包可计算时间内的热榜，业务逻辑需处理定时写入数据库比如：10分钟一次的热榜数据，就算计算当日热榜，只需统计当日每十分钟的热榜然后取当日热榜】
+// 【理论此方式也可计算总办但是会影响数据最终一致性，所以计算总时间榜单，需业务自行处理，数据库查出后可redis等计算排序存储】
 
 const UserArticle string = "userArticle"
 
@@ -35,27 +41,87 @@ func TestCount(t *testing.T) {
 	// 创建计数服务
 	countCache := NewCount[string, string](redisCache, localCache)
 
+	// 初始化数据库
+	db := inDB()
+
 	// ==============================初始化完成==============================
 
 	// 模拟文章Biz点赞增加计数，文章id【bizId】：1、2、3、4、5、6、7、8、9。。。。不同文章的不同点赞数量
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second*1)
-	rank, err := countCache.SetCnt(ctx, UserArticle, int64(101)).ResRank()
-	t.Log("文章服务中热榜点赞数：", rank)
-	err = countCache.SetCnt(ctx, UserArticle, int64(101), 1000).ResErr()
+	for i := 1; i <= 100; i++ {
+		for w := 1; w <= i; w++ {
+			ctx, cancel := context.WithTimeout(context.Background(), time.Second*1)
+			err = countCache.SetCnt(ctx, UserArticle, int64(i)).ResErr()
+			assert.NoError(t, err)
+			cancel()
+		}
+	}
+	//ctx, cancelc := context.WithTimeout(context.Background(), time.Second)
+	//defer cancelc()
 
-	defer cancel()
-	// 获取单个文章服务Biz=userArticle，BizId=11的点赞计数
-	serviceCntOne, err := countCache.GetCnt(ctx, UserArticle, 101)
-	assert.NoError(t, err)
-	t.Log("文章服务中BizId=11计数: ", serviceCntOne[0].Score)
-	t.Log("文章服务中BizId=11计数: ", serviceCntOne[0])
+	// 每10分钟执行一次入库
+	ticker := time.NewTicker(time.Second * 10)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ticker.C:
+			// 时间到了，可以执行任务了
+			// 任务限制执行时间5秒钟，5秒内入库完成，否则就超时
+			// 【限制任务总时间的话，eg: 10秒运行一次任务，总计1分钟，运行6次，那么for外部创建1分钟的context.WithTimeout】
+			ctx, cancelc := context.WithTimeout(context.Background(), time.Second*5)
+			setDb(ctx, db, redisCache, countCache)
+			cancelc()
+		}
+	}
+}
 
-	// 获取文章服务中点赞数前10的数据，排行榜点赞数前10热度的数据
-	serviceCntSlice, err := countCache.GetCnt(ctx, UserArticle, 11, GetCntType{
-		//Offset: 0,
-		Limit: 5,
-	})
-	assert.NoError(t, err)
-	t.Log("文章服务中前10的数据：", serviceCntSlice)
-	//t.Log("文章服务中第一点赞的数据，业务id-BizId为：", serviceCntSlice[0].BizID)
+// 每10分钟持久化热榜，十分钟写一次数据到数据库，redis缓存cnt数据为11分钟
+func setDb(ctx context.Context, db *gorm.DB, rdb redis.Cmdable, cnt *Count[string, string]) {
+	type TenMinuteRank struct {
+		Biz          string
+		TimeSlot     time.Time
+		BizID        int64
+		Score        int64
+		RankPosition int64
+	}
+
+	// 获取当前10分钟时间片
+	timeSlot := getCurrentTimeSlot()
+
+	// 从Redis获取当前热榜
+	rankKey, err := cnt.GetCntRank(ctx, UserArticle, GetCntType{Offset: 0, Limit: 10})
+	if err != nil {
+		log.Println("获取当前热榜失败: ", err)
+	}
+	log.Println("当前热榜: ", rankKey)
+
+	// 批量写入数据库
+	rankRecord := make([]TenMinuteRank, len(rankKey))
+	for k, v := range rankKey {
+		rankRecord[k].BizID = v.BizID
+		rankRecord[k].Score = v.Score
+		rankRecord[k].RankPosition = v.Rank
+		rankRecord[k].TimeSlot = timeSlot
+		rankRecord[k].Biz = UserArticle
+	}
+	// 分批插入，每批5条
+	result := db.CreateInBatches(&rankRecord, 5)
+	if result.Error != nil {
+		log.Println("批量写入数据库失败: ", result.Error)
+	}
+}
+
+// 获取当前10分钟时间片
+func getCurrentTimeSlot() time.Time {
+	now := time.Now()
+	// 向下取整到10分钟
+	minutes := (now.Minute() / 10) * 10
+	return time.Date(now.Year(), now.Month(), now.Day(), now.Hour(), minutes, 0, 0, now.Location())
+}
+
+func inDB() *gorm.DB {
+	db, err := gorm.Open(mysql.Open("root:root@tcp(localhost:13306)/hgg"))
+	if err != nil {
+		panic(err)
+	}
+	return db
 }

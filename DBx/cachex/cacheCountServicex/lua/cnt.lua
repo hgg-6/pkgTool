@@ -50,7 +50,7 @@ if delta ~= 0 then
 end
 
 -- 设置过期时间（滑动窗口场景下合理）
-redis.call('EXPIRE', cnt_key, 300)     -- 5分钟
-redis.call('EXPIRE', rank_key, 3600)   -- 1小时
+redis.call('EXPIRE', cnt_key, 660)     -- 11分钟
+redis.call('EXPIRE', rank_key, 86460)   -- 1天1分
 
 return new_cnt
