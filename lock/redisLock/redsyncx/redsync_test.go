@@ -61,7 +61,7 @@ func TestNewResSyncStr12(t *testing.T) {
 		MaxRetries: 2,
 	}
 
-	// 创建分布式锁实例
+	// 创建分布式锁实例【可以根据gopsutilx包下的获取系统负载，然后判断选择负载较低的实例，负载信息可以存储redis/mysql】
 	dl := NewLockRedsync(clis, zlog, config)
 	defer dl.Stop() // 停止锁并释放资源
 	dl.Start()      // 启动锁获取和续约
@@ -72,7 +72,7 @@ func TestNewResSyncStr12(t *testing.T) {
 	// ============方式1===============
 	// 监听锁状态，定时任务测试
 	// 1. 生成一个cron表达式
-	expr := cron.New(cron.WithSeconds()) // 秒级
+	expr := cron.New(cron.WithSeconds())          // 秒级
 	id, err := expr.AddFunc("@every 5s", func() { // 5秒一次定时任务
 		if dl.IsLocked() {
 			logicService(t)
@@ -91,7 +91,7 @@ func TestNewResSyncStr12(t *testing.T) {
 	expr.Start() // 启动定时器
 
 	// 模拟定时任务总时间20秒，20秒后停止定时器【实际业务可以expr := cron.New后返回expr，由main控制退出】
-	time.Sleep(time.Second * 20)
+	time.Sleep(time.Second * 30)
 
 	ctx := expr.Stop() // 暂停定时器，不调度新任务执行了，正在执行的继续执行
 	t.Log("发出停止信号")
