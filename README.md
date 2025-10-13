@@ -18,7 +18,7 @@
 确保你已经安装了 Go 环境，然后使用以下命令获取项目：
 
 ```bash
-go get https://gitee.com/hgg_test/pkg_tool
+go get gitee.com/hgg_test/pkg_tool/v2@latest
 ```
 
 ## 使用示例
