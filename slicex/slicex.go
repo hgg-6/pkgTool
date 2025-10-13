@@ -33,15 +33,6 @@ func Min[T NumberOrString](a []T) T {
 	return m
 }
 
-// Map 将一个 []Src 类型的切片，通过一个映射函数 m，转换为一个新的 []Dst 类型的切片。
-func Map[Src any, Dst any](src []Src, m func(idx int, src Src) Dst) []Dst {
-	dst := make([]Dst, len(src))
-	for i, s := range src {
-		dst[i] = m(i, s)
-	}
-	return dst
-}
-
 // Sum 切片求和
 func Sum[T NumberOrString](s []T) T {
 	var a T

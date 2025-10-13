@@ -1,0 +1,18 @@
+基于gorm数据迁移方案
+
+更方便处理，调用者可直接使用scheduler包下，启用http接口控制迁移过程
+    包中的ginx.Wrap和ginx.WrapBody
+        需启动ginx.InitCounter()和ginx.NewLogMdlHandlerFunc()依赖，注入进去gin框架【即启动gin服务时，初始化gin.default即可启动两个方法即可】
+
+1、都需要先替换默认的*gorm.db,初始化doubleWritePoolx.NewDoubleWritePool()【替换业务代码中的gorm.db注入, scheduler包下的NewScheduler进行双写具体逻辑】
+    db, err := gorm.Open(mysql.New(mysql.Config{Conn: doubleWritePoolx.NewDoubleWritePool(),}))
+2、双写逻辑scheduler.NewScheduler()
+    1、此部分可由scheduler.NewScheduler()，可集成代码中
+    2、也可直接集成gin，进行调用切换双写方式逻辑，scheduler.NewScheduler()初始化后--》scheduler.RegisterRoutes()
+3、validator.NewValidator上报不一致数据至kafka消息队列，削峰、解耦。
+    1、  2部分双写逻辑scheduler.NewScheduler()全量/增量校验, 有自动上报部分调用validator.NewValidator
+
+正常1、---》2、即可【2内部调用3】
+
+
+亦或者某些自定义跳转，可参考测试用例

@@ -2,7 +2,6 @@ package saramaProducerx
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"gitee.com/hgg_test/pkg_tool/v2/channelx/messageQueuex"
 	"github.com/IBM/sarama"
@@ -17,7 +16,7 @@ type SaramaProducerStr[ProducerTyp any] struct {
 	cancelFunc context.CancelFunc
 }
 
-// NewSaramaProducerStr 创建一个SaramaProducerStr实现【Sync单挑消息，Async异步才支持批量】
+// NewSaramaProducerStr 创建一个SaramaProducerStr实现【Sync单条消息，Async异步才支持批量】
 //   - 同步发送消息，就注入同步发送消息的配置监听success通道配置为true
 //   - 异步批量发送消息，需注入异步批量发送消息的配置Producer.Flush.Messages Producer.Flush.Frequency以及监听success和error通道配置为true
 //   - 如果项目中既有同步发送消息，也有异步发送消息，那么在wire构造注入时，单独wire.NewSet同步实现和wire.NewSet异步实现
@@ -133,14 +132,15 @@ func (s *SaramaProducerStr[ProducerTyp]) sendMessageSync(ctx context.Context, ke
 	//if s.ProducerTyp != 0 {
 	//	return fmt.Errorf("kafka Producer Invalid producer type, kafka Producer无效的卡夫卡的生产者类型【使用的非sarama.SyncProducer】")
 	//}
-	v, err := json.Marshal(value)
-	if err != nil {
-		return err
-	}
-	_, _, err = s.SyncProducer.SendMessage(&sarama.ProducerMessage{
+	//v, err := json.Marshal(value)
+	//if err != nil {
+	//	return err
+	//}
+	_, _, err := s.SyncProducer.SendMessage(&sarama.ProducerMessage{
 		Topic: keyOrTopic.Topic,
 		Key:   sarama.StringEncoder(keyOrTopic.Key),
-		Value: sarama.StringEncoder(v),
+		//Value: sarama.StringEncoder(v),
+		Value: sarama.StringEncoder(value),
 	})
 	return err
 }
