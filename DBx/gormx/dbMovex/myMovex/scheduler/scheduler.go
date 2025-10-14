@@ -9,8 +9,8 @@ package scheduler
 import (
 	"context"
 	"fmt"
+	"gitee.com/hgg_test/pkg_tool/v2/DBx/gormx/dbMovex/myMovex"
 	"gitee.com/hgg_test/pkg_tool/v2/DBx/gormx/dbMovex/myMovex/doubleWritePoolx"
-	"gitee.com/hgg_test/pkg_tool/v2/DBx/gormx/dbMovex/myMovex/events"
 	"gitee.com/hgg_test/pkg_tool/v2/DBx/gormx/dbMovex/myMovex/validator"
 	"gitee.com/hgg_test/pkg_tool/v2/channelx/messageQueuex"
 	"gitee.com/hgg_test/pkg_tool/v2/logx"
@@ -45,7 +45,7 @@ type MigrationStats struct {
 
 // Scheduler 用来统一管理整个迁移过程
 // 它不是必须的，你可以理解为这是为了方便用户操作而引入。
-type Scheduler[T events.Entity, Pdr any] struct {
+type Scheduler[T myMovex.Entity, Pdr any] struct {
 	lock    sync.Mutex
 	src     *gorm.DB
 	dst     *gorm.DB
@@ -76,8 +76,8 @@ type SchedulerConfig struct {
 
 // NewScheduler
 //   - pdr 消息队列生产者sync/async
-func NewScheduler[T events.Entity, Pdr any](l logx.Loggerx, src *gorm.DB, dst *gorm.DB,
-// 这个是业务用的 DoubleWritePool
+func NewScheduler[T myMovex.Entity, Pdr any](l logx.Loggerx, src *gorm.DB, dst *gorm.DB,
+	// 这个是业务用的 DoubleWritePool
 	pool *doubleWritePoolx.DoubleWritePool,
 	producer messageQueuex.ProducerIn[Pdr]) *Scheduler[T, Pdr] {
 	return &Scheduler[T, Pdr]{

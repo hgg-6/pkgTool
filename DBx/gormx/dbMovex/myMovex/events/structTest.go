@@ -1,5 +1,7 @@
 package events
 
+import "gitee.com/hgg_test/pkg_tool/v2/DBx/gormx/dbMovex/myMovex"
+
 /*
 	=======================
 	仅测试用的结构体
@@ -19,7 +21,7 @@ func (i TestUser) ID() int64 {
 	return i.Id
 }
 
-func (i TestUser) CompareTo(dst Entity) bool {
+func (i TestUser) CompareTo(dst myMovex.Entity) bool {
 	val, ok := dst.(TestUser)
 	if !ok {
 		return false

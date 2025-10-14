@@ -1,0 +1,17 @@
+/*
+    在grpc中实现failover熔断降级等思路
+
+        在 gRPC 中实现 failover 的基本思路简单来说就是：重试+负载均衡。【默认的failover.json】
+        · 重试：当调用不通的时候，gRPC会重试，再次经过负载均衡。
+        · 负载均衡：要确保在某个节点不可用之后，负载均衡的策略不会再次挑选中它。
+
+
+        复杂的 failover 策略：
+        正常来说，轮询的那个【默认的】 failover 策略就可以了。
+        但有些情况下，你需要一些更加复杂的 failover 策略，那么就需要自己手动实现负载均衡策略。
+        并且在负载均衡算法里面嵌入自己的 failover 的逻辑。
+        例如，在我们手写基于权重的轮询负载均衡策略时，
+                你就可以考虑在 Done 里面直接把 currentWeight 调整到一 个极低的值，或者直接把这个节点从可用节点列表里面挪走。
+                【也就是wrr包下的，Done: func(info balancer.DoneInfo){}部分，weight/currentWeight调整极低】
+        【实际不常用这一类】
+*/

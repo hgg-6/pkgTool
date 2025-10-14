@@ -1,0 +1,4 @@
+// 在gRPC中接入自己的负载均衡算法
+// 需在项目中匿名导入，就是为了触发wrr包中的init()方法，初始化好算法，注册实现
+    _ "gitee.com/hgg_test/pkg_tool/v2/rpc/grpcx/balancer/wrr"
+    _ "google.golang.org/grpc/balancer/weightedroundrobin"

@@ -2,19 +2,19 @@ package consumerx
 
 import (
 	"context"
-	"gitee.com/hgg_test/pkg_tool/v2/DBx/gormx/dbMovex/myMovex/events"
+	"gitee.com/hgg_test/pkg_tool/v2/DBx/gormx/dbMovex/myMovex"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 )
 
-type OverrideFixer[T events.Entity] struct {
+type OverrideFixer[T myMovex.Entity] struct {
 	base   *gorm.DB
 	target *gorm.DB
 
 	columns []string
 }
 
-func NewOverrideFixer[T events.Entity](base *gorm.DB, target *gorm.DB) (*OverrideFixer[T], error) {
+func NewOverrideFixer[T myMovex.Entity](base *gorm.DB, target *gorm.DB) (*OverrideFixer[T], error) {
 	rows, err := base.Model(new(T)).Order("id").Rows()
 	if err != nil {
 		return nil, err

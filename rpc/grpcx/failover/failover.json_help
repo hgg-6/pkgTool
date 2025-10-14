@@ -1,0 +1,15 @@
+/*
+    retry policy 详解
+
+    首先重试我们一般通过methodConfig来控制：
+    
+    name:指定哪些方法。
+    这里我们指定的是UserService 上所有方法。这个 service 对应的值，要去 proto 编译后的文件里面找。
+    retryPolicy:重试的策略。
+    maxAttempts:最大重试次数。
+    initBackoff:重试间隔的初始值。
+    maxBackoff:重试间隔的最大值。
+    backoffMultiplier:重试间隔的增长系数。
+
+    手写JSON很容易出错，千万仔细检查。
+*/

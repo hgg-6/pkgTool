@@ -10,6 +10,7 @@ package validator
 import (
 	"context"
 	"encoding/json"
+	"gitee.com/hgg_test/pkg_tool/v2/DBx/gormx/dbMovex/myMovex"
 	"gitee.com/hgg_test/pkg_tool/v2/DBx/gormx/dbMovex/myMovex/events"
 	"gitee.com/hgg_test/pkg_tool/v2/channelx/messageQueuex"
 	"gitee.com/hgg_test/pkg_tool/v2/logx"
@@ -24,7 +25,7 @@ type MessageQueueStr[Pdr any] struct {
 	MessageQueueTopic string
 }
 
-type Validator[T events.Entity, Pdr any] struct {
+type Validator[T myMovex.Entity, Pdr any] struct {
 	// 数据迁移，肯定有
 	base   *gorm.DB // 源数据库
 	target *gorm.DB // 目标数据库
@@ -44,7 +45,7 @@ type Validator[T events.Entity, Pdr any] struct {
 	fromBase      func(ctx context.Context, offset int) (T, error)
 }
 
-func NewValidator[T events.Entity, Pdr any](base *gorm.DB, target *gorm.DB, direction string, l logx.Loggerx, producerConf *MessageQueueStr[Pdr]) *Validator[T, Pdr] {
+func NewValidator[T myMovex.Entity, Pdr any](base *gorm.DB, target *gorm.DB, direction string, l logx.Loggerx, producerConf *MessageQueueStr[Pdr]) *Validator[T, Pdr] {
 	res := &Validator[T, Pdr]{
 		base:             base,
 		target:           target,

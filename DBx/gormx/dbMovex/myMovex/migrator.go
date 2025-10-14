@@ -1,4 +1,4 @@
-package events
+package myMovex
 
 type Entity interface {
 	// ID 要求返回 ID
@@ -6,5 +6,6 @@ type Entity interface {
 	// CompareTo dst 必然也是 Entity，正常来说类型是一样的，怎么比较两张表数据
 	CompareTo(dst Entity) bool
 
+	// Types 返回表名
 	Types() string
 }
