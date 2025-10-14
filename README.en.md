@@ -18,7 +18,7 @@ This is feature-rich toolkit project containing various tool modules, suitable f
 Ensure you have a Go environment installed, then use the following command to get the project:
 
 ```bash
-go get https://gitee.com/hgg_test/pkg_tool
+go get gitee.com/hgg_test/pkg_tool/v2@latest
 ```
 
 ## Usage Examples
