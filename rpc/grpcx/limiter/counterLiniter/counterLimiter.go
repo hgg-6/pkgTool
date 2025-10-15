@@ -13,6 +13,11 @@ type CounterLimiter struct {
 	threshold int32        // 阈值
 }
 
+// NewCounterLimiter 创建计数器限流算法
+func NewCounterLimiter(threshold int32) *CounterLimiter {
+	return &CounterLimiter{threshold: threshold}
+}
+
 // BuildServerInterceptor 计数器限流算法
 func (c *CounterLimiter) BuildServerInterceptor() grpc.UnaryServerInterceptor {
 	return func(ctx context.Context, req any, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (resp any, err error) {

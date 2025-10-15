@@ -1,3 +1,11 @@
 /*
     一些其它的负载均衡限流算法
+
+        以滑动窗口限流器为例：使用
+        // 创建滑动窗口限流器, 最多2/s个请求，多了就触发限流
+        	limit := NewSlidingWindowLimiter(time.Second, 2)
+        	// 创建grpc服务，注册限流拦截器
+        	gs := grpc.NewServer(
+        		grpc.UnaryInterceptor(limit.BuildServerInterceptor()),
+        	)
 */
