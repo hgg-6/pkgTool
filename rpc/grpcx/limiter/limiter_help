@@ -8,4 +8,13 @@
         	gs := grpc.NewServer(
         		grpc.UnaryInterceptor(limit.BuildServerInterceptor()),
         	)
+
+        	【需要有多个限流器的话】
+        	    grpc.UnaryInterceptor
+        	    替换
+        	    grpc.ChainUnaryInterceptor(
+        	        limit.BuildServerInterceptor(),
+        	        日志、
+        	        监控、
+        	    )
 */

@@ -1,11 +1,10 @@
-package slidingWindow
+package grpcLogX
 
 import (
 	"context"
 	"gitee.com/hgg_test/pkg_tool/v2/logx"
 	"gitee.com/hgg_test/pkg_tool/v2/logx/zerologx"
 	"gitee.com/hgg_test/pkg_tool/v2/rpc/grpcx/limiter/slidingWindow/testPkg"
-	"gitee.com/hgg_test/pkg_tool/v2/rpc/grpcx/observationX/grpcLogX"
 	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/sync/errgroup"
@@ -20,14 +19,10 @@ import (
 )
 
 func TestNewSlidingWindowLimiter(t *testing.T) {
-	// 创建滑动窗口限流器, 最多2/s个请求，多了就触发限流
-	limit := NewSlidingWindowLimiter(time.Second, 2)
 	// 创建grpc服务，注册限流拦截器
 	gs := grpc.NewServer(
 		// 创建日志拦截器
-		grpc.ChainUnaryInterceptor(grpcLogX.NewInterceptorBuilder(initLog()).BuildServerUnaryInterceptor(), limit.BuildServerInterceptor()),
-		//// 注册限流拦截器
-		//grpc.UnaryInterceptor(limit.BuildServerInterceptor()),
+		grpc.ChainUnaryInterceptor(NewInterceptorBuilder(initLog()).BuildServerUnaryInterceptor()),
 	)
 
 	us := &testPkg.Service{}                  // 实例化一个服务

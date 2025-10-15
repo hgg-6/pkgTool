@@ -39,7 +39,7 @@ func (c *SlidingWindowLimiter) BuildServerInterceptor() grpc.UnaryServerIntercep
 	return func(ctx context.Context, req any, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (resp any, err error) {
 		if !c.Allow() {
 			// 限流：返回资源耗尽错误
-			return nil, status.Errorf(codes.ResourceExhausted, "【hgg: 触发限流】请求过于频繁，请%d秒后重试", int(c.window.Seconds()))
+			return nil, status.Errorf(codes.ResourceExhausted, "【hgg: rpc触发限流】超出窗口最大请求数量%d", c.threshold)
 		}
 		// 允许请求：调用后续处理逻辑
 		return handler(ctx, req)

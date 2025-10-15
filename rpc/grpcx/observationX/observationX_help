@@ -1,0 +1,24 @@
+/*
+    rpc可观测性相关
+        类似middleware中接入日志、监控等等
+
+    以滑动窗口限流器为例：使用
+         // 创建滑动窗口限流器, 最多2/s个请求，多了就触发限流
+            	limit := NewSlidingWindowLimiter(time.Second, 2)
+
+            	=============================================
+            	// 创建grpc服务，注册限流拦截器
+            	gs := grpc.NewServer(
+            		grpc.UnaryInterceptor(limit.BuildServerInterceptor()),
+            	)
+
+            	【需要有多个限流器的话】
+            	    grpc.UnaryInterceptor
+            	    替换
+            	    grpc.ChainUnaryInterceptor(
+            	        limit.BuildServerInterceptor(),
+            	        日志、
+            	        监控、
+            	    )
+            	=============================================
+*/
