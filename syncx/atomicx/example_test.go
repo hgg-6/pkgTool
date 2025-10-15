@@ -1,6 +1,8 @@
 package atomicx
 
-import "fmt"
+import (
+	"fmt"
+)
 
 func ExampleNewValue() {
 	val := NewValue[int]()
