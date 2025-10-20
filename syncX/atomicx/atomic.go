@@ -29,22 +29,26 @@ func NewValueOf[T any](t T) *Value[T] {
 	}
 }
 
+// Load 会返回当前 Value 存放的值
 func (v *Value[T]) Load() (val T) {
 	data := v.val.Load()
 	val = data.(T)
 	return
 }
 
+// Store 会将传入的值保存到 Value 中
 func (v *Value[T]) Store(val T) {
 	v.val.Store(val)
 }
 
+// Swap 会将传入的值替换当前 Value 存放的值，并返回替换前的值
 func (v *Value[T]) Swap(new T) (old T) {
 	data := v.val.Swap(new)
 	old = data.(T)
 	return
 }
 
+// CompareAndSwap 会将传入的值替换当前 Value 存放的值，并返回替换结果
 func (v *Value[T]) CompareAndSwap(old, new T) (swapped bool) {
 	return v.val.CompareAndSwap(old, new)
 }

@@ -1,4 +1,4 @@
-package prometeus
+package prometeusX
 
 import (
 	"context"

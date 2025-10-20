@@ -1,0 +1,102 @@
+package gopsutilx
+
+import (
+	"github.com/shirou/gopsutil/v4/cpu"
+	"github.com/shirou/gopsutil/v4/disk"
+	"github.com/shirou/gopsutil/v4/mem"
+	"time"
+)
+
+type SystemLoad struct {
+}
+
+func NewSystemLoad() *SystemLoad {
+	return &SystemLoad{}
+}
+
+// DiskTotals 获取总磁盘信息
+func (s *SystemLoad) DiskTotals() ([]string, error) {
+	partitions, err := disk.Partitions(false) // false 表示不包括只读文件系统
+	if err != nil {
+		return nil, err
+	}
+	var total []string
+	for _, p := range partitions {
+		total = append(total, p.String())
+	}
+	return total, nil
+}
+
+// Usage 空间结构体使用情况
+//   - name: 磁盘名称/其他描述
+//   - total: 总空间，默认单位为字节
+//   - used: 已使用空间，默认单位为字节
+//   - usable: 可用空间，默认单位为字节
+//   - usedPercent: 使用百分比,使用率，%0-100
+type Usage struct {
+	Name        string  // 磁盘名称
+	Total       uint64  // 总空间
+	Used        uint64  // 已使用空间
+	Usable      uint64  // 可用空间
+	UsedPercent float64 // 使用百分比,使用率
+}
+
+// DiskUsage 获取磁盘使用情况
+//   - name: 磁盘名称
+func (s *SystemLoad) DiskUsage(name []string) ([]Usage, error) {
+	var diskUsage []Usage
+	for k, v := range name {
+		usage, err := disk.Usage(v)
+		if err != nil {
+			return diskUsage, err
+		}
+		disks := Usage{Name: "磁盘" + name[k], Total: usage.Total, Used: usage.Used, Usable: usage.Free, UsedPercent: usage.UsedPercent}
+		diskUsage = append(diskUsage, disks)
+	}
+	return diskUsage, nil
+}
+
+// MemUsage 获取内存使用情况
+func (s *SystemLoad) MemUsage() (Usage, error) {
+	var usage Usage
+	v, err := mem.VirtualMemory()
+	if err != nil {
+		return usage, err
+	}
+	usage = Usage{Name: "内存", Total: v.Total, Used: v.Used, Usable: v.Available, UsedPercent: v.UsedPercent}
+	return usage, nil
+}
+
+// CpuUsage 获取CPU使用情况
+func (s *SystemLoad) CpuUsage() ([]float64, error) {
+	percent, err := cpu.Percent(0, true) // 第二个参数为 true 表示 per-CPU
+	if err != nil {
+		return nil, err
+	}
+
+	return percent, nil
+}
+
+// CpuAllUsage 获取整体 CPU 使用率（阻塞约 1 秒）
+//   - interval: 获取 CPU 使用率的间隔时间，默认为 0，表示阻塞约 1 秒
+func (s *SystemLoad) CpuAllUsage(interval ...time.Duration) (float64, error) {
+	var it time.Duration = 0
+	if len(interval) > 0 {
+		it = interval[0]
+	}
+	percent, err := cpu.Percent(it, false)
+	if err != nil {
+		return 0, err
+	}
+	return percent[0], nil
+}
+
+// CpuInfo 获取 CPU 信息
+func (w *SystemLoad) CpuInfo() ([]cpu.InfoStat, error) {
+	infos, err := cpu.Info()
+	if err != nil {
+		var info []cpu.InfoStat
+		return info, err
+	}
+	return infos, nil
+}

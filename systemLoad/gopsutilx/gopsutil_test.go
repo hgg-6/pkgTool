@@ -6,6 +6,8 @@ import (
 	"github.com/shirou/gopsutil/v4/cpu"
 	"github.com/shirou/gopsutil/v4/host"
 	"github.com/shirou/gopsutil/v4/load"
+	"github.com/stretchr/testify/assert"
+	"log"
 	"testing"
 	"time"
 )
@@ -39,5 +41,51 @@ func TestGetProcessInfo(t *testing.T) {
 	fmt.Println("cpu info num: ", len(cpuInfo))
 	for k, v := range cpuInfo {
 		fmt.Printf("cpu%d info%v:\n ", k, v)
+	}
+}
+
+func TestLocal(t *testing.T) {
+	// 获取磁盘信息
+	s := NewSystemLoad()
+	total, err := s.DiskTotals()
+	assert.NoError(t, err)
+	log.Println(total)
+
+	// 获取磁盘使用情况
+	usage, err := s.DiskUsage([]string{"C:"})
+	assert.NoError(t, err)
+	log.Println("===================")
+	for _, v := range usage {
+		log.Printf("disk%s info%v:\n ", v.Name, v)
+	}
+
+	// 获取内存使用情况
+	us, err := s.MemUsage()
+	assert.NoError(t, err)
+	log.Println("===================")
+	log.Println("mem info: ", us)
+
+	// 获取CPU使用情况
+	c, err := s.CpuUsage()
+	assert.NoError(t, err)
+	log.Println("===================")
+	for i, f := range c {
+		log.Printf("CPU %d: %.2f%%\n", i, f)
+	}
+
+	// 获取整体 CPU 使用率
+	cAll, err := s.CpuAllUsage()
+	assert.NoError(t, err)
+	log.Println("===================")
+	log.Printf("CPU: %.2f%%\n", cAll)
+
+	// 获取cpu信息
+	cInfo, err := s.CpuInfo()
+	if err == nil {
+		log.Println("===================")
+		for _, info := range cInfo {
+			fmt.Printf("CPU 型号: %s\n", info.ModelName)
+			fmt.Printf("核心数: %d\n", info.Cores)
+		}
 	}
 }

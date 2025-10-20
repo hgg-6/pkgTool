@@ -1,0 +1,45 @@
+/*
+    gorm模型定义：
+        https://gorm.io/zh_CN/docs/models.html
+        https://gorm.io/zh_CN/docs/associations.html#tags
+
+        eg：
+            type User struct {
+            	Id       int64          `gorm:"primaryKey, autoIncrement"` // 主键和自增
+            	Email    sql.NullString `gorm:"unique"`                    // 唯一索引，代表这是一个可以为 NULL 的列，也可以写成 Email *string
+            	Password string
+            	Phone    sql.NullString `gorm:"unique"` // 唯一索引，代表这是一个可以为 NULL 的列，也可以写成 Phone *string
+
+            	NickName string `gorm:"column:nick_name;type:varchar(128);size:128"` // 用户名
+            	Birthday string // 生日
+            	AboutMe  string `gorm:"column:about_me;type=varchar(4096);size:4096"` // 个人简介
+
+            	// 创建时间,时间关系到时区问题，服务器、数据库、程序等不在同一地方，尽量同一用UTC 0 的毫秒数，【做时区转换时候，在返回数据给前端时候做或者让前端处理】
+            	Ctime int64
+            	// 更新时间
+            	Utime int64
+
+            	////Json存储，存在领域层对不上的问题，domain层的Address结构体过来建表，可能是一个字段/一张表
+            	//Addr string
+
+            	// 1、如果查询要求同时使用 openid 和 unionid，那么可以使用联合索引
+            	// 2、如果查询只用openid，那么只在openid上面创建唯一索引，或者<openid unionid>联合索引，注意前后
+            	// 3、如果查询只用unionid，那么只在unionid上面创建唯一索引，或者<unionid openid>联合索引，注意前后
+            	WechatOpenId  sql.NullString `gorm:"unique"`
+            	WechatUnionId sql.NullString
+            }
+
+            type Interactive struct {
+            	Id int64 `gorm:"primaryKey, autoIncrement"` //主键
+
+            	// <bizid biz>，联合索引，bizId和id建立一个联合索引biz_type_id     【前后顺序影响查询速度】
+            	BizId int64  `gorm:"uniqueIndex:biz_type_id"`                   //业务id
+            	Biz   string `gorm:"type:varchar(128);uniqueIndex:biz_type_id"` //业务类型
+
+            	ReadCnt    int64 //阅读次数
+            	LikeCnt    int64 //点赞次数
+            	CollectCnt int64 //收藏次数
+            	Utime      int64 //更新时间
+            	Ctime      int64 //创建时间
+            }
+*/

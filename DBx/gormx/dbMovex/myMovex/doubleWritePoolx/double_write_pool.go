@@ -12,7 +12,7 @@ import (
 	"errors"
 	"fmt"
 	"gitee.com/hgg_test/pkg_tool/v2/logx"
-	"gitee.com/hgg_test/pkg_tool/v2/syncx/atomicx"
+	"gitee.com/hgg_test/pkg_tool/v2/syncX/atomicx"
 	"sync"
 	"time"
 
