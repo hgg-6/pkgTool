@@ -2,6 +2,7 @@ package queueX
 
 import (
 	"github.com/stretchr/testify/assert"
+	"log"
 	"testing"
 )
 
@@ -18,7 +19,7 @@ func TestPriorityQueuePeek(t *testing.T) {
 			less: func(a, b int) bool { // 告诉堆算法：“在位置 i 和 j 的两个元素，谁应该排在前面？”
 				return a < b // a < b 则返回true，对应最小堆
 			},
-			input:     []int{1, 2, 3, 4, 5},
+			input:     []int{2, 5, 1, 3, 4},
 			wanOutput: 1,
 		},
 		{
@@ -26,20 +27,21 @@ func TestPriorityQueuePeek(t *testing.T) {
 			less: func(a, b int) bool { // 告诉堆算法：“在位置 i 和 j 的两个元素，谁应该排在前面？”
 				return a > b // a > b 则返回true，对应最大堆
 			},
-			input:     []int{1, 2, 3, 4, 5},
+			input:     []int{2, 5, 1, 3, 4},
 			wanOutput: 5,
 		},
 	}
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			pq := NewPriorityQueue[int](tc.less)
+			pq := NewPriorityQueue[int](tc.less, 0)
 			for _, v := range tc.input {
 				pq.Enqueue(v)
 			}
 			v, ok := pq.Peek()
 			assert.True(t, ok)
 			assert.Equal(t, v, tc.wanOutput)
+			log.Println(v)
 		})
 	}
 
@@ -58,7 +60,7 @@ func TestPriorityQueueEnqueue(t *testing.T) {
 			less: func(a, b int) bool { // 告诉堆算法：“在位置 i 和 j 的两个元素，谁应该排在前面？”
 				return a < b // a < b 则返回true，对应最小堆
 			},
-			input:     []int{1, 2, 3, 4, 5},
+			input:     []int{2, 5, 1, 3, 4},
 			wanOutput: 1,
 		},
 		{
@@ -66,14 +68,14 @@ func TestPriorityQueueEnqueue(t *testing.T) {
 			less: func(a, b int) bool { // 告诉堆算法：“在位置 i 和 j 的两个元素，谁应该排在前面？”
 				return a > b // a > b 则返回true，对应最大堆
 			},
-			input:     []int{1, 2, 3, 4, 5},
+			input:     []int{2, 5, 1, 3, 4},
 			wanOutput: 5,
 		},
 	}
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			pq := NewPriorityQueue[int](tc.less)
+			pq := NewPriorityQueue[int](tc.less, 0)
 			for _, v := range tc.input {
 				pq.Enqueue(v)
 			}
@@ -98,7 +100,7 @@ func TestPriorityQueueDequeue(t *testing.T) {
 			less: func(a, b int) bool { // 告诉堆算法：“在位置 i 和 j 的两个元素，谁应该排在前面？”
 				return a < b // a < b 则返回true，对应最小堆
 			},
-			input:      []int{1, 2, 3, 4, 5},
+			input:      []int{2, 5, 1, 3, 4},
 			wanOutput:  1,
 			wanOutput1: 2,
 		},
@@ -107,7 +109,7 @@ func TestPriorityQueueDequeue(t *testing.T) {
 			less: func(a, b int) bool { // 告诉堆算法：“在位置 i 和 j 的两个元素，谁应该排在前面？”
 				return a > b // a > b 则返回true，对应最大堆
 			},
-			input:      []int{1, 2, 3, 4, 5},
+			input:      []int{2, 5, 1, 3, 4},
 			wanOutput:  5,
 			wanOutput1: 4,
 		},
@@ -115,7 +117,7 @@ func TestPriorityQueueDequeue(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			pq := NewPriorityQueue[int](tc.less)
+			pq := NewPriorityQueue[int](tc.less, 0)
 			for _, v := range tc.input {
 				pq.Enqueue(v)
 			}
@@ -125,6 +127,42 @@ func TestPriorityQueueDequeue(t *testing.T) {
 			v, ok := pq.Peek()
 			assert.True(t, ok)
 			assert.Equal(t, v, tc.wanOutput1)
+		})
+	}
+}
+
+func TestPriorityQueueEnqueues(t *testing.T) {
+	testCases := []struct {
+		name      string
+		less      func(a, b int) bool
+		input     []int // 输入
+		wanOutput int   // 预期输出
+	}{
+		{
+			name: "小顶堆入队",
+			less: func(a, b int) bool { // 告诉堆算法：“在位置 i 和 j 的两个元素，谁应该排在前面？”
+				return a < b // a < b 则返回true，对应最小堆
+			},
+			input:     []int{2, 5, 1, 3, 4},
+			wanOutput: 1,
+		},
+		{
+			name: "大顶堆入队",
+			less: func(a, b int) bool { // 告诉堆算法：“在位置 i 和 j 的两个元素，谁应该排在前面？”
+				return a > b // a > b 则返回true，对应最大堆
+			},
+			input:     []int{2, 5, 1, 3, 4},
+			wanOutput: 5,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			pq := NewPriorityQueue[int](tc.less, 0)
+			pq.EnqueueBatch(tc.input)
+			v, ok := pq.Peek()
+			assert.True(t, ok)
+			assert.Equal(t, v, tc.wanOutput)
 		})
 	}
 }

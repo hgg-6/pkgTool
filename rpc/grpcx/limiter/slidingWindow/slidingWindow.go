@@ -28,7 +28,7 @@ func NewSlidingWindowLimiter(window time.Duration, threshold int) *SlidingWindow
 	return &SlidingWindowLimiter{
 		window:    window,
 		threshold: threshold,
-		queue:     queueX.NewPriorityQueue[time.Time](func(a, b time.Time) bool { return a.Before(b) }),
+		queue:     queueX.NewPriorityQueue[time.Time](func(a, b time.Time) bool { return a.Before(b) }, 0),
 	}
 }
 
@@ -38,7 +38,7 @@ func NewSlidingWindowLimiter(window time.Duration, threshold int) *SlidingWindow
 func (c *SlidingWindowLimiter) BuildServerInterceptor() grpc.UnaryServerInterceptor {
 	return func(ctx context.Context, req any, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (resp any, err error) {
 		if !c.Allow() {
-			// 限流：返回资源耗尽错误
+			// 限流：返回资源耗尽错误【返回使用status.Errorf方便日志捕捉】
 			return nil, status.Errorf(codes.ResourceExhausted, "【hgg: rpc触发限流】超出窗口最大请求数量%d", c.threshold)
 		}
 		// 允许请求：调用后续处理逻辑
@@ -67,7 +67,7 @@ func (c *SlidingWindowLimiter) Allow() bool {
 	//}
 
 	// 2. 检查是否超过阈值
-	if c.queue.Len() >= c.threshold {
+	if c.queue.Size() >= c.threshold {
 		return false // 超过阈值，不允许
 	}
 

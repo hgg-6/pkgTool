@@ -42,7 +42,7 @@ func (b *InterceptorBuilder) BuildServerUnaryInterceptor() grpc.UnaryServerInter
 				stack = stack[:runtime.Stack(stack, true)]
 				err = status.New(codes.Internal, "panic, err "+err.Error()).Err()
 			}
-			
+
 			fields := []logx.Field{
 				// unary stream 是 grpc 的两种调用形态
 				logx.String("type", "unary"),
@@ -58,9 +58,10 @@ func (b *InterceptorBuilder) BuildServerUnaryInterceptor() grpc.UnaryServerInter
 				// 错误码
 				fields = append(fields, logx.String("code", st.Code().String()))
 				fields = append(fields, logx.String("code_msg", st.Message()))
+				b.l.Error("RPC调用", fields...)
+			} else {
+				b.l.Info("RPC调用", fields...)
 			}
-
-			b.l.Info("RPC调用", fields...)
 		}()
 		resp, err = handler(ctx, req)
 		return
