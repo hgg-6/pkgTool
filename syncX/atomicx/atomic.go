@@ -48,7 +48,7 @@ func (v *Value[T]) Swap(new T) (old T) {
 	return
 }
 
-// CompareAndSwap 会将传入的值替换当前 Value 存放的值，并返回替换结果
+// CompareAndSwap 会将传入的值和当前 Value 存放的值进行比较，如果相同,替换当前 Value 存放的值，并返回替换结果
 func (v *Value[T]) CompareAndSwap(old, new T) (swapped bool) {
 	return v.val.CompareAndSwap(old, new)
 }

@@ -19,6 +19,10 @@ type RedisSlideWindowKLimiter struct {
 	rate int
 }
 
+// NewRedisSlideWindowKLimiter 创建一个 Redis 滑动窗口限流器
+//   - cmd: redis.Client
+//   - interval: 窗口大小【eg: time.second，每秒有rate个请求，超过则触发限流】
+//   - rate: 阈值
 func NewRedisSlideWindowKLimiter(cmd redis.Cmdable, interval time.Duration, rate int) *RedisSlideWindowKLimiter {
 	return &RedisSlideWindowKLimiter{
 		cmd:      cmd,
@@ -27,6 +31,9 @@ func NewRedisSlideWindowKLimiter(cmd redis.Cmdable, interval time.Duration, rate
 	}
 }
 
+// Limit
+//   - key: 限流key
+//   - 返回值：true则限流，false则通过
 func (b *RedisSlideWindowKLimiter) Limit(ctx context.Context, key string) (bool, error) {
 	// 获取锁
 	return b.cmd.Eval(ctx, luaScript, []string{key}, b.interval.Milliseconds(), b.rate, time.Now().UnixMilli()).Bool()

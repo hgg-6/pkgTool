@@ -72,7 +72,8 @@ func (c *SlidingWindowLimiter) Allow() bool {
 	}
 
 	// 3. 记录当前请求时间戳
-	c.queue.Push(now)
+	//c.queue.Push(now)
+	c.queue.Enqueue(now)
 	return true // 允许请求
 }
 
@@ -85,7 +86,8 @@ func (c *SlidingWindowLimiter) removeExpired(windowStart time.Time) {
 		if !ok || !peekTime.Before(windowStart) {
 			break // 队首已处于窗口内，无需继续清理
 		}
-		c.queue.Pop() // 移除过期请求
+		//c.queue.Pop() // 移除过期请求
+		c.queue.Dequeue() // 移除过期请求
 	}
 }
 
