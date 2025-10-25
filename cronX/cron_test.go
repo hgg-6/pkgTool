@@ -49,14 +49,14 @@ func TestNewRankingServiceCron(t *testing.T) {
 	err := r.Start() // 启动定时任务
 	assert.NoError(t, err)
 
-	time.Sleep(3 * time.Second)   // 模拟十秒后，暂定任务
-	r.PauseCrons()                // 暂停所有任务
+	time.Sleep(3 * time.Second) // 模拟十秒后，暂定任务
+	r.PauseCrons()              // 暂停所有任务
 	r.DeleteCron("任务1_1111222") // 删除任务1
 	r.DeleteCron("任务2_1111333") // 删除任务2
-	time.Sleep(time.Second)       // 模拟一秒后，恢复任务3
+	time.Sleep(time.Second)     // 模拟一秒后，恢复任务3
 	r.ResumeCron("任务3_1111444") // 恢复任务3
 
-	r.AddCronTask(CronXCmdConfig{ // 添加任务4
+	r.AddCronTask(CronXCmdConfig{ // 任务启动后，再添加任务4
 		CronKeys: "任务4_1111555",
 		CronName: "任务4",
 		CronId:   1111555,

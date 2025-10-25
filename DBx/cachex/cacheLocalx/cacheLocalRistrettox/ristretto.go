@@ -18,15 +18,10 @@ func NewCacheLocalRistrettoStr[K cacheLocalx.Key, V any](cache *ristretto.Cache[
 	}
 }
 
-//func NewCacheLocalRistrettoStrV1[K cachex.Key, V any](cache *ristretto.Cache[K, V]) *CacheLocalRistrettoStr[K, V] {
-//	return &CacheLocalRistrettoStr[K, V]{cache: cache}
-//}
-
-func (c *CacheLocalRistrettoStr[K, V]) Set(key K, value V, ttl time.Duration, weight ...int64) error {
-	if len(weight) <= 0 {
-		return errors.New("no weight, set localCache need -weight-, 没有权重信息，Ristretto设置本地缓存需要权重信息")
-	}
-	ok := c.cache.SetWithTTL(key, value, weight[0], ttl)
+// Set 设置本地缓存
+//   - weight: 缓存权重
+func (c *CacheLocalRistrettoStr[K, V]) Set(key K, value V, ttl time.Duration, weight int64) error {
+	ok := c.cache.SetWithTTL(key, value, weight, ttl)
 	if ok {
 		return nil
 	}
@@ -34,17 +29,15 @@ func (c *CacheLocalRistrettoStr[K, V]) Set(key K, value V, ttl time.Duration, we
 }
 
 func (c *CacheLocalRistrettoStr[K, V]) Get(key K) (V, error) {
-	var v V
 	val, ok := c.cache.GetTTL(key)
-	if !ok {
-		return v, errors.New("get localCache error, no key --> value, 查询缓存失败, Key不存在")
-	} else if val <= time.Duration(0) {
-		c.cache.Del(key)
-		return v, errors.New("get localCache error, key --> value is expired, 查询缓存失败, 缓存已过期")
+	if !ok || val <= time.Duration(0) {
+		var v V
+		return v, errors.New("查询缓存失败")
 	}
 	if value, isok := c.cache.Get(key); isok {
 		return value, nil
 	}
+	var v V
 	return v, errors.New("get localCache error, no key --> value, 查询缓存失败, Key不存在")
 }
 

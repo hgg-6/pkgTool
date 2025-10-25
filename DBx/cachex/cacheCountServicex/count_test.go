@@ -55,6 +55,10 @@ func TestCount(t *testing.T) {
 			cancel()
 		}
 	}
+
+	cal, _ := countCache.getCnt(context.Background(), UserArticle, 80)
+	log.Println("当前id:80的点赞数为: ", cal)
+	time.Sleep(time.Minute * 5)
 	//ctx, cancelc := context.WithTimeout(context.Background(), time.Second)
 	//defer cancelc()
 

@@ -1,3 +1,11 @@
 /*
-    榜单服务
+    榜单服务:
+    rankingServiceX:     ===>   RankingServiceBatch适合、小时榜单、日榜、历史总榜等（凌晨跑批） → 结果存 本地缓存/Redis
+        1、NewRankingServiceBatch    // 创建一个排行榜服务
+        2、SetBatchSize  // 设置批量数据源的批量大小
+        3、SetSource  // 设置批量数据源逻辑
+        4、GetTopN   // 获取榜单结果
+
+
+    rankingServiceRdbZsetX:  ===>  ZSET 分 Key + 本地缓存(秒级更新)，适合【实时】热榜（Top 100）等
 */

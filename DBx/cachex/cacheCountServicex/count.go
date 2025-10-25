@@ -12,7 +12,10 @@ import (
 
 var (
 	//go:embed lua/cnt.lua
-	LuaCnt string // 缓存计数lua脚本
+	LuaCnt string
+
+	//go:embed lua/cntRank.lua
+	LuaCntRank string // 缓存计数lua脚本
 
 	//go:embed lua/get_rank.lua
 	LuaGetRank string // 获取排名的lua脚本
@@ -57,7 +60,7 @@ type Count[K cacheLocalx.Key, V any] struct {
 	LuaCnt     string // redis缓存计数的lua脚本
 	LuaGetRank string // redis获取排名的lua脚本
 
-	// ===========热榜计算开关，默认true===========
+	// ===========热榜计算开关，默认false===========
 	RankCount   bool
 	CntTypeConf GetCntType // 获取计数参数, 默认offset=0, Limit=100为获取的条数, 前100条数据为排行榜数据
 	targetTime  int64      // 计数服务中，获取排行榜数据时，指定时间戳，默认为当前时间戳一分钟后
@@ -81,10 +84,10 @@ func NewCount[K cacheLocalx.Key, V any](redisCache redis.Cmdable, localCache cac
 		ServiceTypeName: "count_service",
 		Weight:          10, // 默认权重为10，计数服务一般是高频访问数据，所以权重给大一些
 
-		LuaCnt:     LuaCnt,     // 缓存计数lua脚本，默认使用缓存计数lua脚本【可替换自定义lua】
+		LuaCnt:     LuaCntRank, // 缓存计数lua脚本，默认使用缓存计数lua脚本【可替换自定义lua】
 		LuaGetRank: LuaGetRank, // 获取排名的lua脚本，默认使用获取排名的lua脚本【可替换自定义lua】
 
-		RankCount: true,
+		RankCount: false,
 		CntTypeConf: GetCntType{
 			Offset: 1,
 			Limit:  10,
@@ -104,6 +107,14 @@ func (i *Count[K, V]) initLuaCntScripts(ctx context.Context) error {
 
 // initLuaGetRankScripts 在初始化时预加载脚本并获取 SHA
 func (i *Count[K, V]) initLuaGetRankScripts(ctx context.Context) error {
+	if i.RankCount == false {
+		sha, err := i.RedisCache.ScriptLoad(ctx, i.LuaCnt).Result()
+		if err != nil {
+			return err
+		}
+		i.LuaGetRank = sha
+		return nil
+	}
 	sha, err := i.RedisCache.ScriptLoad(ctx, i.LuaGetRank).Result()
 	if err != nil {
 		return err
