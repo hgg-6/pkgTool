@@ -18,21 +18,18 @@ import (
 )
 
 func TestNewRankingService(t *testing.T) {
-	// 1. 初始化全局服务
-	localcache := newLocalCache()
-	//defer localcache.Close()
-	globalSvc := NewRankingService(10, newRedisCli(), localcache, newLogger())
+	globalSvc := NewRankingService(10, newRedisCli(), newLocalCache(), newLogger())
 	defer globalSvc.Stop()
 
-	// 2. 获取 article 榜单
+	// 获取 article 榜单
 	articleSvc := globalSvc.WithBizType("article", types.HotScoreProvider{})
 
-	// 3. 启动缓存刷新（可选）【本地缓存默认为15秒过期，自动刷新缓存开启的话，可小一些】
+	// 启动缓存刷新（可选）【本地缓存默认为15秒过期，自动刷新缓存开启的话，可小一些】
 	articleSvc.StartRefresh(10 * time.Second)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
-	// 4. 用户点赞
+	// 用户点赞
 	//for i := 0; i < 1000; i++ {
 	//	_ = articleSvc.IncrScore(ctx, strconv.Itoa(i+1), float64(i+1.0), map[string]string{
 	//		"title":  "rankTest_" + strconv.Itoa(i+1),
@@ -40,7 +37,7 @@ func TestNewRankingService(t *testing.T) {
 	//	})
 	//}
 
-	// 5. 获取榜单（自动补全 Title）
+	// 获取榜单（自动补全 Title）
 	for i := 0; i < 3; i++ {
 		now := time.Now()
 		log.Println("开始获取榜单：", i+1)

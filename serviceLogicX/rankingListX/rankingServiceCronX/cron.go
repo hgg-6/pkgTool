@@ -1,8 +1,8 @@
 package rankingServiceCronX
 
 import (
-	"gitee.com/hgg_test/pkg_tool/v2/cronX"
 	"gitee.com/hgg_test/pkg_tool/v2/logx"
+	"gitee.com/hgg_test/pkg_tool/v2/serviceLogicX/cronX"
 )
 
 // RankingServiceCron 定时任务服务封装

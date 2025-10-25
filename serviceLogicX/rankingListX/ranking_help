@@ -8,4 +8,8 @@
 
 
     rankingServiceRdbZsetX:  ===>  ZSET 分 Key + 本地缓存(秒级更新)，适合【实时】热榜（Top 100）等
+        1、 NewRankingService  // 创建全局服务
+        2、WithBizType   // 获取 article 榜单
+        3、StartRefresh  // 自动缓存刷新（可选）
+        4、GetTopN   // 获取榜单
 */
