@@ -30,6 +30,6 @@ func ComparatorRealNumber[T RealNumber](src T, dst T) int {
 // 绝大多数情况下，你都应该用这个来表达数字的含义
 type RealNumber interface {
 	~uint | ~uint8 | ~uint16 | ~uint32 | ~uint64 |
-	~int | ~int8 | ~int16 | ~int32 | ~int64 |
-	~float32 | ~float64
+		~int | ~int8 | ~int16 | ~int32 | ~int64 |
+		~float32 | ~float64
 }

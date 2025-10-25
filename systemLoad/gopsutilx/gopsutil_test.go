@@ -88,4 +88,19 @@ func TestLocal(t *testing.T) {
 			fmt.Printf("核心数: %d\n", info.Cores)
 		}
 	}
+
+	// 获取系统负载
+	i, err := s.SystemLoad()
+	if err == nil {
+		switch i {
+		case 0:
+			log.Println("未获取到系统负载")
+		case 1:
+			log.Println("系统良好负载")
+		case 2:
+			log.Println("系统警戒负载")
+		case 3:
+			log.Println("系统紧急负载")
+		}
+	}
 }

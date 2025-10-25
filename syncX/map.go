@@ -86,3 +86,15 @@ func (m *Map[K, V]) Range(f func(key K, value V) bool) {
 		return f(k, v)
 	})
 }
+
+// IsEmpty 判断 Map 是否为空
+//   - true : Map 为空
+//   - false : Map 不为空
+func (m *Map[K, V]) IsEmpty() bool {
+	empty := true
+	m.Range(func(key K, value V) bool {
+		empty = false
+		return false // 立即停止遍历
+	})
+	return empty
+}

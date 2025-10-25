@@ -1,8 +1,10 @@
 package gopsutilx
 
 import (
+	"context"
 	"github.com/shirou/gopsutil/v4/cpu"
 	"github.com/shirou/gopsutil/v4/disk"
+	"github.com/shirou/gopsutil/v4/load"
 	"github.com/shirou/gopsutil/v4/mem"
 	"time"
 )
@@ -92,11 +94,60 @@ func (s *SystemLoad) CpuAllUsage(interval ...time.Duration) (float64, error) {
 }
 
 // CpuInfo 获取 CPU 信息
-func (w *SystemLoad) CpuInfo() ([]cpu.InfoStat, error) {
+func (s *SystemLoad) CpuInfo() ([]cpu.InfoStat, error) {
 	infos, err := cpu.Info()
 	if err != nil {
 		var info []cpu.InfoStat
 		return info, err
 	}
 	return infos, nil
+}
+
+// SystemLoad 获取系统负载【根据cpu、内存使用情况，给出综合评分结果】
+//   - 0未获取、1系统良好负载、2系统警戒负载、3系统危险负载
+func (s *SystemLoad) SystemLoad() (uint, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+	l, err := load.AvgWithContext(ctx)
+	if err != nil {
+		return 0, err
+	}
+	c, err := cpu.Counts(true)
+	if err != nil {
+		return 0, err
+	}
+
+	var nowLoadCpu uint
+	if l.Load1 < float64(c) {
+		nowLoadCpu = uint(1)
+	} else if l.Load1 > float64(c) || l.Load1 < float64(c)*2 {
+		nowLoadCpu = uint(2)
+	} else {
+		// 系统危险负载
+		nowLoadCpu = uint(3)
+		return nowLoadCpu, nil
+	}
+
+	m, err := s.MemUsage()
+	if err != nil {
+		return 0, err
+	}
+	var nowLoadMem uint
+	if m.UsedPercent < 70 {
+		nowLoadMem = uint(1)
+	} else if m.UsedPercent > 70 || m.UsedPercent < 90 {
+		nowLoadMem = uint(2)
+	} else {
+		// 系统危险负载
+		nowLoadMem = uint(3)
+		return nowLoadMem, nil
+	}
+
+	if nowLoadCpu == 1 || nowLoadMem == 1 {
+		return uint(1), nil
+	} else if nowLoadCpu == 3 || nowLoadMem == 3 {
+		return uint(3), nil
+	} else {
+		return uint(2), nil
+	}
 }

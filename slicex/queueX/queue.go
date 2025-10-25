@@ -28,7 +28,7 @@ func NewPriorityQueue[T any](less func(a, b T) bool, capacity int) *PriorityQueu
 // ---------- heap.Interface（不加锁）----------
 
 // Len 返回当前元素数量
-//   - 【未加锁，尽量使用下面加锁API保证线程安全】
+//   - 【未加锁，请使用Size，尽量使用下面加锁API保证线程安全】
 func (pq *PriorityQueue[T]) Len() int { return len(pq.items) }
 
 // Less 比较两个元素
@@ -44,13 +44,13 @@ func (pq *PriorityQueue[T]) Swap(i, j int) {
 }
 
 // Push 供 heap.Push 调用，只负责追加元素（不加锁！）
-//   - 【未加锁，尽量使用下面加锁API保证线程安全】
+//   - 【未加锁，请使用Enqueue，尽量使用下面加锁API保证线程安全】
 func (pq *PriorityQueue[T]) Push(x any) {
 	pq.items = append(pq.items, x.(T))
 }
 
 // Pop 供 heap.Pop 调用，只负责弹出最后一个元素（不加锁！）
-//   - 【未加锁，尽量使用下面加锁API保证线程安全】
+//   - 【未加锁，请使用Dequeue，尽量使用下面加锁API保证线程安全】
 func (pq *PriorityQueue[T]) Pop() any {
 	old := pq.items
 	n := len(old)
@@ -78,29 +78,48 @@ func (pq *PriorityQueue[T]) Enqueue(item T) bool {
 // EnqueueBatch 批量入队，返回每个元素是否成功入队
 //   - 【已加锁】
 //   - 有界队列：按顺序尝试入队，满则后续全部失败
-func (pq *PriorityQueue[T]) EnqueueBatch(items []T) []bool {
+//   - 无界时永远 ok = true，性能无损
+//
+// 返回：
+//   - failed: 未能入队的元素列表（按原顺序）
+//   - ok:     true 表示全部成功（failed 为空），false 表示有失败
+//
+// 对于有界队列：按顺序入队，一旦队列满，剩余元素全部视为失败。
+// 对于无界队列：always ok = true, failed = nil。
+func (pq *PriorityQueue[T]) EnqueueBatch(items []T) (failed []T, ok bool) {
 	if len(items) == 0 {
-		return nil
+		return nil, true
 	}
 
 	pq.lock.Lock()
 	defer pq.lock.Unlock()
 
-	results := make([]bool, len(items))
-
-	for i, item := range items {
-		if pq.capacity > 0 && len(pq.items) >= pq.capacity {
-			// 队列已满，后续全部失败
-			for j := i; j < len(items); j++ {
-				results[j] = false
-			}
-			break
+	// 无界队列：全部入队
+	if pq.capacity <= 0 {
+		for _, item := range items {
+			heap.Push(pq, item)
 		}
-		heap.Push(pq, item)
-		results[i] = true
+		return nil, true
 	}
 
-	return results
+	// 有界队列：按顺序尝试入队
+	successCount := 0
+	for _, item := range items {
+		if len(pq.items) >= pq.capacity {
+			break // 队列已满，停止入队
+		}
+		heap.Push(pq, item)
+		successCount++
+	}
+
+	if successCount == len(items) {
+		return nil, true // 全部成功
+	}
+
+	// 构造失败列表：从 successCount 开始到末尾
+	failed = make([]T, len(items)-successCount)
+	copy(failed, items[successCount:])
+	return failed, false
 }
 
 // Dequeue 出队堆顶元素
@@ -167,6 +186,7 @@ func (pq *PriorityQueue[T]) IsFull() bool {
 
 // IsEmpty 判断是否为空
 //   - 【已加锁】
+//   - 返回 true ：队列为空
 func (pq *PriorityQueue[T]) IsEmpty() bool {
 	pq.lock.Lock()
 	defer pq.lock.Unlock()
