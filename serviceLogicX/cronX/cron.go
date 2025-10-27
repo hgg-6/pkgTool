@@ -24,7 +24,7 @@ type CronX struct {
 	refreshSystemInfo time.Duration         // 刷新系统负载间隔, 默认5秒
 }
 
-// NewCronX 创建定时任务服务
+// NewCronX 创建定时任务服务【任务添加后, 启动定时器后，任务默认暂停状态，需显式调用ResumeCron/ResumeCrons启动】
 //   - 需优先调用函数设置任务表达式和任务逻辑 SetExprOrCmd
 func NewCronX(logx logx.Loggerx, systemInfo *gopsutilx.SystemLoad) *CronX {
 	c := &CronX{logx: logx, atc: int32(0), systemInfo: systemInfo, refreshSystemInfo: time.Second * 5}
@@ -35,21 +35,19 @@ func NewCronX(logx logx.Loggerx, systemInfo *gopsutilx.SystemLoad) *CronX {
 }
 
 func (r *CronX) Start() error {
-	ok := r.exprOrCmd.IsEmpty()
-	if ok {
-		r.logx.Error("【定时任务表达式或任务执行逻辑未配置】请先调用SetExprOrCmd，设置定时任务表达式和任务执行逻辑", logx.Error(fmt.Errorf("定时任务表达式或任务执行逻辑未配置")))
-		return fmt.Errorf("【定时任务表达式或任务执行逻辑未配置】请先调用SetExprOrCmd，设置定时任务表达式和任务执行逻辑")
-	}
+	// 启动定时器时可没有没有任务，可以启动定时器后热添加任务
+	//ok := r.exprOrCmd.IsEmpty()
+	//if ok {
+	//	r.logx.Error("【定时任务表达式或任务执行逻辑未配置】请先调用SetExprOrCmd，设置定时任务表达式和任务执行逻辑", logx.Error(fmt.Errorf("定时任务表达式或任务执行逻辑未配置")))
+	//	return fmt.Errorf("【定时任务表达式或任务执行逻辑未配置】请先调用SetExprOrCmd，设置定时任务表达式和任务执行逻辑")
+	//}
 
-	//expr := cron.New(cron.WithSeconds())
-	//err := r.addTask(expr) // 添加任务
 	err := r.addTask(r.cron) // 添加任务
 	if err != nil {
 		r.logx.Error("添加定时任务失败", logx.Error(err))
 		return err
 	}
 
-	//expr.Start()             // 启动任务
 	r.cron.Start()           // 启动任务
 	go r.refreshSystemLoad() // 异步刷新系统负载，默认5秒刷新一次，用于控制当前系统健康是否适合进行定时任务执行
 	return nil
@@ -64,7 +62,7 @@ func (r *CronX) addTask(expr *cron.Cron) error {
 		if err != nil {
 			r.logx.Error("添加定时任务失败", logx.Error(err), logx.String("任务map keys", key), logx.String("cronName", value.CronName), logx.Int64("任务ID", value.CronId))
 		}
-		r.adminCron.Store(key, CronXConfig{EntryID: EntryID, cronStatus: 0}) // 存储cron的任务ID
+		r.adminCron.Store(key, CronXConfig{EntryID: EntryID, cronStatus: 1}) // 存储cron的任务ID
 		return true
 	})
 	return err
@@ -241,7 +239,7 @@ func (r *CronX) AddCronTask(config CronXCmdConfig) error {
 	}
 
 	// 保存管理信息
-	r.adminCron.Store(config.CronKeys, CronXConfig{EntryID: entryID, cronStatus: 0})
+	r.adminCron.Store(config.CronKeys, CronXConfig{EntryID: entryID, cronStatus: 1})
 	r.logx.Info("动态添加定时任务成功", logx.String("任务map keys", config.CronKeys))
 	return nil
 }
@@ -280,6 +278,7 @@ func (r *CronX) SetRefreshSystemInfo(refreshTime time.Duration) {
 	r.refreshSystemInfo = refreshTime
 }
 
+// StopCron 停止定时器任务服务
 func (r *CronX) StopCron() {
 	ctx := r.cron.Stop() // 暂停定时器，不调度新任务执行了，正在执行的继续执行
 	r.logx.Warn("正在停止定时任务调度器")

@@ -1,0 +1,83 @@
+/*
+    jwtX2为jwtx升级版，此实现：
+        · 完全兼容原有接口
+        · 解决多设备互踢问题
+        · 支持“退出即失效”
+        · 可 mock、可测试
+*/
+
+
+/*  eg：例如
+    // main.go
+    package main
+
+    import (
+    	"github.com/gin-gonic/gin"
+    	"github.com/redis/go-redis/v9"
+    	"your-project/jwtx"
+    )
+
+    func main() {
+    	r := gin.Default()
+
+    	redisClient := redis.NewClient(&redis.Options{Addr: "localhost:6379"})
+    	jwtHandler := jwtx.NewJwtxMiddlewareGinx(redisClient, &jwtx.JwtxMiddlewareGinxConfig{
+    		JwtKey:                []byte("your-access-secret-32-bytes!!"),
+    		LongJwtKey:            []byte("your-refresh-secret-32-bytes!!"),
+    		DurationExpiresIn:     30 * time.Minute,
+    		LongDurationExpiresIn: 7 * 24 * time.Hour,
+    	})
+
+    	// 登录
+    	r.POST("/login", func(c *gin.Context) {
+    		// 验证用户名密码...
+    		userID := int64(123)
+    		name := "alice"
+    		ssid := uuid.New().String() // 需引入 github.com/google/uuid
+
+    		_, err := jwtHandler.SetToken(c, userID, name, ssid)
+    		if err != nil {
+    			c.JSON(500, gin.H{"error": err.Error()})
+    			return
+    		}
+    		c.JSON(200, gin.H{"msg": "login success"})
+    	})
+
+    	// 刷新
+    	r.POST("/refresh", func(c *gin.Context) {
+    		// 可传 newSsid 实现“续会话”，或留空复用
+    		_, err := jwtHandler.RefreshToken(c, "")
+    		if err != nil {
+    			c.JSON(401, gin.H{"error": err.Error()})
+    			return
+    		}
+    		c.JSON(200, gin.H{"msg": "refresh success"})
+    	})
+
+    	// 退出
+    	r.POST("/logout", func(c *gin.Context) {
+    		_, err := jwtHandler.DeleteToken(c)
+    		if err != nil {
+    			c.JSON(401, gin.H{"error": err.Error()})
+    			return
+    		}
+    		c.JSON(200, gin.H{"msg": "logout success"})
+    	})
+
+    	// 受保护路由
+    	api := r.Group("/api")
+    	api.Use(func(c *gin.Context) {
+    		_, err := jwtHandler.VerifyToken(c)
+    		if err != nil {
+    			c.AbortWithStatusJSON(401, gin.H{"error": "unauthorized"})
+    			return
+    		}
+    		c.Next()
+    	})
+    	api.GET("/profile", func(c *gin.Context) {
+    		c.JSON(200, gin.H{"msg": "protected"})
+    	})
+
+    	r.Run(":8080")
+    }
+*/

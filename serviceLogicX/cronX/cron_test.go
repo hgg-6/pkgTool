@@ -1,23 +1,29 @@
 package cronX
 
 import (
+	"context"
 	"fmt"
 	"gitee.com/hgg_test/pkg_tool/v2/logx"
 	"gitee.com/hgg_test/pkg_tool/v2/logx/zerologx"
 	"gitee.com/hgg_test/pkg_tool/v2/serviceLogicX/rankingListX/rankingServiceX"
+	"gitee.com/hgg_test/pkg_tool/v2/serviceLogicX/rankingListX/rankingServiceX/buildGormX"
+	"gitee.com/hgg_test/pkg_tool/v2/serviceLogicX/rankingListX/rankingServiceX/types"
 	"gitee.com/hgg_test/pkg_tool/v2/systemLoad/gopsutilx"
 	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/assert"
+	"gorm.io/driver/mysql"
+	"gorm.io/gorm"
 	"log"
 	"math/rand/v2"
 	"os"
+	"strconv"
 	"testing"
 	"time"
 )
 
 // 测试定时任务，且判断系统负载进行自动暂停/继续任务
 func TestNewRankingServiceCron(t *testing.T) {
-	r := NewCronX(initLog(), initSyatemLoad())
+	r := NewCronX(InitLog(), initSyatemLoad())
 	// 设置任务表达式和任务执行逻辑
 	r.SetExprOrCmd(
 		CronXCmdConfig{
@@ -65,18 +71,10 @@ func TestNewRankingServiceCron(t *testing.T) {
 			log.Println("任务4执行中...")
 		},
 	})
+	r.ResumeCron("任务4_1111555") // 恢复任务4
 
 	time.Sleep(time.Minute) // 模拟堵塞1分钟
 
-}
-
-func initLog() logx.Loggerx {
-	zerolog.TimeFieldFormat = zerolog.TimeFormatUnix
-	// Level日志级别【可以考虑作为参数传】，测试传zerolog.InfoLevel/NoLevel不打印
-	// 模块化: Str("module", "userService模块")
-	logger := zerolog.New(os.Stderr).Level(zerolog.DebugLevel).With().CallerWithSkipFrameCount(4).Str("module", "userService模块").Timestamp().Logger()
-
-	return zerologx.NewZeroLogger(&logger)
 }
 
 func initSyatemLoad() *gopsutilx.SystemLoad {
@@ -85,57 +83,75 @@ func initSyatemLoad() *gopsutilx.SystemLoad {
 
 // 定时任务执行逻辑
 func cmd() {
-	offset := 0
-	total := 100000
-	batchSize := 100
-
-	s := rankingServiceX.NewRankingServiceBatch(10, UserScoreProvider{}, initLog())
+	batchSize := 100 // 数据库获取每批数据源大小
+	s := rankingServiceX.NewRankingServiceBatch(10, types.HotScoreProvider{}, InitLog())
 	s.SetBatchSize(batchSize)
-	s.SetSource(func(batchSize int) ([]UserScore, bool) {
-		var batch []UserScore
-		for i := 0; i < total/100; i++ { // 模拟分批次获取数据
-			if offset >= total {
-				// 数据已经获取完毕
-				return nil, false
-			}
-			end := offset + batchSize
-			if end > total {
-				end = total
-			}
-			batch = make([]UserScore, end-offset) // 创建一个切片,用来存储数据
-			for k, _ := range batch {
-				batch[k] = UserScore{
-					UserID: fmt.Sprintf("user_%d", offset+k+1), // 生成用户ID
-					Score:  rand.Float64() * 10000,             // 随机生成一个分数
-				}
-			}
-			offset = end
-		}
-		return batch, offset < total
-	})
+	s.SetSource(buildGormX.BuildDataSource[TestInteractive](
+		context.Background(),
+		InitDb(),
+		func(db *gorm.DB) *gorm.DB {
+			return db.Where("biz = ?", "test_biz")
+		},
+		func(interactive TestInteractive) types.HotScore {
+			return interactive.dataOrigin()
+		}, InitLog()),
+	)
 
 	// 获取 Top-10 列表【此处可接入自己业务逻辑，榜单后存入本地缓存、redis、数据库等】
 	top10 := s.GetTopN() // 获取 Top-10 列表
 	fmt.Println("Top 10 Users:")
 	for i, u := range top10 {
-		fmt.Printf("#%d | UserID: %s | Score: %.2f\n", i+1, u.UserID, u.Score)
+		fmt.Printf("#%d | Biz_BizId: %s | Score: %.2f\n", i+1, u.Biz+u.BizID, u.Score)
 	}
-}
-
-// 定义业务结构体
-type UserScore struct {
-	UserID string
-	Score  float64
-}
-
-// 实现 ScoreProvider 接口
-type UserScoreProvider struct{}
-
-func (p UserScoreProvider) Score(item UserScore) float64 {
-	return item.Score
 }
 
 func systemLoad() (uint, error) {
 	s := gopsutilx.NewSystemLoad()
 	return s.SystemLoad()
+}
+
+// 定义业务结构体，数据源
+type TestInteractive struct {
+	Id int64 `gorm:"primaryKey, autoIncrement"` //主键
+
+	// <bizid biz>，联合索引，bizId和id建立一个联合索引biz_type_id
+	BizId int64  `gorm:"uniqueIndex:biz_type_id"`                   //业务id
+	Biz   string `gorm:"type:varchar(128);uniqueIndex:biz_type_id"` //业务类型
+
+	ReadCnt int64 //阅读次数
+	//LikeCnt    int64 //点赞次数
+	//CollectCnt int64 //收藏次数
+	Utime int64 //更新时间
+	Ctime int64 //创建时间
+}
+
+func (u TestInteractive) dataOrigin() types.HotScore {
+	return types.HotScore{
+		Biz:   u.Biz,
+		BizID: strconv.FormatInt(u.BizId, 10),
+		Score: rand.Float64()*1000 + float64(u.ReadCnt), // 随机生成一个分数, 实际可使用其他得分算法，根据点赞、收藏计算得分
+		//Score: float64(u.ReadCnt), // 随机生成一个分数, 实际可使用其他得分算法，根据点赞、收藏计算得分
+		Title: u.Biz + strconv.FormatInt(u.BizId, 10),
+	}
+}
+
+func InitLog() logx.Loggerx {
+	zerolog.TimeFieldFormat = zerolog.TimeFormatUnix
+	// Level日志级别【可以考虑作为参数传】，测试传zerolog.InfoLevel/NoLevel不打印
+	// 模块化: Str("module", "userService模块")
+	logger := zerolog.New(os.Stderr).Level(zerolog.DebugLevel).With().CallerWithSkipFrameCount(4).Timestamp().Logger()
+
+	return zerologx.NewZeroLogger(&logger)
+}
+
+func InitDb() *gorm.DB {
+	db, err := gorm.Open(mysql.Open("root:root@tcp(127.0.0.1:13306)/src_db?charset=utf8mb4&parseTime=True&loc=Local"))
+	if err != nil {
+		log.Println("数据库连接失败", err)
+	}
+	err = db.AutoMigrate(&TestInteractive{})
+	if err != nil {
+		return nil
+	}
+	return db
 }

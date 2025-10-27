@@ -34,11 +34,14 @@ func TestNewRankingServiceBatch(t *testing.T) {
 		return db.Select("id", "biz_id", "biz", "read_cnt").Where("biz = ?", "test_biz")
 	}
 	BuildDataSource := buildGormX.BuildDataSource[TestInteractive](
-		context.Background(), db, baseQuery,
-		func(interactive TestInteractive,
-		) types.HotScore {
+		context.Background(),
+		db,
+		baseQuery,
+		func(interactive TestInteractive) types.HotScore {
 			return interactive.dataOrigin()
-		}, InitLog())
+		},
+		InitLog(),
+	)
 
 	// 设置数据源
 	s.SetSource(BuildDataSource)

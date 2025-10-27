@@ -14,10 +14,10 @@ import (
 //   - mapper: 映射数据源结构体到分数结构体，返回分数结构体
 func BuildDataSource[T any](
 	ctx context.Context,
-	db *gorm.DB,                       // 数据库连接
+	db *gorm.DB, // 数据库连接
 	baseQuery func(*gorm.DB) *gorm.DB, // 构造Select/Where/Order，注意不要加分页！
-	mapper func(T) types.HotScore,     // 映射数据源结构体到业务结构体
-	logger logx.Loggerx,               // 日志
+	mapper func(T) types.HotScore, // 映射数据源结构体到业务结构体
+	logger logx.Loggerx, // 日志
 ) func(offset, limit int) ([]types.HotScore, error) {
 
 	return func(offset, limit int) ([]types.HotScore, error) {
