@@ -4,6 +4,16 @@
         · 解决多设备互踢问题
         · 支持“退出即失效”
         · 可 mock、可测试
+
+
+    1. 前端需支持：
+        首次访问生成 deviceId 并存 localStorage
+        所有请求携带：
+            X-Device-ID: abc123def456...
+            Authorization: Bearer <access_token>
+    2. 若不传 X-Device-ID：
+        自动使用 User-Agent 哈希作为设备 ID
+        同一浏览器/Postman 视为同一设备，多次登录自动踢旧
 */
 
 
