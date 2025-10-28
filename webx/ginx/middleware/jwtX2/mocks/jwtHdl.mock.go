@@ -12,7 +12,7 @@ package jwtxmocks
 import (
 	reflect "reflect"
 
-	jwt2 "gitee.com/hgg_test/pkg_tool/v2/webx/ginx/middleware/jwtX2"
+	jwtX2 "gitee.com/hgg_test/pkg_tool/v2/webx/ginx/middleware/jwtX2"
 	gin "github.com/gin-gonic/gin"
 	gomock "go.uber.org/mock/gomock"
 )
@@ -42,10 +42,10 @@ func (m *MockJwtHandlerx) EXPECT() *MockJwtHandlerxMockRecorder {
 }
 
 // DeleteToken mocks base method.
-func (m *MockJwtHandlerx) DeleteToken(ctx *gin.Context) (*jwt2.UserClaims, error) {
+func (m *MockJwtHandlerx) DeleteToken(ctx *gin.Context) (*jwtX2.UserClaims, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "DeleteToken", ctx)
-	ret0, _ := ret[0].(*jwt2.UserClaims)
+	ret0, _ := ret[0].(*jwtX2.UserClaims)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -71,10 +71,10 @@ func (mr *MockJwtHandlerxMockRecorder) ExtractToken(ctx any) *gomock.Call {
 }
 
 // LongVerifyToken mocks base method.
-func (m *MockJwtHandlerx) LongVerifyToken(ctx *gin.Context) (*jwt2.UserClaims, error) {
+func (m *MockJwtHandlerx) LongVerifyToken(ctx *gin.Context) (*jwtX2.UserClaims, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "LongVerifyToken", ctx)
-	ret0, _ := ret[0].(*jwt2.UserClaims)
+	ret0, _ := ret[0].(*jwtX2.UserClaims)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -86,10 +86,10 @@ func (mr *MockJwtHandlerxMockRecorder) LongVerifyToken(ctx any) *gomock.Call {
 }
 
 // RefreshToken mocks base method.
-func (m *MockJwtHandlerx) RefreshToken(ctx *gin.Context, newSsid string) (*jwt2.UserClaims, error) {
+func (m *MockJwtHandlerx) RefreshToken(ctx *gin.Context, newSsid string) (*jwtX2.UserClaims, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "RefreshToken", ctx, newSsid)
-	ret0, _ := ret[0].(*jwt2.UserClaims)
+	ret0, _ := ret[0].(*jwtX2.UserClaims)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -101,10 +101,10 @@ func (mr *MockJwtHandlerxMockRecorder) RefreshToken(ctx, newSsid any) *gomock.Ca
 }
 
 // SetToken mocks base method.
-func (m *MockJwtHandlerx) SetToken(ctx *gin.Context, userId int64, name, ssid string) (*jwt2.UserClaims, error) {
+func (m *MockJwtHandlerx) SetToken(ctx *gin.Context, userId int64, name, ssid string) (*jwtX2.UserClaims, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "SetToken", ctx, userId, name, ssid)
-	ret0, _ := ret[0].(*jwt2.UserClaims)
+	ret0, _ := ret[0].(*jwtX2.UserClaims)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -116,10 +116,10 @@ func (mr *MockJwtHandlerxMockRecorder) SetToken(ctx, userId, name, ssid any) *go
 }
 
 // VerifyToken mocks base method.
-func (m *MockJwtHandlerx) VerifyToken(ctx *gin.Context) (*jwt2.UserClaims, error) {
+func (m *MockJwtHandlerx) VerifyToken(ctx *gin.Context) (*jwtX2.UserClaims, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "VerifyToken", ctx)
-	ret0, _ := ret[0].(*jwt2.UserClaims)
+	ret0, _ := ret[0].(*jwtX2.UserClaims)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }

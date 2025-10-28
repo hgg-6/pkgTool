@@ -24,6 +24,7 @@ type JwtxMiddlewareGinx struct {
 	JwtxMiddlewareGinxConfig
 }
 
+// Deprecated: jwtx此包弃用，此方法将在未来版本中删除，请使用jwtX2包【可无缝替换jwtX2包实现】
 // NewJwtxMiddlewareGinx 创建JwtxMiddlewareGinx
 //   - 【一般情况下，只用设置、验证、刷新、删除四个token方法】
 //   - expiresIn: token过期时间

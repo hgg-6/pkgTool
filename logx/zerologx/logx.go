@@ -31,9 +31,9 @@ func (z *ZeroLogger) logEvent(level zerolog.Level, msg string, fields []logx.Fie
 	//}
 	//event.Msg(msg)
 	event := z.logger.WithLevel(level)
-	// 当日志级别为，警告war和错误err 级别时，调用堆栈
+	// 当日志级别为，警告war和错误err 级别时，调用堆栈【默认跳过2层】
 	if level == 2 || level == 3 {
-		event.Caller()
+		event.Caller(2)
 	}
 	for _, f := range fields {
 		if f.Key == "" {
