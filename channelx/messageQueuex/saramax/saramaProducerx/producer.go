@@ -7,6 +7,7 @@ import (
 	"github.com/IBM/sarama"
 )
 
+// Deprecated: messageQueuex此包弃用，此方法将在未来版本中删除，请使用mqX包
 type SaramaProducerStr[ProducerTyp any] struct {
 	SyncProducer  sarama.SyncProducer
 	AsyncProducer sarama.AsyncProducer
@@ -16,6 +17,7 @@ type SaramaProducerStr[ProducerTyp any] struct {
 	cancelFunc context.CancelFunc
 }
 
+// Deprecated: messageQueuex此包弃用，此方法将在未来版本中删除，请使用mqX包
 // NewSaramaProducerStr 创建一个SaramaProducerStr实现【Sync单条消息，Async异步才支持批量】
 //   - 同步发送消息，就注入同步发送消息的配置监听success通道配置为true
 //   - 异步批量发送消息，需注入异步批量发送消息的配置Producer.Flush.Messages Producer.Flush.Frequency以及监听success和error通道配置为true

@@ -15,7 +15,7 @@ var addr []string = []string{"localhost:9094"}
 
 func TestNewKafkaProducer(t *testing.T) {
 
-	// =========创建同步生产者=========
+	// =========创建异步批量生产者=========
 	pro, err := NewKafkaProducer(addr, &ProducerConfig{
 		Async:        true,            // true默认为异步批量发送
 		BatchSize:    200,             // 批量发送消息数量
@@ -23,7 +23,7 @@ func TestNewKafkaProducer(t *testing.T) {
 	})
 	assert.NoError(t, err)
 
-	// =========创建异步生产者=========
+	// =========创建同步生产者=========
 	pros, err := NewKafkaProducer(addr, &ProducerConfig{
 		Async: false, // false为同步
 	})

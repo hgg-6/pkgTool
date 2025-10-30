@@ -67,6 +67,11 @@ type ConfigIn interface {
 	GetUnmarshalKey(key string, rawVal any, fileName ...string) error
 }
 
+type DefaultConfig struct {
+	Key string
+	Val any
+}
+
 //func InitConfigViper() configx.ViperConfigIn {
 //	conf := configx.NewViperConfigStr(viper.New())
 //	err := conf.InitViperLocalWatch("./config/dev.yaml",

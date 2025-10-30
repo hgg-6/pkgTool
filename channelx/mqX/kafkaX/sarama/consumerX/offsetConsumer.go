@@ -73,13 +73,9 @@ func NewOffsetConsumer(brokers []string, config *OffsetConsumerConfig) (*OffsetC
 }
 
 // ConsumeFrom 从指定 topic/partition/offset 开始消费
-func (oc *OffsetConsumer) ConsumeFrom(
-	ctx context.Context,
-	topic string,
-	partition int32,
-	startOffset int64,
-	handler mqX.BatchConsumerHandler,
-) error {
+func (oc *OffsetConsumer) ConsumeFrom(ctx context.Context, topic string,
+	partition int32, startOffset int64,
+	handler mqX.BatchConsumerHandler) error {
 	oc.mu.Lock()
 	if oc.closed {
 		oc.mu.Unlock()

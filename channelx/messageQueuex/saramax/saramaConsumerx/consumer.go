@@ -6,6 +6,7 @@ import (
 	"github.com/IBM/sarama"
 )
 
+// Deprecated: messageQueuex此包弃用，此方法将在未来版本中删除，请使用mqX包
 type ConsumerGroup struct {
 	// ConsumerGroup sararma的消费者组接口逻辑
 	ConsumerGroup sarama.ConsumerGroup
@@ -13,6 +14,7 @@ type ConsumerGroup struct {
 	ConsumerGroupHandlers sarama.ConsumerGroupHandler
 }
 
+// Deprecated: messageQueuex此包弃用，此方法将在未来版本中删除，请使用mqX包
 // NewConsumerIn
 //   - consumerGroup New一个sarama.NewConsumerGroup
 //   - ConsumerGroupHandlers 可自信封装消费者组处理逻辑【也可使用hgg的ConsumerGroupHandlerx包下默认封装的逻辑】

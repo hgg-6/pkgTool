@@ -12,7 +12,7 @@ import (
 	"gitee.com/hgg_test/pkg_tool/v2/DBx/gormx/dbMovex/myMovex"
 	"gitee.com/hgg_test/pkg_tool/v2/DBx/gormx/dbMovex/myMovex/doubleWritePoolx"
 	"gitee.com/hgg_test/pkg_tool/v2/DBx/gormx/dbMovex/myMovex/validator"
-	"gitee.com/hgg_test/pkg_tool/v2/channelx/messageQueuex"
+	"gitee.com/hgg_test/pkg_tool/v2/channelx/mqX"
 	"gitee.com/hgg_test/pkg_tool/v2/logx"
 	"gitee.com/hgg_test/pkg_tool/v2/webx/ginx"
 	"github.com/gin-gonic/gin"
@@ -55,11 +55,12 @@ type Scheduler[T myMovex.Entity, Pdr any] struct {
 	State   MigrationState // 迁移状态
 	Stats   MigrationStats // 迁移统计信息
 
-	cancelFull        func()                        // 全量校验的取消函数
-	cancelIncr        func()                        // 增量校验的取消函数
-	producer          messageQueuex.ProducerIn[Pdr] // 消息队列生产者
-	MessageQueueTopic string                        // 消息队列主题Topic【默认为dbMove】
-	fulls             map[string]func()             // 全量校验的函数
+	cancelFull func() // 全量校验的取消函数
+	cancelIncr func() // 增量校验的取消函数
+	//producer          messageQueuex.ProducerIn[Pdr] // 消息队列生产者
+	producer          mqX.Producer      // 消息队列生产者
+	MessageQueueTopic string            // 消息队列主题Topic【默认为dbMove】
+	fulls             map[string]func() // 全量校验的函数
 
 	// 新增字段
 	vdt    map[string]*validator.Validator[T, Pdr] // 活跃的校验器
@@ -79,7 +80,8 @@ type SchedulerConfig struct {
 func NewScheduler[T myMovex.Entity, Pdr any](l logx.Loggerx, src *gorm.DB, dst *gorm.DB,
 	// 这个是业务用的 DoubleWritePool
 	pool *doubleWritePoolx.DoubleWritePool,
-	producer messageQueuex.ProducerIn[Pdr]) *Scheduler[T, Pdr] {
+	//producer messageQueuex.ProducerIn[Pdr]) *Scheduler[T, Pdr] {
+	producer mqX.Producer) *Scheduler[T, Pdr] {
 	return &Scheduler[T, Pdr]{
 		l:       l,
 		src:     src,

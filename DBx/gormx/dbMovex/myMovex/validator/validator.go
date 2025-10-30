@@ -12,7 +12,7 @@ import (
 	"encoding/json"
 	"gitee.com/hgg_test/pkg_tool/v2/DBx/gormx/dbMovex/myMovex"
 	"gitee.com/hgg_test/pkg_tool/v2/DBx/gormx/dbMovex/myMovex/events"
-	"gitee.com/hgg_test/pkg_tool/v2/channelx/messageQueuex"
+	"gitee.com/hgg_test/pkg_tool/v2/channelx/mqX"
 	"gitee.com/hgg_test/pkg_tool/v2/logx"
 	"gitee.com/hgg_test/pkg_tool/v2/slicex"
 	"golang.org/x/sync/errgroup"
@@ -21,7 +21,8 @@ import (
 )
 
 type MessageQueueStr[Pdr any] struct {
-	Producer          messageQueuex.ProducerIn[Pdr]
+	//Producer          messageQueuex.ProducerIn[Pdr]
+	Producer          mqX.Producer
 	MessageQueueTopic string
 }
 
@@ -246,7 +247,8 @@ func (v *Validator[T, Pdr]) notify(id int64, typ string) {
 		Type:      typ,
 		Direction: v.direction,
 	})
-	err := v.MessageQueueConf.Producer.SendMessage(ctx, messageQueuex.Tp{Topic: v.MessageQueueConf.MessageQueueTopic}, val)
+	//err := v.MessageQueueConf.Producer.SendMessage(ctx, messageQueuex.Tp{Topic: v.MessageQueueConf.MessageQueueTopic}, val)
+	err := v.MessageQueueConf.Producer.Send(ctx, &mqX.Message{Topic: v.MessageQueueConf.MessageQueueTopic, Value: val})
 	if err != nil {
 		v.l.Error("发送不一致数据消息失败", logx.Error(err), logx.String("topic", v.MessageQueueConf.MessageQueueTopic), logx.String("type", typ), logx.Int64("id", id))
 	}

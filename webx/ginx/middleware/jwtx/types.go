@@ -2,8 +2,10 @@ package jwtx
 
 import "github.com/gin-gonic/gin"
 
+// Deprecated: jwtx此包弃用，此方法将在未来版本中删除，请使用jwtX2包【可无缝替换jwtX2包实现】
 // JwtHandlerx 方法
 //   - 一般情况下，只用登录、登出、验证、刷新四个token方法
+//
 //go:generate mockgen -source=./types.go -package=jwtxmocks -destination=mocks/jwtHdl.mock.go JwtHandlerx
 type JwtHandlerx interface {
 	// SetToken 生成 JwtToken

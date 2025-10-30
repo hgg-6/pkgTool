@@ -1,7 +1,8 @@
-package configx
+package viperX
 
 import (
 	"fmt"
+	"gitee.com/hgg_test/pkg_tool/v2/configx"
 	"github.com/fsnotify/fsnotify"
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
@@ -17,7 +18,7 @@ type ViperConfigStr struct {
 	interval time.Duration // 远程配置中心监听文件变更的间隔时间,默认5秒
 }
 
-func NewViperConfigStr() ConfigIn {
+func NewViperConfigStr() configx.ConfigIn {
 	return &ViperConfigStr{
 		Config:   viper.New(),
 		Configs:  make(map[string]*viper.Viper),
@@ -45,7 +46,7 @@ func (v *ViperConfigStr) GetNamedViper(name string) (*viper.Viper, error) {
 // InitViperLocal 配置单个文件
 //   - filePath是文件路径 精确到文件名，如：config/dev.yaml
 //   - defaultConfig是默认配置项【viper.SetDefault("mysql.dsn", "root:root@tcp(localhost:3306)/webook")】
-func (v *ViperConfigStr) InitViperLocal(filePath string, defaultConfig ...DefaultConfig) error {
+func (v *ViperConfigStr) InitViperLocal(filePath string, defaultConfig ...configx.DefaultConfig) error {
 	//cfilg := pflag.String("config", "config/dev.yaml", "配置文件路径") // pflag.String是设置命令行参数，用于指定配置文件路径
 	cfilg := pflag.String("config", filePath, "配置文件路径") // pflag.String是设置命令行参数，用于指定配置文件路径
 	pflag.Parse()                                       // 解析命令行参数，pflag.String时cfilg还没有值，需要调一下pflag.Parse()，cfilg才有值config/config.yaml
@@ -68,7 +69,7 @@ func (v *ViperConfigStr) InitViperLocal(filePath string, defaultConfig ...Defaul
 // InitViperLocals 配置多个文件
 //   - 读取多个配置文件,fileName是文件名 精确文件名不带后缀，fileType是文件得类型eg: yaml、json....，filePath是文件路径 精确到文件夹名，
 //   - defaultConfig是默认配置项【viper.SetDefault("mysql.dsn", "root:root@tcp(localhost:3306)/webook")】
-func (v *ViperConfigStr) InitViperLocals(fileName, fileType, filePath string, defaultConfig ...DefaultConfig) error {
+func (v *ViperConfigStr) InitViperLocals(fileName, fileType, filePath string, defaultConfig ...configx.DefaultConfig) error {
 	v.Config = viper.New()
 	v.Config.SetConfigName(fileName) // 配置文件名称(无扩展名)
 	v.Config.SetConfigType(fileType) // 配置文件类型
@@ -109,7 +110,7 @@ func (v *ViperConfigStr) InitViperRemote(provider, endpoint, path string) error 
 // InitViperLocalWatch  配置本地文件并监听文件变化
 //   - filePath是文件路径 精确到文件名，如：config/dev.yaml
 //   - defaultConfig是默认配置项【viper.SetDefault("mysql.dsn", "root:root@tcp(localhost:3306)/webook")】
-func (v *ViperConfigStr) InitViperLocalWatch(filePath string, defaultConfig ...DefaultConfig) error {
+func (v *ViperConfigStr) InitViperLocalWatch(filePath string, defaultConfig ...configx.DefaultConfig) error {
 	//cfilg := pflag.String("config", "config/dev.yaml", "配置文件路径") // pflag.String是设置命令行参数，用于指定配置文件路径
 	cfilg := pflag.String("config", filePath, "配置文件路径") // pflag.String是设置命令行参数，用于指定配置文件路径
 	pflag.Parse()                                       // 解析命令行参数，pflag.String时cfilg还没有值，需要调一下pflag.Parse()，cfilg才有值config/config.yaml
@@ -139,7 +140,7 @@ func (v *ViperConfigStr) InitViperLocalWatch(filePath string, defaultConfig ...D
 // InitViperLocalsWatchs 配置多个本地文件并监听文件变化
 //   - filePath是文件路径 精确到文件名，如：config/dev.yaml
 //   - defaultConfig是默认配置项【viper.SetDefault("mysql.dsn", "root:root@tcp(localhost:3306)/webook")】
-func (v *ViperConfigStr) InitViperLocalsWatchs(fileName, fileType, filePath string, defaultConfig ...DefaultConfig) error {
+func (v *ViperConfigStr) InitViperLocalsWatchs(fileName, fileType, filePath string, defaultConfig ...configx.DefaultConfig) error {
 	v.Config = viper.New()
 	v.Config.SetConfigName(fileName) // 配置文件名称(无扩展名)
 	v.Config.SetConfigType(fileType) // 配置文件类型
@@ -205,11 +206,6 @@ func (v *ViperConfigStr) InitViperRemoteWatch(provider, endpoint, path string) e
 //   - t 是远程配置的监听间隔频率【几秒监听一次...】
 func (v *ViperConfigStr) SetInterval(t time.Duration) {
 	v.interval = t
-}
-
-type DefaultConfig struct {
-	Key string
-	Val any
 }
 
 // Get 获取配置项【当整个项目读取Init一个配置文件，fileName文件名留空，但整个项目读取Init多个配置文件,需传入文件名eg: db.yaml】

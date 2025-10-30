@@ -83,6 +83,73 @@ func (mr *MockProducerMockRecorder) SendBatch(ctx, msgs any) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SendBatch", reflect.TypeOf((*MockProducer)(nil).SendBatch), ctx, msgs)
 }
 
+// MockConsumerHandlerType is a mock of ConsumerHandlerType interface.
+type MockConsumerHandlerType struct {
+	ctrl     *gomock.Controller
+	recorder *MockConsumerHandlerTypeMockRecorder
+	isgomock struct{}
+}
+
+// MockConsumerHandlerTypeMockRecorder is the mock recorder for MockConsumerHandlerType.
+type MockConsumerHandlerTypeMockRecorder struct {
+	mock *MockConsumerHandlerType
+}
+
+// NewMockConsumerHandlerType creates a new mock instance.
+func NewMockConsumerHandlerType(ctrl *gomock.Controller) *MockConsumerHandlerType {
+	mock := &MockConsumerHandlerType{ctrl: ctrl}
+	mock.recorder = &MockConsumerHandlerTypeMockRecorder{mock}
+	return mock
+}
+
+// EXPECT returns an object that allows the caller to indicate expected use.
+func (m *MockConsumerHandlerType) EXPECT() *MockConsumerHandlerTypeMockRecorder {
+	return m.recorder
+}
+
+// Handle mocks base method.
+func (m *MockConsumerHandlerType) Handle(ctx context.Context, msg *mqX.Message) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Handle", ctx, msg)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// Handle indicates an expected call of Handle.
+func (mr *MockConsumerHandlerTypeMockRecorder) Handle(ctx, msg any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Handle", reflect.TypeOf((*MockConsumerHandlerType)(nil).Handle), ctx, msg)
+}
+
+// HandleBatch mocks base method.
+func (m *MockConsumerHandlerType) HandleBatch(ctx context.Context, msgs []*mqX.Message) (bool, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "HandleBatch", ctx, msgs)
+	ret0, _ := ret[0].(bool)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// HandleBatch indicates an expected call of HandleBatch.
+func (mr *MockConsumerHandlerTypeMockRecorder) HandleBatch(ctx, msgs any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "HandleBatch", reflect.TypeOf((*MockConsumerHandlerType)(nil).HandleBatch), ctx, msgs)
+}
+
+// IsBatch mocks base method.
+func (m *MockConsumerHandlerType) IsBatch() bool {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "IsBatch")
+	ret0, _ := ret[0].(bool)
+	return ret0
+}
+
+// IsBatch indicates an expected call of IsBatch.
+func (mr *MockConsumerHandlerTypeMockRecorder) IsBatch() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IsBatch", reflect.TypeOf((*MockConsumerHandlerType)(nil).IsBatch))
+}
+
 // MockConsumerHandler is a mock of ConsumerHandler interface.
 type MockConsumerHandler struct {
 	ctrl     *gomock.Controller
@@ -185,7 +252,7 @@ func (m *MockConsumer) EXPECT() *MockConsumerMockRecorder {
 }
 
 // Subscribe mocks base method.
-func (m *MockConsumer) Subscribe(ctx context.Context, topics []string, handler mqX.ConsumerHandler) error {
+func (m *MockConsumer) Subscribe(ctx context.Context, topics []string, handler mqX.ConsumerHandlerType) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Subscribe", ctx, topics, handler)
 	ret0, _ := ret[0].(error)

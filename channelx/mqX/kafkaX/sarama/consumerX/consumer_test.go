@@ -13,7 +13,26 @@ import (
 
 var addr []string = []string{"localhost:9094"}
 
+// // ============消费数据后业务逻辑=================
 type MyHandler struct{}
+
+// IsBatch 业务处理逻辑是否批量
+func (h *MyHandler) IsBatch() bool {
+	return false
+}
+
+func (h *MyHandler) HandleBatch(ctx context.Context, msgs []*mqX.Message) (success bool, err error) {
+	//var events []mqX.UserEventTest
+	//for _, v := range msgs {
+	//	var event mqX.UserEventTest
+	//	if er := json.Unmarshal(v.Value, &event); er != nil {
+	//		return false, er
+	//	}
+	//	events = append(events, event)
+	//}
+	//log.Println("Received events:", events)
+	return true, nil
+}
 
 func (h *MyHandler) Handle(ctx context.Context, msg *mqX.Message) error {
 	var event mqX.UserEventTest
@@ -25,6 +44,8 @@ func (h *MyHandler) Handle(ctx context.Context, msg *mqX.Message) error {
 	return nil
 }
 
+// ============消费者=================
+// 测试的消费者
 func TestNewKafkaConsumer(t *testing.T) {
 	cfg := sarama.NewConfig()
 	saramaCG, err := sarama.NewConsumerGroup(addr, "test_group", cfg)
@@ -37,7 +58,7 @@ func TestNewKafkaConsumer(t *testing.T) {
 		BatchTimeout: 3 * time.Second, // 批量超时时间
 	})
 
-	// 调用你的通用接口方法
+	// 调用你的通用接口方法，消费消息
 	err = kafkaConsumer.Subscribe(context.Background(), []string{"user-events"}, &MyHandler{})
 	assert.NoError(t, err)
 

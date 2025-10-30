@@ -1,4 +1,4 @@
-package configx
+package viperX
 
 import (
 	"github.com/stretchr/testify/assert"

@@ -7,6 +7,7 @@ import (
 	"gitee.com/hgg_test/pkg_tool/v2/logx/zerologx"
 	"github.com/IBM/sarama"
 	"github.com/rs/zerolog"
+	"github.com/stretchr/testify/assert"
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
 	"os"
@@ -82,5 +83,6 @@ func TestNewConsumerGroupHandler1(t *testing.T) {
 	//assert.NoError(t, err)
 
 	cm := NewConsumer(ConsumerConf{Addr: addr, GroupId: "test_group", SaramaConf: cfg}, DbConf{SrcDb: setupTestSrcDB(), DstDb: setupTestDstDB()}, InitLog())
-	cm.InitConsumer(context.Background(), "dbMove")
+	err := cm.InitConsumer(context.Background(), "dbMove")
+	assert.NoError(t, err)
 }
