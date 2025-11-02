@@ -32,7 +32,7 @@ type JwtxMiddlewareGinxConfig struct {
 
 type JwtxMiddlewareGinx struct {
 	cache redis.Cmdable
-	cfg   JwtxMiddlewareGinxConfig
+	cfg   *JwtxMiddlewareGinxConfig
 }
 
 func NewJwtxMiddlewareGinx(cache redis.Cmdable, jwtConf *JwtxMiddlewareGinxConfig) JwtHandlerx {
@@ -60,7 +60,7 @@ func NewJwtxMiddlewareGinx(cache redis.Cmdable, jwtConf *JwtxMiddlewareGinxConfi
 
 	return &JwtxMiddlewareGinx{
 		cache: cache,
-		cfg:   *jwtConf,
+		cfg:   jwtConf,
 	}
 }
 

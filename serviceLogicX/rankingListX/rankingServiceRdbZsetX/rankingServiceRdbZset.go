@@ -3,7 +3,7 @@ package rankingServiceRdbZsetX
 import (
 	"context"
 	"fmt"
-	"gitee.com/hgg_test/pkg_tool/v2/DBx/cachex/cacheLocalx"
+	"gitee.com/hgg_test/pkg_tool/v2/DBx/localCahceX"
 	"gitee.com/hgg_test/pkg_tool/v2/logx"
 	"gitee.com/hgg_test/pkg_tool/v2/serviceLogicX/rankingListX/rankingServiceRdbZsetX/types"
 	"github.com/redis/go-redis/v9"
@@ -23,7 +23,7 @@ type BizRankingService struct {
 type RankingServiceZset struct {
 	shardCount int                                                // 分片数，如 16，默认10【区间10-256】小型系统（< 10万数据)10 ~ 32, 中型系统（10万~100万)64 ~ 128, 大型系统（> 100万）128 ~ 256
 	redisCache redis.Cmdable                                      // Redis 客户端（或 Cluster）
-	localCache cacheLocalx.CacheLocalIn[string, []types.HotScore] // 本地缓存
+	localCache localCahceX.CacheLocalIn[string, []types.HotScore] // 本地缓存
 	//provider   types.ScoreProvider                                // 分数提供器
 	logger logx.Loggerx
 
@@ -38,7 +38,7 @@ type RankingServiceZset struct {
 func NewRankingService(
 	shardCount int,
 	redisCache redis.Cmdable,
-	localCache cacheLocalx.CacheLocalIn[string, []types.HotScore],
+	localCache localCahceX.CacheLocalIn[string, []types.HotScore],
 	logger logx.Loggerx,
 ) *RankingServiceZset {
 	return &RankingServiceZset{

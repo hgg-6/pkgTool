@@ -1,0 +1,17 @@
+package cacheCountServiceX
+
+import (
+	"context"
+	"gitee.com/hgg_test/pkg_tool/v2/DBx/localCahceX"
+)
+
+// CntServiceIn 抽象计数服务接口【只用计数服务的话，此方法即可】
+type CntServiceIn[K localCahceX.Key, V any] interface {
+	// Key(biz string, bizId int64) string
+	// RankKey(biz string) string
+
+	SetCnt(ctx context.Context, biz string, bizId int64, num ...int64) *Count[K, V]
+	DelCnt(ctx context.Context, biz string, bizId int64) error
+	GetCnt(ctx context.Context, biz string, bizId int64) ([]RankItem, error)
+	GetCntRank(ctx context.Context, biz string, opt ...GetCntType) ([]RankItem, error)
+}

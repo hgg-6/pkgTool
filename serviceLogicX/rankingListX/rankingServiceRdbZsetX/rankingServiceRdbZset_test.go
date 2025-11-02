@@ -3,8 +3,8 @@ package rankingServiceRdbZsetX
 import (
 	"context"
 	"fmt"
-	"gitee.com/hgg_test/pkg_tool/v2/DBx/cachex/cacheLocalx"
-	"gitee.com/hgg_test/pkg_tool/v2/DBx/cachex/cacheLocalx/cacheLocalRistrettox"
+	"gitee.com/hgg_test/pkg_tool/v2/DBx/localCahceX"
+	"gitee.com/hgg_test/pkg_tool/v2/DBx/localCahceX/cacheLocalRistrettox"
 	"gitee.com/hgg_test/pkg_tool/v2/logx"
 	"gitee.com/hgg_test/pkg_tool/v2/logx/zerologx"
 	"gitee.com/hgg_test/pkg_tool/v2/serviceLogicX/rankingListX/rankingServiceRdbZsetX/types"
@@ -70,7 +70,7 @@ func newRedisCli() redis.Cmdable {
 func TestNewLocalCache(t *testing.T) {
 	newLocalCache()
 }
-func newLocalCache() cacheLocalx.CacheLocalIn[string, []types.HotScore] {
+func newLocalCache() localCahceX.CacheLocalIn[string, []types.HotScore] {
 	cache, err := ristretto.NewCache[string, []types.HotScore](&ristretto.Config[string, []types.HotScore]{
 		NumCounters: 1e7,     // 按键跟踪次数为（10M）。
 		MaxCost:     1 << 30, // 最大缓存成本（1GB）“位左移运算符”。
