@@ -23,10 +23,9 @@ func TestToAny(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			s, ok := ToAny[[]map[string]any](tc.src)
-			if ok {
-				assert.Equal(t, tc.wanRes, s)
-				t.Log(s)
-			}
+			assert.True(t, ok, "转换失败")
+			assert.Equal(t, tc.wanRes, s)
+			t.Log(s)
 		})
 	}
 }

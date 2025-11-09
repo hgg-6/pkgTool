@@ -1,3 +1,6 @@
 /*
     mqX是消息队列的顶级封装，后可装饰器模式等，来进行其他实现，优先使用mqX，而非messageQueuex
+
+    注意:
+        1、消费者的业务逻辑handler传入，需实现 ConsumerHandlerType 接口，然后handler里传入实现的结构体/接口
 */

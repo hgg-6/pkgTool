@@ -23,16 +23,16 @@ import (
 
 // 测试定时任务，且判断系统负载进行自动暂停/继续任务
 func TestNewRankingServiceCron(t *testing.T) {
-	r := NewCronX(InitLog(), initSyatemLoad())
+	r := NewCronX(InitLog())
 	// 设置任务表达式和任务执行逻辑
 	r.SetExprOrCmd(
-		CronXCmdConfig{
-			CronKeys: "任务1_1111222", // 任务map keys，一般使用【任务名+任务ID】组成，防止任务名重复，覆盖其他任务
-			CronName: "任务1",
-			CronId:   int64(1111222),
-			CronExpr: "*/5 * * * * ?",
-			CronCmd:  cmd,
-		},
+		//CronXCmdConfig{
+		//	CronKeys: "任务1_1111222", // 任务map keys，一般使用【任务名+任务ID】组成，防止任务名重复，覆盖其他任务
+		//	CronName: "任务1",
+		//	CronId:   int64(1111222),
+		//	CronExpr: "*/5 * * * * ?",
+		//	CronCmd:  cmd,
+		//},
 		CronXCmdConfig{
 			CronKeys: "任务2_1111333",
 			CronName: "任务2",
@@ -52,6 +52,7 @@ func TestNewRankingServiceCron(t *testing.T) {
 			},
 		},
 	)
+	//r.SetSystemInfo(initSyatemLoad(), true, 5*time.Second) // 设置/启用系统负载信息监控
 	err := r.Start() // 启动定时任务
 	assert.NoError(t, err)
 
@@ -103,11 +104,6 @@ func cmd() {
 	for i, u := range top10 {
 		fmt.Printf("#%d | Biz_BizId: %s | Score: %.2f\n", i+1, u.Biz+u.BizID, u.Score)
 	}
-}
-
-func systemLoad() (uint, error) {
-	s := gopsutilx.NewSystemLoad()
-	return s.SystemLoad()
 }
 
 // 定义业务结构体，数据源

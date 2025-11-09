@@ -7,6 +7,7 @@ import (
 	"gitee.com/hgg_test/pkg_tool/v2/systemLoad/gopsutilx"
 	"github.com/robfig/cron/v3"
 	"sync"
+	"sync/atomic"
 	"time"
 )
 
@@ -14,20 +15,25 @@ type CronCmd func()
 
 // CronX 定时任务服务封装，支持定时任务执行时检查系统负载等功能，如果过高则自动暂停任务从而避免任务执行压垮系统
 type CronX struct {
-	mu                sync.Mutex
-	cron              *cron.Cron
-	adminCron         *syncX.Map[string, CronXConfig]    // 管理定时任务，用户删除任务等
-	exprOrCmd         *syncX.Map[string, CronXCmdConfig] // cron 表达式【任务多久执行一次/每天xxx执行一次】，可参考https://help.aliyun.com/document_detail/133509.html
-	atc               int32                              // 0: 默认值，表示任务正常执行；1: 表示任务被暂停；
-	logx              logx.Loggerx
-	systemInfo        *gopsutilx.SystemLoad // 系统负载信息
-	refreshSystemInfo time.Duration         // 刷新系统负载间隔, 默认5秒
+	mu                    sync.Mutex
+	cron                  *cron.Cron
+	adminCron             *syncX.Map[string, CronXConfig]    // 管理定时任务，用户删除任务等
+	exprOrCmd             *syncX.Map[string, CronXCmdConfig] // cron 表达式【任务多久执行一次/每天xxx执行一次】，可参考https://help.aliyun.com/document_detail/133509.html
+	atc                   atomic.Int32                       // 0: 默认值，表示任务正常执行；1: 表示任务被暂停；
+	logx                  logx.Loggerx
+	IsSystemInfo          bool                  // 是否启用自动刷新系统负载信息,默认false
+	systemInfo            *gopsutilx.SystemLoad // 系统负载信息
+	refreshSystemInfoTime time.Duration         // 刷新系统负载间隔, 默认5秒
 }
 
 // NewCronX 创建定时任务服务【任务添加后, 启动定时器后，任务默认暂停状态，需显式调用ResumeCron/ResumeCrons启动】
 //   - 需优先调用函数设置任务表达式和任务逻辑 SetExprOrCmd
-func NewCronX(logx logx.Loggerx, systemInfo *gopsutilx.SystemLoad) *CronX {
-	c := &CronX{logx: logx, atc: int32(0), systemInfo: systemInfo, refreshSystemInfo: time.Second * 5}
+//
+// func NewCronX(logx logx.Loggerx, systemInfo *gopsutilx.SystemLoad) *CronX {
+func NewCronX(logx logx.Loggerx) *CronX {
+	//c := &CronX{logx: logx, atc: atomic.Int32{}, systemInfo: systemInfo, refreshSystemInfo: time.Second * 5}
+	c := &CronX{logx: logx, refreshSystemInfoTime: time.Second * 5, IsSystemInfo: false}
+	c.atc.Store(cronPause)
 	c.exprOrCmd = &syncX.Map[string, CronXCmdConfig]{}
 	c.adminCron = &syncX.Map[string, CronXConfig]{}
 	c.cron = cron.New(cron.WithSeconds())
@@ -48,8 +54,10 @@ func (r *CronX) Start() error {
 		return err
 	}
 
-	r.cron.Start()           // 启动任务
-	go r.refreshSystemLoad() // 异步刷新系统负载，默认5秒刷新一次，用于控制当前系统健康是否适合进行定时任务执行
+	r.cron.Start() // 启动任务
+	if r.IsSystemInfo && r.systemInfo != nil && r.refreshSystemInfoTime != 0 {
+		go r.refreshSystemLoad() // 异步刷新系统负载，默认5秒刷新一次，用于控制当前系统健康是否适合进行定时任务执行
+	}
 	return nil
 }
 
@@ -246,7 +254,7 @@ func (r *CronX) AddCronTask(config CronXCmdConfig) error {
 
 // RefreshSystemLoad 刷新系统负载
 func (r *CronX) refreshSystemLoad() {
-	ticker := time.NewTicker(r.refreshSystemInfo)
+	ticker := time.NewTicker(r.refreshSystemInfoTime)
 	defer ticker.Stop()
 	for {
 		select {
@@ -259,23 +267,32 @@ func (r *CronX) refreshSystemLoad() {
 			}
 			switch sid {
 			case uint(1), uint(2):
-				if r.atc == int32(1) { //	判断任务状态
+				//if r.atc == int32(1) { //	判断任务状态
+				if r.atc.Load() == int32(cronSuccess) { //	判断任务状态
 					r.logx.Info("系统负载恢复正常, 即将恢复定时任务", logx.String("系统负载", fmt.Sprintf("%d", sid)))
 					r.ResumeCrons() // 恢复继续任务
 				}
 			case uint(0), uint(3):
-				if r.atc == int32(0) { //	判断任务状态
+				//if r.atc == int32(0) { //	判断任务状态
+				if r.atc.Load() == int32(cronPause) { //	判断任务状态
 					r.logx.Info("当前系统负载异常, 即将暂停定时任务", logx.String("系统负载", fmt.Sprintf("%d", sid)))
 					r.PauseCrons() // 暂停任务
 				}
+			default:
+				r.logx.Error("获取系统负载失败", logx.Uint("系统负载", sid), logx.Error(err))
 			}
 		}
 	}
 }
 
-// SetRefreshSystemInfo 设置刷新系统负载间隔
-func (r *CronX) SetRefreshSystemInfo(refreshTime time.Duration) {
-	r.refreshSystemInfo = refreshTime
+// SetSystemInfo 设置/启用刷新系统负载配置
+//   - systemInfo: 系统负载对象
+//   - isSystemInfo: 是否启用刷新系统负载配置
+//   - refreshTime: 刷新系统负载间隔时间
+func (r *CronX) SetSystemInfo(systemInfo *gopsutilx.SystemLoad, isSystemInfo bool, refreshTime time.Duration) {
+	r.systemInfo = systemInfo
+	r.IsSystemInfo = isSystemInfo
+	r.refreshSystemInfoTime = refreshTime
 }
 
 // StopCron 停止定时器任务服务

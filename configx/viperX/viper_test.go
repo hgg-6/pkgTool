@@ -1,7 +1,11 @@
 package viperX
 
 import (
+	"gitee.com/hgg_test/pkg_tool/v2/logx"
+	"gitee.com/hgg_test/pkg_tool/v2/logx/zerologx"
+	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/assert"
+	"os"
 	"testing"
 	"time"
 )
@@ -15,7 +19,7 @@ const (
 func TestInitViperLocals(t *testing.T) {
 	t.Log(time.Now().UnixMilli())
 	// 初始化viper
-	conf := NewViperConfigStr()
+	conf := NewViperConfigStr(InitLog())
 	// 初始化读取配置文件1
 	err := conf.InitViperLocals("db", "yaml", ".")
 	assert.NoError(t, err)
@@ -55,7 +59,7 @@ func TestInitViperLocals(t *testing.T) {
 
 // TestInitViperLocalsWatchs 测试读取多个配置文件并监听文件变化
 func TestInitViperLocalsWatchs(t *testing.T) {
-	conf := NewViperConfigStr()
+	conf := NewViperConfigStr(InitLog())
 	err := conf.InitViperLocalsWatchs("db", "yaml", ".")
 	assert.NoError(t, err)
 	err = conf.InitViperLocalsWatchs("redis", "yaml", ".")
@@ -72,4 +76,15 @@ func TestInitViperLocalsWatchs(t *testing.T) {
 	t.Logf("dbConf: %s, redisConf: %s", dbConf, redisConf)
 
 	time.Sleep(time.Minute * 5)
+}
+
+func InitLog() logx.Loggerx {
+	// InitLog 初始化zerolog日志模块
+	zerolog.TimeFieldFormat = zerolog.TimeFormatUnix
+	// Level日志级别【可以考虑作为参数传】，测试传zerolog.InfoLevel/NoLevel不打印
+	// 模块化: Str("module", "userService模块")
+	logger := zerolog.New(os.Stderr).Level(zerolog.DebugLevel).With().Timestamp().Logger()
+
+	l := zerologx.NewZeroLogger(&logger)
+	return l
 }

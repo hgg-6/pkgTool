@@ -3,26 +3,32 @@ package viperX
 import (
 	"fmt"
 	"gitee.com/hgg_test/pkg_tool/v2/configx"
+	"gitee.com/hgg_test/pkg_tool/v2/logx"
+	"gitee.com/hgg_test/pkg_tool/v2/syncX"
 	"github.com/fsnotify/fsnotify"
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
-	"log"
 	"sync"
 	"time"
 )
 
 type ViperConfigStr struct {
-	Config   *viper.Viper
-	Configs  map[string]*viper.Viper
+	Config *viper.Viper
+	//Configs  map[string]*viper.Viper
+	Configs  *syncX.Map[string, *viper.Viper]
 	mutex    sync.RWMutex
 	interval time.Duration // 远程配置中心监听文件变更的间隔时间,默认5秒
+
+	l logx.Loggerx
 }
 
-func NewViperConfigStr() configx.ConfigIn {
+func NewViperConfigStr(l logx.Loggerx) configx.ConfigIn {
 	return &ViperConfigStr{
-		Config:   viper.New(),
-		Configs:  make(map[string]*viper.Viper),
+		Config: viper.New(),
+		//Configs:  make(map[string]*viper.Viper),
+		Configs:  &syncX.Map[string, *viper.Viper]{},
 		interval: time.Second * 5,
+		l:        l,
 	}
 }
 
@@ -37,8 +43,9 @@ func (v *ViperConfigStr) GetNamedViper(name string) (*viper.Viper, error) {
 	v.mutex.RLock()
 	defer v.mutex.RUnlock()
 
-	if v, ok := v.Configs[name]; ok {
-		return v, nil
+	//if v, ok := v.Configs[name]; ok {
+	if val, ok := v.Configs.Load(name); ok {
+		return val, nil
 	}
 	return nil, fmt.Errorf("config %s not found", name)
 }
@@ -86,7 +93,8 @@ func (v *ViperConfigStr) InitViperLocals(fileName, fileType, filePath string, de
 		return err
 	}
 
-	v.Configs[fileName+"."+fileType] = v.Config
+	//v.Configs[fileName+"."+fileType] = v.Config
+	v.Configs.Store(fileName+"."+fileType, v.Config)
 	return nil
 }
 
@@ -127,7 +135,8 @@ func (v *ViperConfigStr) InitViperLocalWatch(filePath string, defaultConfig ...c
 	v.Config.WatchConfig()
 	// 配置文件变更时，执行回调函数【可自定义变更逻辑】
 	v.Config.OnConfigChange(func(in fsnotify.Event) {
-		log.Println("本地配置文件发生变更: ", in.Name, in.Op)
+		//log.Println("本地配置文件发生变更: ", in.Name, in.Op)
+		v.l.Warn("本地配置文件发生变更: ", logx.String("fileName", in.Name), logx.String("op", in.Op.String()))
 	})
 
 	err := v.Config.ReadInConfig() // 读取配置文件
@@ -156,7 +165,8 @@ func (v *ViperConfigStr) InitViperLocalsWatchs(fileName, fileType, filePath stri
 	v.Config.WatchConfig()
 	// 配置文件变更时，执行回调函数【可自定义变更逻辑】
 	v.Config.OnConfigChange(func(in fsnotify.Event) {
-		log.Println("本地配置文件发生变更: ", in.Name, in.Op)
+		//log.Println("本地配置文件发生变更: ", in.Name, in.Op)
+		v.l.Warn("本地配置文件发生变更: ", logx.String("fileName", in.Name), logx.String("op", in.Op.String()))
 	})
 
 	err := v.Config.ReadInConfig() // 读取配置文件
@@ -164,7 +174,8 @@ func (v *ViperConfigStr) InitViperLocalsWatchs(fileName, fileType, filePath stri
 		return err
 	}
 
-	v.Configs[fileName+"."+fileType] = v.Config
+	//v.Configs[fileName+"."+fileType] = v.Config
+	v.Configs.Store(fileName+"."+fileType, v.Config)
 	return nil
 }
 
@@ -208,22 +219,34 @@ func (v *ViperConfigStr) SetInterval(t time.Duration) {
 	v.interval = t
 }
 
-// Get 获取配置项【当整个项目读取Init一个配置文件，fileName文件名留空，但整个项目读取Init多个配置文件,需传入文件名eg: db.yaml】
+// Get 获取配置项【当整个项目读取/Init一个配置文件，fileName文件名留空，但整个项目读取/Init多个配置文件,需传入文件名eg: db.yaml】
 //   - 新版本从configx.Get()单独读取配置文件
 //   - 注意=============注意=============注意=============
 func (v *ViperConfigStr) Get(key string, fileName ...string) any {
-	if len(fileName) == 0 || len(v.Configs) == 0 {
+	//if len(fileName) == 0 || len(v.Configs) == 0 {
+	if len(fileName) == 0 || v.Configs.IsEmpty() {
 		return v.Config.Get(key)
 	}
-	return v.Configs[fileName[0]].Get(key)
+	//return v.Configs[fileName[0]].Get(key)
+	val, ok := v.Configs.Load(fileName[0])
+	if !ok {
+		return nil
+	}
+	return val.Get(key)
 }
 
 // GetUnmarshalKey 获取配置项【当整个项目读取Init一个配置文件，fileName文件名留空，但整个项目读取Init多个配置文件,需传入文件名eg: db.yaml】
 //   - 新版本从configx.GetUnmarshalStruct()单独读取配置文件
 //   - 注意=============注意=============注意=============
 func (v *ViperConfigStr) GetUnmarshalKey(key string, rawVal any, fileName ...string) error {
-	if len(fileName) == 0 || len(v.Configs) == 0 {
+	//if len(fileName) == 0 || len(v.Configs) == 0 {
+	if len(fileName) == 0 || v.Configs.IsEmpty() {
 		return v.Config.UnmarshalKey(key, &rawVal)
 	}
-	return v.Configs[fileName[0]].UnmarshalKey(key, &rawVal)
+	//return v.Configs[fileName[0]].UnmarshalKey(key, &rawVal)
+	val, ok := v.Configs.Load(fileName[0])
+	if !ok {
+		return nil
+	}
+	return val.UnmarshalKey(key, &rawVal)
 }

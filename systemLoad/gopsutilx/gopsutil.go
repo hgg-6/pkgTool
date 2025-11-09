@@ -4,6 +4,7 @@ import (
 	"context"
 	"github.com/shirou/gopsutil/v4/cpu"
 	"github.com/shirou/gopsutil/v4/disk"
+	"github.com/shirou/gopsutil/v4/host"
 	"github.com/shirou/gopsutil/v4/load"
 	"github.com/shirou/gopsutil/v4/mem"
 	"time"
@@ -30,11 +31,11 @@ func (s *SystemLoad) DiskTotals() ([]string, error) {
 }
 
 // Usage 空间结构体使用情况
-//   - name: 磁盘名称/其他描述
+//   - name: 磁盘/内存等名称/其他描述
 //   - total: 总空间，默认单位为字节
 //   - used: 已使用空间，默认单位为字节
 //   - usable: 可用空间，默认单位为字节
-//   - usedPercent: 使用百分比,使用率，%0-100
+//   - usedPercent: 使用百分比,使用率，%0-100, 类型float64
 type Usage struct {
 	Name        string  // 磁盘名称
 	Total       uint64  // 总空间
@@ -150,4 +151,43 @@ func (s *SystemLoad) SystemLoad() (uint, error) {
 	} else {
 		return uint(2), nil
 	}
+}
+
+type HostInfo struct {
+	Hostname             string `json:"hostname"`
+	Uptime               uint64 `json:"uptime"`
+	BootTime             uint64 `json:"bootTime"`
+	Procs                uint64 `json:"procs"`
+	OS                   string `json:"os"`
+	Platform             string `json:"platform"`
+	PlatformFamily       string `json:"platformFamily"`
+	PlatformVersion      string `json:"platformVersion"`
+	KernelVersion        string `json:"kernelVersion"`
+	KernelArch           string `json:"kernelArch"`
+	VirtualizationSystem string `json:"virtualizationSystem"`
+	VirtualizationRole   string `json:"virtualizationRole"`
+	HostID               string `json:"hostId"`
+}
+
+// HostInfo 获取系统信息【hostname、hostId、os等】
+func (s *SystemLoad) HostInfo(ctx context.Context) (HostInfo, error) {
+	info, err := host.InfoWithContext(ctx)
+	if info != nil {
+		return HostInfo{
+			Hostname:             info.Hostname,
+			Uptime:               info.Uptime,
+			BootTime:             info.BootTime,
+			Procs:                info.Procs,
+			OS:                   info.OS,
+			Platform:             info.Platform,
+			PlatformFamily:       info.PlatformFamily,
+			PlatformVersion:      info.PlatformVersion,
+			KernelVersion:        info.KernelVersion,
+			KernelArch:           info.KernelArch,
+			VirtualizationSystem: info.VirtualizationSystem,
+			VirtualizationRole:   info.VirtualizationRole,
+			HostID:               info.HostID,
+		}, err
+	}
+	return HostInfo{}, err
 }

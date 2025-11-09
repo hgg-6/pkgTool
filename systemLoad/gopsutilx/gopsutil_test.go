@@ -96,11 +96,17 @@ func TestLocal(t *testing.T) {
 		case 0:
 			log.Println("未获取到系统负载")
 		case 1:
-			log.Println("系统良好负载")
+			log.Println("系统负载良好")
 		case 2:
-			log.Println("系统警戒负载")
+			log.Println("系统负载警戒")
 		case 3:
-			log.Println("系统紧急负载")
+			log.Println("系统负载危险")
 		}
+	}
+	log.Println("===================")
+
+	info, err := s.HostInfo(context.Background())
+	if err == nil {
+		log.Println("Host Info: ", info)
 	}
 }
