@@ -25,8 +25,8 @@ func NewTokenBucketBuilder(interval time.Duration, capacity int) *TokenBucketLim
 	return &TokenBucketLimiter{interval: interval, buckets: bucket, closeCh: closec}
 }
 
-// BuildServerInterceptor 令牌桶限流算法
-func (c *TokenBucketLimiter) BuildServerInterceptor() gin.HandlerFunc {
+// Build 令牌桶限流算法
+func (c *TokenBucketLimiter) Build() gin.HandlerFunc {
 	// 发令牌
 	ticker := time.NewTicker(c.interval)
 	go func() {

@@ -30,10 +30,7 @@ func NewSlidingWindowBuilder(window time.Duration, threshold int) *SlidingWindow
 	}
 }
 
-// BuildServerInterceptor
-//   - 构建gRPC服务端拦截器
-//   - 构建gRPC UnaryServerInterceptor
-func (c *SlidingWindowLimiter) BuildServerInterceptor() gin.HandlerFunc {
+func (c *SlidingWindowLimiter) Build() gin.HandlerFunc {
 	return func(ctx *gin.Context) {
 		if !c.Allow() {
 			// 限流

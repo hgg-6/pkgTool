@@ -23,8 +23,8 @@ func NewFixedWindowBuilder(window time.Duration, threshold int) *FixedWindowLimi
 	return &FixedWindowLimiter{window: window, lastWindowStart: time.Now(), cnt: 0, threshold: threshold}
 }
 
-// BuildServerInterceptor 固定窗口限流算法
-func (c *FixedWindowLimiter) BuildServerInterceptor() gin.HandlerFunc {
+// Build 固定窗口限流算法
+func (c *FixedWindowLimiter) Build() gin.HandlerFunc {
 	return func(ctx *gin.Context) {
 		c.lock.Lock() // 加锁
 		now := time.Now()

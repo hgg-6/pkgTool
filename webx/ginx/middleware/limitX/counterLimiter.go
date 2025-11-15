@@ -16,8 +16,8 @@ func NewCounterBuilder(threshold int32) *CounterLimiter {
 	return &CounterLimiter{threshold: threshold}
 }
 
-// BuildServerInterceptor 计数器限流算法
-func (c *CounterLimiter) BuildServerInterceptor() gin.HandlerFunc {
+// Build 计数器限流算法
+func (c *CounterLimiter) Build() gin.HandlerFunc {
 	return func(ctx *gin.Context) {
 		// 请求进来，先占坑
 		cnt := c.cnt.Add(1)
