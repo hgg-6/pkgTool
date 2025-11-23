@@ -1,4 +1,4 @@
-package slicex
+package sliceX
 
 // FilterMap 执行过滤并且转化
 // 如果 m 的第二个返回值是 false，那么我们会忽略第一个返回值

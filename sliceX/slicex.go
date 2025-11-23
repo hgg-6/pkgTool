@@ -1,4 +1,4 @@
-package slicex
+package sliceX
 
 type NumberOrString interface {
 	int | int8 | int16 | int32 | int64 |

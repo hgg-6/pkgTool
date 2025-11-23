@@ -2,7 +2,7 @@ package slidingWindow
 
 import (
 	"context"
-	"gitee.com/hgg_test/pkg_tool/v2/slicex/queueX"
+	"gitee.com/hgg_test/pkg_tool/v2/sliceX/queueX"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"

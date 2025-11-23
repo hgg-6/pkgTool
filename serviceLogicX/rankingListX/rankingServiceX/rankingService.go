@@ -3,7 +3,7 @@ package rankingServiceX
 import (
 	"gitee.com/hgg_test/pkg_tool/v2/logx"
 	"gitee.com/hgg_test/pkg_tool/v2/serviceLogicX/rankingListX/rankingServiceX/types"
-	"gitee.com/hgg_test/pkg_tool/v2/slicex/queueX"
+	"gitee.com/hgg_test/pkg_tool/v2/sliceX/queueX"
 )
 
 // RankingServiceBatch 泛型榜单服务

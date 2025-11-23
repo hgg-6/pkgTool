@@ -3,7 +3,7 @@ package repository
 import (
 	"context"
 	"database/sql"
-	"gitee.com/hgg_test/pkg_tool/v2/slicex"
+	"gitee.com/hgg_test/pkg_tool/v2/sliceX"
 	"gitee.com/hgg_test/pkg_tool/v2/syncX/lock/redisLock/redsyncx/lock_cron_mysql/domain"
 	"gitee.com/hgg_test/pkg_tool/v2/syncX/lock/redisLock/redsyncx/lock_cron_mysql/repository/dao"
 )
@@ -38,7 +38,7 @@ func (c *cronRepository) FindAll(ctx context.Context) ([]domain.CronJob, error) 
 	if err != nil {
 		return []domain.CronJob{}, err
 	}
-	return slicex.Map[dao.CronJob, domain.CronJob](crons, func(idx int, src dao.CronJob) domain.CronJob {
+	return sliceX.Map[dao.CronJob, domain.CronJob](crons, func(idx int, src dao.CronJob) domain.CronJob {
 		return toDomain(src)
 	}), err
 }

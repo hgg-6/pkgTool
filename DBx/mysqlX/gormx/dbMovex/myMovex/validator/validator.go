@@ -14,7 +14,7 @@ import (
 	"gitee.com/hgg_test/pkg_tool/v2/DBx/mysqlX/gormx/dbMovex/myMovex/events"
 	"gitee.com/hgg_test/pkg_tool/v2/channelx/mqX"
 	"gitee.com/hgg_test/pkg_tool/v2/logx"
-	"gitee.com/hgg_test/pkg_tool/v2/slicex"
+	"gitee.com/hgg_test/pkg_tool/v2/sliceX"
 	"golang.org/x/sync/errgroup"
 	"gorm.io/gorm"
 	"time"
@@ -197,7 +197,7 @@ func (v *Validator[T, Pdr]) validateTargetToBase(ctx context.Context) error {
 		}
 		// 在这里
 		var srcTs []T
-		ids := slicex.Map(ts, func(idx int, t T) int64 {
+		ids := sliceX.Map(ts, func(idx int, t T) int64 {
 			return t.ID()
 		})
 		err = v.base.WithContext(ctx).Select("id").
@@ -216,7 +216,7 @@ func (v *Validator[T, Pdr]) validateTargetToBase(ctx context.Context) error {
 			continue
 		}
 		// 找差集，diff 里面的，就是 target 有，但是 base 没有的
-		diff := slicex.DiffSetFunc(ts, srcTs, func(src, dst T) bool {
+		diff := sliceX.DiffSetFunc(ts, srcTs, func(src, dst T) bool {
 			return src.ID() == dst.ID()
 		})
 		v.notifyBaseMissing(diff)

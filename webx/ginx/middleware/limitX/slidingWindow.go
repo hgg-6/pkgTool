@@ -1,7 +1,7 @@
 package limitX
 
 import (
-	"gitee.com/hgg_test/pkg_tool/v2/slicex/queueX"
+	"gitee.com/hgg_test/pkg_tool/v2/sliceX/queueX"
 	"github.com/gin-gonic/gin"
 	"net/http"
 	"sync"

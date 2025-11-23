@@ -8,7 +8,9 @@ import (
 
 func TestMap_Load(t *testing.T) {
 	t.Run("key exists", func(t *testing.T) {
-		m := &Map[string, int]{}
+		// 两种m皆可
+		//m := &Map[string, int]{}
+		m := NewMap[string, int]()
 		m.Store("key1", 100)
 
 		val, ok := m.Load("key1")
@@ -21,7 +23,8 @@ func TestMap_Load(t *testing.T) {
 	})
 
 	t.Run("key does not exist", func(t *testing.T) {
-		m := &Map[string, int]{}
+		//m := &Map[string, int]{}
+		m := NewMap[string, int]()
 
 		val, ok := m.Load("nonexistent")
 		if ok {
@@ -33,7 +36,8 @@ func TestMap_Load(t *testing.T) {
 	})
 
 	t.Run("nil value", func(t *testing.T) {
-		m := &Map[string, *int]{}
+		//m := &Map[string, *int]{}
+		m := NewMap[string, *int]()
 		m.Store("nil_key", nil)
 
 		val, ok := m.Load("nil_key")
@@ -48,7 +52,8 @@ func TestMap_Load(t *testing.T) {
 
 func TestMap_Store(t *testing.T) {
 	t.Run("store and retrieve", func(t *testing.T) {
-		m := &Map[int, string]{}
+		//m := &Map[int, string]{}
+		m := NewMap[int, string]()
 
 		m.Store(1, "value1")
 		m.Store(2, "value2")
@@ -65,7 +70,8 @@ func TestMap_Store(t *testing.T) {
 	})
 
 	t.Run("overwrite existing key", func(t *testing.T) {
-		m := &Map[string, string]{}
+		//m := &Map[string, string]{}
+		m := NewMap[string, string]()
 
 		m.Store("key", "old_value")
 		m.Store("key", "new_value")
@@ -79,7 +85,8 @@ func TestMap_Store(t *testing.T) {
 
 func TestMap_LoadOrStore(t *testing.T) {
 	t.Run("load existing", func(t *testing.T) {
-		m := &Map[string, int]{}
+		//m := &Map[string, int]{}
+		m := NewMap[string, int]()
 		m.Store("key", 100)
 
 		actual, loaded := m.LoadOrStore("key", 200)
@@ -92,7 +99,8 @@ func TestMap_LoadOrStore(t *testing.T) {
 	})
 
 	t.Run("store new", func(t *testing.T) {
-		m := &Map[string, int]{}
+		//m := &Map[string, int]{}
+		m := NewMap[string, int]()
 
 		actual, loaded := m.LoadOrStore("new_key", 300)
 		if loaded {

@@ -11,6 +11,11 @@ type Map[K comparable, V any] struct {
 	m sync.Map
 }
 
+// NewMap 为了防止有时使用时忘记&取地址，所以又加了New构造
+func NewMap[K comparable, V any]() *Map[K, V] {
+	return &Map[K, V]{}
+}
+
 // Load 加载键值对
 func (m *Map[K, V]) Load(key K) (value V, ok bool) {
 	var anyVal any

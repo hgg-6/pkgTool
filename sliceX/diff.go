@@ -1,4 +1,4 @@
-package slicex
+package sliceX
 
 // DiffSet 差集，只支持 comparable 类型
 // 已去重

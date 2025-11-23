@@ -1,4 +1,4 @@
-package slicex
+package sliceX
 
 import (
 	"reflect"

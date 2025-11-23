@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 	"gitee.com/hgg_test/pkg_tool/v2/logx"
-	"gitee.com/hgg_test/pkg_tool/v2/slicex"
+	"gitee.com/hgg_test/pkg_tool/v2/sliceX"
 	glogger "gorm.io/gorm/logger"
 	"time"
 )
@@ -34,7 +34,7 @@ func (l *GormLogStrx) LogMode(level glogger.LogLevel) glogger.Interface {
 
 // Info 实现gorm.Logger接口 - 信息日志
 func (l *GormLogStrx) Info(ctx context.Context, msg string, data ...interface{}) {
-	fld := slicex.Map[any, logx.Field](data, func(idx int, src any) logx.Field {
+	fld := sliceX.Map[any, logx.Field](data, func(idx int, src any) logx.Field {
 		return logx.Any(fmt.Sprintf("%d", idx), src)
 	})
 	l.logx.Info(msg, fld...)
@@ -42,7 +42,7 @@ func (l *GormLogStrx) Info(ctx context.Context, msg string, data ...interface{})
 
 // Warn 实现gorm.Logger接口 - 警告日志
 func (l *GormLogStrx) Warn(ctx context.Context, msg string, data ...interface{}) {
-	fld := slicex.Map[any, logx.Field](data, func(idx int, src any) logx.Field {
+	fld := sliceX.Map[any, logx.Field](data, func(idx int, src any) logx.Field {
 		return logx.Any(fmt.Sprintf("%d", idx), src)
 	})
 	l.logx.Warn(msg, fld...)
@@ -50,7 +50,7 @@ func (l *GormLogStrx) Warn(ctx context.Context, msg string, data ...interface{})
 
 // Error 实现gorm.Logger接口 - 错误日志
 func (l *GormLogStrx) Error(ctx context.Context, msg string, data ...interface{}) {
-	fld := slicex.Map[any, logx.Field](data, func(idx int, src any) logx.Field {
+	fld := sliceX.Map[any, logx.Field](data, func(idx int, src any) logx.Field {
 		return logx.Any(fmt.Sprintf("%d", idx), src)
 	})
 	l.logx.Error(msg, fld...)
