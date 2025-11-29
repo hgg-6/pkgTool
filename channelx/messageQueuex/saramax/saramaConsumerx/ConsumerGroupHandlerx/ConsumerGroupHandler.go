@@ -35,7 +35,7 @@ func (c *ConsumerGroupHandler[EvenT]) Setup(session sarama.ConsumerGroupSession)
 
 	// 未配置偏移量
 	if !c.serviceLogic.IsOffset {
-		//offset = sarama.OffsetNewest // 【等同-1】默认从最新的消息开始消费
+		//offset = saramaX.OffsetNewest // 【等同-1】默认从最新的消息开始消费
 		//session.ResetOffset(topic, v, offset, "")
 		return nil
 	} else {
@@ -148,7 +148,7 @@ func (c *ConsumerGroupHandler[EvenT]) manyMessagesLogic(msgs <-chan *sarama.Cons
 		err := c.serviceLogic.SvcLogicFns(batch, ts)
 		if err != nil {
 			// 可以整个msgs都记录下来
-			c.serviceLogic.L.Error("kafka批量消费消息时，业务逻辑处理失败", logx.Any("*sarama.ConsumerMessage_batch", batch), logx.Error(err))
+			c.serviceLogic.L.Error("kafka批量消费消息时，业务逻辑处理失败", logx.Any("*saramaX.ConsumerMessage_batch", batch), logx.Error(err))
 			//continue // 跳过这条消息
 		}
 		for _, msg := range batch {

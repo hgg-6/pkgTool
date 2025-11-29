@@ -22,8 +22,8 @@ type SaramaProducerStr[ProducerTyp any] struct {
 //   - 同步发送消息，就注入同步发送消息的配置监听success通道配置为true
 //   - 异步批量发送消息，需注入异步批量发送消息的配置Producer.Flush.Messages Producer.Flush.Frequency以及监听success和error通道配置为true
 //   - 如果项目中既有同步发送消息，也有异步发送消息，那么在wire构造注入时，单独wire.NewSet同步实现和wire.NewSet异步实现
-func NewSaramaProducerStr[ProducerTyp any, /*ProducerTyp: sarama.SyncProducer & sarama.AsyncProducer*/
-](Producer ProducerTyp /*sarama.SyncProducer & sarama.AsyncProducer*/, config *sarama.Config) messageQueuex.ProducerIn[ProducerTyp] {
+func NewSaramaProducerStr[ProducerTyp any, /*ProducerTyp: saramaX.SyncProducer & saramaX.AsyncProducer*/
+](Producer ProducerTyp /*saramaX.SyncProducer & saramaX.AsyncProducer*/, config *sarama.Config) messageQueuex.ProducerIn[ProducerTyp] {
 
 	h := &SaramaProducerStr[ProducerTyp]{}
 	h.Config = config
@@ -50,25 +50,25 @@ func NewSaramaProducerStr[ProducerTyp any, /*ProducerTyp: sarama.SyncProducer & 
 			go h.handleAsyncResults(ctx, h.cancelFunc)
 		}
 	default:
-		panic("kafka Producer Invalid producer type, kafka Producer无效的卡夫卡的生产者类型【非sarama.SyncProducer/sarama.AsyncProducer】")
+		panic("kafka Producer Invalid producer type, kafka Producer无效的卡夫卡的生产者类型【非sarama.SyncProducer/saramaX.AsyncProducer】")
 	}
 	return h
 }
 
-//func NewSaramaProducerStrV1[ProducerTyp any, /*ProducerTyp: sarama.SyncProducer sarama.AsyncProducer*/
-//	Val any](Producer ProducerTyp /*sarama.SyncProducer sarama.AsyncProducer*/, config *sarama.Config) *SaramaProducerStr[ProducerTyp, Val] {
+//func NewSaramaProducerStrV1[ProducerTyp any, /*ProducerTyp: saramaX.SyncProducer saramaX.AsyncProducer*/
+//	Val any](Producer ProducerTyp /*saramaX.SyncProducer saramaX.AsyncProducer*/, config *saramaX.Config) *SaramaProducerStr[ProducerTyp, Val] {
 //
 //	h := &SaramaProducerStr[ProducerTyp, Val]{}
 //	h.Config = config
 //
 //	switch producer := any(Producer).(type) {
-//	case sarama.SyncProducer:
+//	case saramaX.SyncProducer:
 //		h.ProducerTyp = 0
 //		h.SyncProducer = producer
 //		if h.Config.Producer.Return.Successes != true {
 //			h.Config.Producer.Return.Successes = true
 //		}
-//	case sarama.AsyncProducer:
+//	case saramaX.AsyncProducer:
 //		h.ProducerTyp = 1
 //		if h.Config.Producer.Return.Successes != true || h.Config.Producer.Return.Errors != true {
 //			h.Config.Producer.Return.Successes = true
@@ -83,7 +83,7 @@ func NewSaramaProducerStr[ProducerTyp any, /*ProducerTyp: sarama.SyncProducer & 
 //			go h.handleAsyncResults(ctx, h.cancelFunc)
 //		}
 //	default:
-//		panic("kafka Producer Invalid producer type, kafka Producer无效的卡夫卡的生产者类型【非sarama.SyncProducer/sarama.AsyncProducer】")
+//		panic("kafka Producer Invalid producer type, kafka Producer无效的卡夫卡的生产者类型【非sarama.SyncProducer/saramaX.AsyncProducer】")
 //	}
 //	return h
 //}
@@ -96,7 +96,7 @@ func (s *SaramaProducerStr[ProducerTyp]) SendMessage(ctx context.Context, keyOrT
 	case 1:
 		return s.sendMessageAsync(ctx, keyOrTopic, value)
 	default:
-		return fmt.Errorf("kafka Producer Invalid producer type, kafka Producer无效的卡夫卡的生产者类型【使用的非sarama.SyncProducer/sarama.AsyncProducer】")
+		return fmt.Errorf("kafka Producer Invalid producer type, kafka Producer无效的卡夫卡的生产者类型【使用的非sarama.SyncProducer/saramaX.AsyncProducer】")
 	}
 }
 
@@ -122,7 +122,7 @@ func (s *SaramaProducerStr[ProducerTyp]) CloseProducer() error {
 			}
 		}
 	default:
-		err = fmt.Errorf("close kafka Producer Invalid producer type, 关闭kafka Producer时无效的卡夫卡的生产者类型【使用的非sarama.SyncProducer/sarama.AsyncProducer】")
+		err = fmt.Errorf("close kafka Producer Invalid producer type, 关闭kafka Producer时无效的卡夫卡的生产者类型【使用的非sarama.SyncProducer/saramaX.AsyncProducer】")
 	}
 	return err
 }
@@ -141,7 +141,7 @@ func (s *SaramaProducerStr[ProducerTyp]) sendMessageSync(ctx context.Context, ke
 	_, _, err := s.SyncProducer.SendMessage(&sarama.ProducerMessage{
 		Topic: keyOrTopic.Topic,
 		Key:   sarama.StringEncoder(keyOrTopic.Key),
-		//Value: sarama.StringEncoder(v),
+		//Value: saramaX.StringEncoder(v),
 		Value: sarama.StringEncoder(value),
 	})
 	return err

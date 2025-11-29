@@ -19,7 +19,7 @@ import (
 )
 
 /*
-	sarama.NewConsumerGroup的参数groupID核心总结对比表
+	saramaX.NewConsumerGroup的参数groupID核心总结对比表
 		特性:			相同 Group ID (竞争消费者模式)			不同 Group ID (发布-订阅模式)
 		核心目的			负载均衡，横向扩展处理能力				广播，多个独立系统处理相同数据
 		消息传递语义		队列模式								发布-订阅模式
