@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	events2 "gitee.com/hgg_test/pkg_tool/v2/DBx/mysqlX/gormx/dbMovex/myMovex/events"
 	"gitee.com/hgg_test/pkg_tool/v2/channelx/mqX"
-	"gitee.com/hgg_test/pkg_tool/v2/channelx/mqX/kafkaX/sarama/consumerX"
+	"gitee.com/hgg_test/pkg_tool/v2/channelx/mqX/kafkaX/saramaX/consumerX"
 	"gitee.com/hgg_test/pkg_tool/v2/logx"
 	"github.com/IBM/sarama"
 	"gorm.io/gorm"

@@ -53,14 +53,14 @@ func InitLog() logx.Loggerx {
 
 func TestNewConsumerGroupHandler1(t *testing.T) {
 	cfg := sarama.NewConfig()
-	//consumer, err := sarama.NewConsumerGroup(addr, "test_group", cfg)
+	//consumer, err := saramaX.NewConsumerGroup(addr, "test_group", cfg)
 	//assert.NoError(t, err)
 
 	// 开始构造log和消费者消费后的业务逻辑
 	// 构造logx
 	//l := InitLog()
 	//// 模拟业务逻辑处理，入库、缓存等等。。。
-	//fn := func(msg *sarama.ConsumerMessage, event events.InconsistentEvent) error {
+	//fn := func(msg *saramaX.ConsumerMessage, event events.InconsistentEvent) error {
 	//	srcDb := setupTestSrcDB()
 	//	dstDb := setupTestDstDB()
 	//	ov, er := NewOverrideFixer[myMovex.TestUser](srcDb, dstDb)

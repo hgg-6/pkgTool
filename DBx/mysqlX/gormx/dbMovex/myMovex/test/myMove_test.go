@@ -9,7 +9,7 @@ import (
 	"gitee.com/hgg_test/pkg_tool/v2/DBx/mysqlX/gormx/dbMovex/myMovex/messageQueue/consumerx"
 	"gitee.com/hgg_test/pkg_tool/v2/DBx/mysqlX/gormx/dbMovex/myMovex/scheduler"
 	"gitee.com/hgg_test/pkg_tool/v2/channelx/mqX"
-	"gitee.com/hgg_test/pkg_tool/v2/channelx/mqX/kafkaX/sarama/producerX"
+	"gitee.com/hgg_test/pkg_tool/v2/channelx/mqX/kafkaX/saramaX/producerX"
 	"gitee.com/hgg_test/pkg_tool/v2/logx"
 	"gitee.com/hgg_test/pkg_tool/v2/logx/zerologx"
 	"gitee.com/hgg_test/pkg_tool/v2/webx/ginx"
@@ -36,7 +36,7 @@ type MoveTest struct {
 	server   *gin.Engine
 	doubleDb *doubleWritePoolx.DoubleWritePool // 双写连接池
 	db       *gorm.DB                          // 双写使用的连接池
-	//producer messageQueuex.ProducerIn[sarama.SyncProducer]
+	//producer messageQueuex.ProducerIn[saramaX.SyncProducer]
 	producer mqX.Producer
 }
 
@@ -625,15 +625,15 @@ func (m *MoveTest) initDouble() *doubleWritePoolx.DoubleWritePool {
 // 初始化消息队列生产者
 func newProducer() mqX.Producer {
 	var addr []string = []string{"localhost:9094"}
-	//cfg := sarama.NewConfig()
+	//cfg := saramaX.NewConfig()
 	////========同步发送==========
 	//cfg.Producer.Return.Successes = true
 	//
-	//syncPro, err := sarama.NewSyncProducer(addr, cfg)
+	//syncPro, err := saramaX.NewSyncProducer(addr, cfg)
 	//if err != nil {
 	//	panic(err)
 	//}
-	//pro := saramaProducerx.NewSaramaProducerStr[sarama.SyncProducer](syncPro, cfg)
+	//pro := saramaProducerx.NewSaramaProducerStr[saramaX.SyncProducer](syncPro, cfg)
 	pro, err := producerX.NewKafkaProducer(addr, &producerX.ProducerConfig{Async: false})
 	// CloseProducer 关闭生产者Producer，请在main函数最顶层defer住生产者的Producer.Close()，优雅关闭防止goroutine泄露
 	if err == nil {

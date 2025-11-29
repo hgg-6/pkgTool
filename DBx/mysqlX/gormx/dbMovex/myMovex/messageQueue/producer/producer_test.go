@@ -6,7 +6,7 @@ import (
 	"gitee.com/hgg_test/pkg_tool/v2/DBx/mysqlX/gormx/dbMovex/myMovex/doubleWritePoolx"
 	"gitee.com/hgg_test/pkg_tool/v2/DBx/mysqlX/gormx/dbMovex/myMovex/events"
 	"gitee.com/hgg_test/pkg_tool/v2/channelx/mqX"
-	"gitee.com/hgg_test/pkg_tool/v2/channelx/mqX/kafkaX/sarama/producerX"
+	"gitee.com/hgg_test/pkg_tool/v2/channelx/mqX/kafkaX/saramaX/producerX"
 	"github.com/stretchr/testify/assert"
 	"testing"
 	"time"
@@ -16,13 +16,13 @@ var addr []string = []string{"localhost:9094"}
 
 // 测试同步发送
 func TestNewSaramaProducerStrSync(t *testing.T) {
-	//cfg := sarama.NewConfig()
+	//cfg := saramaX.NewConfig()
 	////========同步发送==========
 	//cfg.Producer.Return.Successes = true
 	//
-	//syncPro, err := sarama.NewSyncProducer(addr, cfg)
+	//syncPro, err := saramaX.NewSyncProducer(addr, cfg)
 	//assert.NoError(t, err)
-	//pro := saramaProducerx.NewSaramaProducerStr[sarama.SyncProducer](syncPro, cfg)
+	//pro := saramaProducerx.NewSaramaProducerStr[saramaX.SyncProducer](syncPro, cfg)
 	pro, err := producerX.NewKafkaProducer(addr, &producerX.ProducerConfig{
 		BatchSize:    0,
 		BatchTimeout: 0,
