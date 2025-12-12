@@ -3,9 +3,10 @@ package jwtX2
 import (
 	"crypto/sha256"
 	"fmt"
-	"github.com/google/uuid"
 	"strings"
 	"time"
+
+	"github.com/google/uuid"
 
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
@@ -255,10 +256,17 @@ func (j *JwtxMiddlewareGinx) RefreshToken(ctx *gin.Context, newSsid string) (*Us
 		ssid = newSsid
 	}
 
+	// 获取设备ID
+	deviceID := j.getDeviceID(ctx)
+
 	// 删除旧 Token（安全最佳实践）
 	oldAccessKey := j.sessionKey(oldClaims.Ssid, "access")
 	oldRefreshKey := j.sessionKey(oldClaims.Ssid, "refresh")
 	j.cache.Del(ctx, oldAccessKey, oldRefreshKey)
+
+	// 清理旧的deviceKey映射
+	oldDeviceKey := j.deviceKey(oldClaims.Uid, deviceID)
+	j.cache.Del(ctx, oldDeviceKey)
 
 	// 注意：这里复用 SetToken，会按新 ssid 创建会话（可能新设备）
 	// 如果希望保持设备绑定，应传入原 deviceID，但当前设计以 ssid 为单位
@@ -278,11 +286,21 @@ func (j *JwtxMiddlewareGinx) DeleteToken(ctx *gin.Context) (*UserClaims, error) 
 	ctx.Header(j.cfg.HeaderJwtTokenKey, "")
 	ctx.Header(j.cfg.LongHeaderJwtTokenKey, "")
 
+	// 获取设备ID并清理deviceKey映射
+	deviceID := j.getDeviceID(ctx)
+	deviceKey := j.deviceKey(claims.Uid, deviceID)
+
 	err1 := j.cache.Del(ctx, accessKey).Err()
 	err2 := j.cache.Del(ctx, refreshKey).Err()
+	err3 := j.cache.Del(ctx, deviceKey).Err()
 
 	if err1 != nil || err2 != nil {
 		return claims, fmt.Errorf("failed to delete session tokens")
+	}
+
+	// 从设备集合中移除当前设备
+	if err3 == nil {
+		j.cache.SRem(ctx, j.devicesSetKey(claims.Uid), deviceID)
 	}
 
 	return claims, nil

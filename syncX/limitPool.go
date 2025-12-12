@@ -26,12 +26,20 @@ func NewLimitPool[T any](maxTokens int, factory func() T) *LimitPool[T] {
 // 如果返回值是 true，则代表确实从 Pool 里面取出来了一个
 // 否则是新建了一个
 func (l *LimitPool[T]) Get() (T, bool) {
-	if l.tokens.Add(-1) < 0 {
-		l.tokens.Add(1)
-		var zero T
-		return zero, false
+	// 使用循环来避免竞态条件
+	for {
+		current := l.tokens.Load()
+		if current <= 0 {
+			var zero T
+			return zero, false
+		}
+		// 尝试原子地减少令牌计数
+		if l.tokens.CompareAndSwap(current, current-1) {
+			// 成功获取令牌，从池中获取对象
+			return l.pool.Get(), true
+		}
+		// 如果CAS失败，说明有其他goroutine修改了令牌计数，重试
 	}
-	return l.pool.Get(), true
 }
 
 // Put 放回去一个元素

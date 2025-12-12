@@ -3,11 +3,12 @@ package limitX
 import (
 	_ "embed"
 	"fmt"
+	"log"
+	"net/http"
+
 	"gitee.com/hgg_test/pkg_tool/limiter"
 	"gitee.com/hgg_test/pkg_tool/v2/logx"
 	"github.com/gin-gonic/gin"
-	"log"
-	"net/http"
 )
 
 type Builder struct {
@@ -51,7 +52,11 @@ func (b *Builder) Build() gin.HandlerFunc {
 			return
 		}
 		if limited {
-			log.Println(err)
+			if b.log != nil {
+				b.log.Info("请求被限流",
+					logx.String("client_ip", ctx.ClientIP()),
+					logx.String("path", ctx.Request.URL.Path))
+			}
 			ctx.AbortWithStatus(http.StatusTooManyRequests)
 			return
 		}

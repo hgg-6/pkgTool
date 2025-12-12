@@ -2,14 +2,15 @@ package viperX
 
 import (
 	"fmt"
+	"sync"
+	"time"
+
 	"gitee.com/hgg_test/pkg_tool/v2/configx"
 	"gitee.com/hgg_test/pkg_tool/v2/logx"
 	"gitee.com/hgg_test/pkg_tool/v2/syncX"
 	"github.com/fsnotify/fsnotify"
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
-	"sync"
-	"time"
 )
 
 type ViperConfigStr struct {
@@ -246,7 +247,7 @@ func (v *ViperConfigStr) GetUnmarshalKey(key string, rawVal any, fileName ...str
 	//return v.Configs[fileName[0]].UnmarshalKey(key, &rawVal)
 	val, ok := v.Configs.Load(fileName[0])
 	if !ok {
-		return nil
+		return fmt.Errorf("config file %s not found", fileName[0])
 	}
 	return val.UnmarshalKey(key, &rawVal)
 }

@@ -17,10 +17,10 @@ local cnt = redis.call('ZCOUNT', key, '-inf', '+inf')
 -- local cnt = redis.call('ZCOUNT', key, min, '+inf')
 if cnt >= threshold then
     -- 执行限流
-    return "true"
+    return 1
 else
     -- 把 score 和 member 都设置成 now
     redis.call('ZADD', key, now, now)
     redis.call('PEXPIRE', key, window)
-    return "false"
+    return 0
 end
