@@ -3,10 +3,9 @@ package scheduler
 import (
 	"gitee.com/hgg_test/pkg_tool/v2/DBx/mysqlX/gormx/dbMovex/myMovex/doubleWritePoolx"
 	"gitee.com/hgg_test/pkg_tool/v2/DBx/mysqlX/gormx/dbMovex/myMovex/events"
-	"gitee.com/hgg_test/pkg_tool/v2/channelx/messageQueuex"
-	"gitee.com/hgg_test/pkg_tool/v2/channelx/messageQueuex/saramax/saramaProducerx"
+	"gitee.com/hgg_test/pkg_tool/v2/channelx/mqX"
+	"gitee.com/hgg_test/pkg_tool/v2/channelx/mqX/kafkaX/saramaX/producerX"
 	"gitee.com/hgg_test/pkg_tool/v2/logx/zerologx"
-	"github.com/IBM/sarama"
 	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -44,18 +43,15 @@ import (
 //}
 
 // ===================
-func newProducer() messageQueuex.ProducerIn[sarama.SyncProducer] {
+func newProducer() mqX.Producer {
 	var addr []string = []string{"localhost:9094"}
-	cfg := sarama.NewConfig()
-	//========同步发送==========
-	cfg.Producer.Return.Successes = true
-
-	syncPro, err := sarama.NewSyncProducer(addr, cfg)
+	// 使用新的 mqX 包创建生产者
+	pro, err := producerX.NewKafkaProducer(addr, &producerX.ProducerConfig{
+		Async: false, // 同步模式
+	})
 	if err != nil {
 		panic(err)
 	}
-	pro := saramaProducerx.NewSaramaProducerStr[sarama.SyncProducer](syncPro, cfg)
-	// CloseProducer 关闭生产者Producer，请在main函数最顶层defer住生产者的Producer.Close()，优雅关闭防止goroutine泄露
 	return pro
 }
 
@@ -101,10 +97,10 @@ func TestSchedulerPatterns(t *testing.T) {
 	srcDB := setupTestSrcDB()
 	dstDB := setupTestDstDB()
 	producer := newProducer()
-	defer producer.CloseProducer()
+	defer producer.Close()
 
 	pool := doubleWritePoolx.NewDoubleWritePool(srcDB, dstDB, l)
-	scheduler := NewScheduler[events.TestUser, sarama.SyncProducer](l, srcDB, dstDB, pool, producer)
+	scheduler := NewScheduler[events.TestUser, any](l, srcDB, dstDB, pool, producer)
 
 	// 测试初始状态
 	assert.Equal(t, StateInitial, scheduler.State)
@@ -136,10 +132,10 @@ func TestSchedulerValidation(t *testing.T) {
 	l := zerologx.NewZeroLogger(&logger)
 	// 创建生产者
 	producer := newProducer()
-	defer producer.CloseProducer()
+	defer producer.Close()
 
 	pool := doubleWritePoolx.NewDoubleWritePool(srcDB, dstDB, l)
-	scheduler := NewScheduler[events.TestUser, sarama.SyncProducer](l, srcDB, dstDB, pool, producer)
+	scheduler := NewScheduler[events.TestUser, any](l, srcDB, dstDB, pool, producer)
 
 	// 启动全量校验
 	scheduler.StartFullValidation(nil)
@@ -162,10 +158,10 @@ func TestSchedulerIncrementalValidation(t *testing.T) {
 	l := zerologx.NewZeroLogger(&logger)
 	// 创建生产者
 	producer := newProducer()
-	defer producer.CloseProducer()
+	defer producer.Close()
 
 	pool := doubleWritePoolx.NewDoubleWritePool(srcDB, dstDB, l)
-	scheduler := NewScheduler[events.TestUser, sarama.SyncProducer](l, srcDB, dstDB, pool, producer)
+	scheduler := NewScheduler[events.TestUser, any](l, srcDB, dstDB, pool, producer)
 
 	// 启动增量校验
 	req := StartIncrRequest{
@@ -197,10 +193,10 @@ func TestSchedulerConcurrent(t *testing.T) {
 	l := zerologx.NewZeroLogger(&logger)
 	// 创建生产者
 	producer := newProducer()
-	defer producer.CloseProducer()
+	defer producer.Close()
 
 	pool := doubleWritePoolx.NewDoubleWritePool(srcDB, dstDB, l)
-	scheduler := NewScheduler[events.TestUser, sarama.SyncProducer](l, srcDB, dstDB, pool, producer)
+	scheduler := NewScheduler[events.TestUser, any](l, srcDB, dstDB, pool, producer)
 
 	// 并发执行模式切换
 	var wg sync.WaitGroup
@@ -235,7 +231,7 @@ func TestSchedulerAutoPromotion(t *testing.T) {
 	l := zerologx.NewZeroLogger(&logger)
 	// 创建生产者
 	producer := newProducer()
-	defer producer.CloseProducer()
+	defer producer.Close()
 
 	//config := SchedulerConfig{
 	//	EnableAutoPromotion: true,
@@ -243,7 +239,7 @@ func TestSchedulerAutoPromotion(t *testing.T) {
 	//}
 
 	pool := doubleWritePoolx.NewDoubleWritePool(srcDB, dstDB, l)
-	scheduler := NewScheduler[events.TestUser, sarama.SyncProducer](l, srcDB, dstDB, pool, producer)
+	scheduler := NewScheduler[events.TestUser, any](l, srcDB, dstDB, pool, producer)
 
 	// 设置为源库优先模式
 	scheduler.SrcFirst(nil)
@@ -269,10 +265,10 @@ func TestSchedulerHealthCheck(t *testing.T) {
 	l := zerologx.NewZeroLogger(&logger)
 	// 创建生产者
 	producer := newProducer()
-	defer producer.CloseProducer()
+	defer producer.Close()
 
 	pool := doubleWritePoolx.NewDoubleWritePool(srcDB, dstDB, l)
-	scheduler := NewScheduler[events.TestUser, sarama.SyncProducer](l, srcDB, dstDB, pool, producer)
+	scheduler := NewScheduler[events.TestUser, any](l, srcDB, dstDB, pool, producer)
 
 	// 健康检查应该返回健康状态
 	// 这里需要模拟HTTP上下文来测试
@@ -290,10 +286,10 @@ func TestNewValidator(t *testing.T) {
 	l := zerologx.NewZeroLogger(&logger)
 	// 创建生产者
 	producer := newProducer()
-	defer producer.CloseProducer()
+	defer producer.Close()
 
 	pool := doubleWritePoolx.NewDoubleWritePool(srcDB, dstDB, l)
-	scheduler := NewScheduler[events.TestUser, sarama.SyncProducer](l, srcDB, dstDB, pool, producer)
+	scheduler := NewScheduler[events.TestUser, any](l, srcDB, dstDB, pool, producer)
 
 	// 测试不同模式下的校验器创建
 	scheduler.Pattern = doubleWritePoolx.PatternSrcFirst
@@ -323,10 +319,10 @@ func BenchmarkSchedulerPatternSwitch(b *testing.B) {
 	l := zerologx.NewZeroLogger(&logger)
 	// 创建生产者
 	producer := newProducer()
-	defer producer.CloseProducer()
+	defer producer.Close()
 
 	pool := doubleWritePoolx.NewDoubleWritePool(srcDB, dstDB, l)
-	scheduler := NewScheduler[events.TestUser, sarama.SyncProducer](l, srcDB, dstDB, pool, producer)
+	scheduler := NewScheduler[events.TestUser, any](l, srcDB, dstDB, pool, producer)
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
