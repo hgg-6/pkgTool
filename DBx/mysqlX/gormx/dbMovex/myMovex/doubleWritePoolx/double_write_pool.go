@@ -22,6 +22,8 @@ import (
 var (
 	errUnknownPattern      = errors.New("未知的双写模式")
 	errPrepareNotSupported = errors.New("双写模式不支持 Prepare 方法")
+	errNilSourcePool       = errors.New("源库连接池为nil")
+	errNilTargetPool       = errors.New("目标库连接池为nil")
 )
 
 // DoubleWriteConfig 双写配置
@@ -40,6 +42,11 @@ type DoubleWritePool struct {
 	Config  DoubleWriteConfig
 	Metrics *Metrics
 	mu      sync.RWMutex
+
+	// 添加控制goroutine退出的字段
+	ctx        context.Context
+	cancel     context.CancelFunc
+	metricsWg  sync.WaitGroup
 }
 
 // Metrics 监控指标
@@ -60,6 +67,8 @@ func NewDoubleWritePool(src *gorm.DB, dst *gorm.DB, l logx.Loggerx, config ...Do
 		cfg = config[0]
 	}
 
+	ctx, cancel := context.WithCancel(context.Background())
+
 	pool := &DoubleWritePool{
 		Src:     src.ConnPool,
 		Dst:     dst.ConnPool,
@@ -67,13 +76,34 @@ func NewDoubleWritePool(src *gorm.DB, dst *gorm.DB, l logx.Loggerx, config ...Do
 		Pattern: atomicx.NewValueOf(PatternSrcOnly),
 		Config:  cfg,
 		Metrics: &Metrics{},
+		ctx:     ctx,
+		cancel:  cancel,
 	}
 
 	if cfg.EnableMetrics {
-		go pool.collectMetrics()
+		pool.startMetricsCollection()
 	}
 
 	return pool
+}
+
+// Close 关闭双写池，释放资源
+func (d *DoubleWritePool) Close() error {
+	d.cancel()
+	if d.Config.EnableMetrics {
+		d.metricsWg.Wait()
+	}
+	d.L.Info("双写池已关闭")
+	return nil
+}
+
+// startMetricsCollection 启动指标收集
+func (d *DoubleWritePool) startMetricsCollection() {
+	d.metricsWg.Add(1)
+	go func() {
+		defer d.metricsWg.Done()
+		d.collectMetrics()
+	}()
 }
 
 // UpdatePattern 更新双写模式
@@ -94,15 +124,19 @@ func (d *DoubleWritePool) HealthCheck() map[string]error {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	// 检查源库连接
-	if src, ok := d.Src.(interface{ PingContext(context.Context) error }); ok {
+	// 检查源库连接（先检查是否为nil）
+	if d.Src == nil {
+		health["src"] = errNilSourcePool
+	} else if src, ok := d.Src.(interface{ PingContext(context.Context) error }); ok {
 		if err := src.PingContext(ctx); err != nil {
 			health["src"] = err
 		}
 	}
 
-	// 检查目标库连接
-	if dst, ok := d.Dst.(interface{ PingContext(context.Context) error }); ok {
+	// 检查目标库连接（先检查是否为nil）
+	if d.Dst == nil {
+		health["dst"] = errNilTargetPool
+	} else if dst, ok := d.Dst.(interface{ PingContext(context.Context) error }); ok {
 		if err := dst.PingContext(ctx); err != nil {
 			health["dst"] = err
 		}
@@ -121,8 +155,12 @@ func (d *DoubleWritePool) GetMetrics() *Metrics {
 // BeginTx 开始事务
 func (d *DoubleWritePool) BeginTx(ctx context.Context, opts *sql.TxOptions) (gorm.ConnPool, error) {
 	pattern := d.Pattern.Load()
+
 	switch pattern {
 	case PatternSrcOnly:
+		if d.Src == nil {
+			return nil, errNilSourcePool
+		}
 		src, err := d.Src.(gorm.TxBeginner).BeginTx(ctx, opts)
 		if err != nil {
 			return nil, err
@@ -135,16 +173,23 @@ func (d *DoubleWritePool) BeginTx(ctx context.Context, opts *sql.TxOptions) (gor
 		}, nil
 
 	case PatternSrcFirst:
+		if d.Src == nil {
+			return nil, errNilSourcePool
+		}
 		src, err := d.Src.(gorm.TxBeginner).BeginTx(ctx, opts)
 		if err != nil {
 			return nil, err
 		}
-		dst, err := d.Dst.(gorm.TxBeginner).BeginTx(ctx, opts)
-		if err != nil {
-			d.L.Error("双写目标表开启事务失败", logx.Error(err))
-			if d.Config.StrictMode {
-				_ = src.Rollback()
-				return nil, fmt.Errorf("strict mode: dst begin tx failed: %w", err)
+
+		var dst *sql.Tx
+		if d.Dst != nil {
+			dst, err = d.Dst.(gorm.TxBeginner).BeginTx(ctx, opts)
+			if err != nil {
+				d.L.Error("双写目标表开启事务失败", logx.Error(err))
+				if d.Config.StrictMode {
+					_ = src.Rollback()
+					return nil, fmt.Errorf("strict mode: dst begin tx failed: %w", err)
+				}
 			}
 		}
 		return &DoubleWriteTx{
@@ -156,16 +201,23 @@ func (d *DoubleWritePool) BeginTx(ctx context.Context, opts *sql.TxOptions) (gor
 		}, nil
 
 	case PatternDstFirst:
+		if d.Dst == nil {
+			return nil, errNilTargetPool
+		}
 		dst, err := d.Dst.(gorm.TxBeginner).BeginTx(ctx, opts)
 		if err != nil {
 			return nil, err
 		}
-		src, err := d.Src.(gorm.TxBeginner).BeginTx(ctx, opts)
-		if err != nil {
-			d.L.Error("双写源表开启事务失败", logx.Error(err))
-			if d.Config.StrictMode {
-				_ = dst.Rollback()
-				return nil, fmt.Errorf("strict mode: src begin tx failed: %w", err)
+
+		var src *sql.Tx
+		if d.Src != nil {
+			src, err = d.Src.(gorm.TxBeginner).BeginTx(ctx, opts)
+			if err != nil {
+				d.L.Error("双写源表开启事务失败", logx.Error(err))
+				if d.Config.StrictMode {
+					_ = dst.Rollback()
+					return nil, fmt.Errorf("strict mode: src begin tx failed: %w", err)
+				}
 			}
 		}
 		return &DoubleWriteTx{
@@ -177,6 +229,9 @@ func (d *DoubleWritePool) BeginTx(ctx context.Context, opts *sql.TxOptions) (gor
 		}, nil
 
 	case PatternDstOnly:
+		if d.Dst == nil {
+			return nil, errNilTargetPool
+		}
 		dst, err := d.Dst.(gorm.TxBeginner).BeginTx(ctx, opts)
 		if err != nil {
 			return nil, err
@@ -201,25 +256,40 @@ func (d *DoubleWritePool) PrepareContext(ctx context.Context, query string) (*sq
 // ExecContext 执行写操作
 func (d *DoubleWritePool) ExecContext(ctx context.Context, query string, args ...interface{}) (sql.Result, error) {
 	start := time.Now()
+	var execErr error
 	defer func() {
 		duration := time.Since(start)
-		d.recordMetrics(duration, nil)
+		d.recordMetrics(duration, execErr)
 	}()
 
 	pattern := d.Pattern.Load()
 	switch pattern {
 	case PatternSrcOnly:
+		if d.Src == nil {
+			execErr = errNilSourcePool
+			return nil, execErr
+		}
 		return d.execWithRetry(ctx, d.Src, query, args...)
 
 	case PatternSrcFirst:
+		if d.Src == nil {
+			execErr = errNilSourcePool
+			return nil, execErr
+		}
+
 		res, err := d.execWithRetry(ctx, d.Src, query, args...)
+		execErr = err
+
 		if err != nil {
+			// 源库执行失败，如果严格模式则直接返回
 			if d.Config.StrictMode {
 				return res, err
 			}
-			// 非严格模式下继续尝试写目标库
+			// 非严格模式下，源库失败时不尝试写目标库，直接返回错误
+			return res, err
 		}
 
+		// 源库执行成功，尝试写目标库
 		if d.Dst != nil {
 			_, err1 := d.execWithRetry(ctx, d.Dst, query, args...)
 			if err1 != nil {
@@ -227,22 +297,35 @@ func (d *DoubleWritePool) ExecContext(ctx context.Context, query string, args ..
 					logx.Error(err1),
 					logx.String("sql", query),
 					logx.Any("args", args))
-				if d.Config.StrictMode && err == nil {
-					return res, fmt.Errorf("strict mode: dst exec failed: %w", err1)
+				if d.Config.StrictMode {
+					execErr = fmt.Errorf("strict mode: dst exec failed: %w", err1)
+					return res, execErr
 				}
 			}
 		}
-		return res, err
+		return res, nil
 
 	case PatternDstOnly:
+		if d.Dst == nil {
+			execErr = errNilTargetPool
+			return nil, execErr
+		}
 		return d.execWithRetry(ctx, d.Dst, query, args...)
 
 	case PatternDstFirst:
+		if d.Dst == nil {
+			execErr = errNilTargetPool
+			return nil, execErr
+		}
+
 		res, err := d.execWithRetry(ctx, d.Dst, query, args...)
+		execErr = err
+
 		if err != nil {
 			if d.Config.StrictMode {
 				return res, err
 			}
+			return res, err
 		}
 
 		if d.Src != nil {
@@ -252,33 +335,46 @@ func (d *DoubleWritePool) ExecContext(ctx context.Context, query string, args ..
 					logx.Error(err1),
 					logx.String("sql", query),
 					logx.Any("args", args))
-				if d.Config.StrictMode && err == nil {
-					return res, fmt.Errorf("strict mode: src exec failed: %w", err1)
+				if d.Config.StrictMode {
+					execErr = fmt.Errorf("strict mode: src exec failed: %w", err1)
+					return res, execErr
 				}
 			}
 		}
-		return res, err
+		return res, nil
 
 	default:
-		return nil, errUnknownPattern
+		execErr = errUnknownPattern
+		return nil, execErr
 	}
 }
 
 // QueryContext 执行查询操作
 func (d *DoubleWritePool) QueryContext(ctx context.Context, query string, args ...interface{}) (*sql.Rows, error) {
 	start := time.Now()
+	var queryErr error
 	defer func() {
 		duration := time.Since(start)
-		d.recordMetrics(duration, nil)
+		d.recordMetrics(duration, queryErr)
 	}()
 
-	switch d.Pattern.Load() {
+	pattern := d.Pattern.Load()
+	switch pattern {
 	case PatternSrcOnly, PatternSrcFirst:
+		if d.Src == nil {
+			queryErr = errNilSourcePool
+			return nil, queryErr
+		}
 		return d.Src.QueryContext(ctx, query, args...)
 	case PatternDstOnly, PatternDstFirst:
+		if d.Dst == nil {
+			queryErr = errNilTargetPool
+			return nil, queryErr
+		}
 		return d.Dst.QueryContext(ctx, query, args...)
 	default:
-		return nil, errUnknownPattern
+		queryErr = errUnknownPattern
+		return nil, queryErr
 	}
 }
 
@@ -289,15 +385,24 @@ func (d *DoubleWritePool) QueryRowContext(ctx context.Context, query string, arg
 		duration := time.Since(start)
 		d.recordMetrics(duration, nil)
 	}()
-	switch d.Pattern.Load() {
+
+	pattern := d.Pattern.Load()
+	switch pattern {
 	case PatternSrcOnly, PatternSrcFirst:
+		if d.Src == nil {
+			// 返回一个包含错误的 Row
+			return &sql.Row{}
+		}
 		return d.Src.QueryRowContext(ctx, query, args...)
 	case PatternDstOnly, PatternDstFirst:
+		if d.Dst == nil {
+			// 返回一个包含错误的 Row
+			return &sql.Row{}
+		}
 		return d.Dst.QueryRowContext(ctx, query, args...)
 	default:
 		// 返回一个包含错误的 Row
 		return &sql.Row{}
-		//panic(errUnknownPattern)
 	}
 }
 
@@ -347,13 +452,19 @@ func (d *DoubleWritePool) collectMetrics() {
 	ticker := time.NewTicker(5 * time.Minute)
 	defer ticker.Stop()
 
-	for range ticker.C {
-		d.mu.Lock()
-		// 保留最近100个指标
-		if len(d.Metrics.QueryDuration) > 100 {
-			d.Metrics.QueryDuration = d.Metrics.QueryDuration[len(d.Metrics.QueryDuration)-100:]
+	for {
+		select {
+		case <-ticker.C:
+			d.mu.Lock()
+			// 保留最近100个指标
+			if len(d.Metrics.QueryDuration) > 100 {
+				d.Metrics.QueryDuration = d.Metrics.QueryDuration[len(d.Metrics.QueryDuration)-100:]
+			}
+			d.mu.Unlock()
+		case <-d.ctx.Done():
+			d.L.Info("指标收集goroutine收到停止信号")
+			return
 		}
-		d.mu.Unlock()
 	}
 }
 
@@ -376,9 +487,16 @@ type DoubleWriteTx struct {
 func (d *DoubleWriteTx) Commit() error {
 	switch d.pattern {
 	case PatternSrcOnly:
+		if d.src == nil {
+			return errNilSourcePool
+		}
 		return d.src.Commit()
 
 	case PatternSrcFirst:
+		if d.src == nil {
+			return errNilSourcePool
+		}
+
 		err := d.src.Commit()
 		if err != nil {
 			if d.dst != nil {
@@ -398,6 +516,10 @@ func (d *DoubleWriteTx) Commit() error {
 		return nil
 
 	case PatternDstFirst:
+		if d.dst == nil {
+			return errNilTargetPool
+		}
+
 		err := d.dst.Commit()
 		if err != nil {
 			if d.src != nil {
@@ -417,6 +539,9 @@ func (d *DoubleWriteTx) Commit() error {
 		return nil
 
 	case PatternDstOnly:
+		if d.dst == nil {
+			return errNilTargetPool
+		}
 		return d.dst.Commit()
 
 	default:
@@ -430,6 +555,9 @@ func (d *DoubleWriteTx) Rollback() error {
 
 	switch d.pattern {
 	case PatternSrcOnly:
+		if d.src == nil {
+			return errNilSourcePool
+		}
 		return d.src.Rollback()
 
 	case PatternSrcFirst:
@@ -457,6 +585,9 @@ func (d *DoubleWriteTx) Rollback() error {
 		}
 
 	case PatternDstOnly:
+		if d.dst == nil {
+			return errNilTargetPool
+		}
 		return d.dst.Rollback()
 
 	default:
@@ -474,19 +605,20 @@ func (d *DoubleWriteTx) PrepareContext(ctx context.Context, query string) (*sql.
 	return nil, errPrepareNotSupported
 }
 
-//func (d *DoubleWriteTx) PrepareContext(ctx context.Context, query string) (*sql.Stmt, error) {
-//	// 这个方法没办法改写
-//	// 我没办法返回一个双写的  sql.Stmt
-//	panic("双写模式写不支持")
-//}
-
 // ExecContext 在事务中执行写操作
 func (d *DoubleWriteTx) ExecContext(ctx context.Context, query string, args ...interface{}) (sql.Result, error) {
 	switch d.pattern {
 	case PatternSrcOnly:
+		if d.src == nil {
+			return nil, errNilSourcePool
+		}
 		return d.src.ExecContext(ctx, query, args...)
 
 	case PatternSrcFirst:
+		if d.src == nil {
+			return nil, errNilSourcePool
+		}
+
 		res, err := d.src.ExecContext(ctx, query, args...)
 		if err != nil {
 			return res, err
@@ -506,9 +638,16 @@ func (d *DoubleWriteTx) ExecContext(ctx context.Context, query string, args ...i
 		return res, err
 
 	case PatternDstOnly:
+		if d.dst == nil {
+			return nil, errNilTargetPool
+		}
 		return d.dst.ExecContext(ctx, query, args...)
 
 	case PatternDstFirst:
+		if d.dst == nil {
+			return nil, errNilTargetPool
+		}
+
 		res, err := d.dst.ExecContext(ctx, query, args...)
 		if err != nil {
 			return res, err
@@ -536,8 +675,14 @@ func (d *DoubleWriteTx) ExecContext(ctx context.Context, query string, args ...i
 func (d *DoubleWriteTx) QueryContext(ctx context.Context, query string, args ...interface{}) (*sql.Rows, error) {
 	switch d.pattern {
 	case PatternSrcOnly, PatternSrcFirst:
+		if d.src == nil {
+			return nil, errNilSourcePool
+		}
 		return d.src.QueryContext(ctx, query, args...)
 	case PatternDstOnly, PatternDstFirst:
+		if d.dst == nil {
+			return nil, errNilTargetPool
+		}
 		return d.dst.QueryContext(ctx, query, args...)
 	default:
 		return nil, errUnknownPattern
@@ -548,8 +693,14 @@ func (d *DoubleWriteTx) QueryContext(ctx context.Context, query string, args ...
 func (d *DoubleWriteTx) QueryRowContext(ctx context.Context, query string, args ...interface{}) *sql.Row {
 	switch d.pattern {
 	case PatternSrcOnly, PatternSrcFirst:
+		if d.src == nil {
+			return &sql.Row{}
+		}
 		return d.src.QueryRowContext(ctx, query, args...)
 	case PatternDstOnly, PatternDstFirst:
+		if d.dst == nil {
+			return &sql.Row{}
+		}
 		return d.dst.QueryRowContext(ctx, query, args...)
 	default:
 		return &sql.Row{}

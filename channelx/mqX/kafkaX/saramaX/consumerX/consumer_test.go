@@ -3,12 +3,13 @@ package consumerX
 import (
 	"context"
 	"encoding/json"
-	"gitee.com/hgg_test/pkg_tool/v2/channelx/mqX"
-	"github.com/IBM/sarama"
-	"github.com/stretchr/testify/assert"
 	"log"
 	"testing"
 	"time"
+
+	"gitee.com/hgg_test/pkg_tool/v2/channelx/mqX"
+	"github.com/IBM/sarama"
+	"github.com/stretchr/testify/assert"
 )
 
 var addr []string = []string{"localhost:9094"}

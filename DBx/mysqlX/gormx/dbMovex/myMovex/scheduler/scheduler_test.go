@@ -1,6 +1,11 @@
 package scheduler
 
 import (
+	"os"
+	"sync"
+	"testing"
+	"time"
+
 	"gitee.com/hgg_test/pkg_tool/v2/DBx/mysqlX/gormx/dbMovex/myMovex/doubleWritePoolx"
 	"gitee.com/hgg_test/pkg_tool/v2/DBx/mysqlX/gormx/dbMovex/myMovex/events"
 	"gitee.com/hgg_test/pkg_tool/v2/channelx/mqX"
@@ -11,10 +16,6 @@ import (
 	"github.com/stretchr/testify/require"
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
-	"os"
-	"sync"
-	"testing"
-	"time"
 )
 
 // TestUser 测试用户实体

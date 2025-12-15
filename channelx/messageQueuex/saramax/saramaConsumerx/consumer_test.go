@@ -3,6 +3,11 @@ package saramaConsumerx
 import (
 	"context"
 	"encoding/json"
+	"log"
+	"os"
+	"testing"
+	"time"
+
 	"gitee.com/hgg_test/pkg_tool/v2/channelx/messageQueuex"
 	"gitee.com/hgg_test/pkg_tool/v2/channelx/messageQueuex/saramax/saramaConsumerx/ConsumerGroupHandlerx"
 	"gitee.com/hgg_test/pkg_tool/v2/channelx/messageQueuex/saramax/saramaConsumerx/serviceLogic"
@@ -12,10 +17,6 @@ import (
 	"github.com/IBM/sarama"
 	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/assert"
-	"log"
-	"os"
-	"testing"
-	"time"
 )
 
 /*

@@ -2,6 +2,11 @@ package consumerx
 
 import (
 	"context"
+	"fmt"
+	"os"
+	"strings"
+	"testing"
+
 	"gitee.com/hgg_test/pkg_tool/v2/DBx/mysqlX/gormx/dbMovex/myMovex/events"
 	"gitee.com/hgg_test/pkg_tool/v2/logx"
 	"gitee.com/hgg_test/pkg_tool/v2/logx/zerologx"
@@ -10,8 +15,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
-	"os"
-	"testing"
 )
 
 /*
@@ -20,25 +23,32 @@ import (
 	======================
 */
 
-func setupTestSrcDB() *gorm.DB {
+func setupTestSrcDB() (*gorm.DB, error) {
 	srcdb, err := gorm.Open(mysql.Open("root:root@tcp(localhost:13306)/src_db?parseTime=true"), &gorm.Config{})
 	if err != nil {
-		panic("failed to connect database")
+		return nil, fmt.Errorf("failed to connect source database: %w", err)
 	}
 
 	// 自动迁移表结构
-	srcdb.AutoMigrate(&events.TestUser{})
-	return srcdb
+	err = srcdb.AutoMigrate(&events.TestUser{})
+	if err != nil {
+		return nil, fmt.Errorf("failed to auto migrate source database: %w", err)
+	}
+	return srcdb, nil
 }
-func setupTestDstDB() *gorm.DB {
+
+func setupTestDstDB() (*gorm.DB, error) {
 	dstdb, err := gorm.Open(mysql.Open("root:root@tcp(localhost:13306)/dst_db?parseTime=true"), &gorm.Config{})
 	if err != nil {
-		panic("failed to connect database")
+		return nil, fmt.Errorf("failed to connect destination database: %w", err)
 	}
 
 	// 自动迁移表结构
-	dstdb.AutoMigrate(&events.TestUser{})
-	return dstdb
+	err = dstdb.AutoMigrate(&events.TestUser{})
+	if err != nil {
+		return nil, fmt.Errorf("failed to auto migrate destination database: %w", err)
+	}
+	return dstdb, nil
 }
 
 var addr []string = []string{"localhost:9094"}
@@ -52,37 +62,66 @@ func InitLog() logx.Loggerx {
 }
 
 func TestNewConsumerGroupHandler1(t *testing.T) {
+	// 设置测试数据库连接
+	srcDb, err := setupTestSrcDB()
+	if err != nil {
+		t.Skipf("跳过测试：无法连接源数据库: %v", err)
+		return
+	}
+
+	dstDb, err := setupTestDstDB()
+	if err != nil {
+		t.Skipf("跳过测试：无法连接目标数据库: %v", err)
+		return
+	}
+
 	cfg := sarama.NewConfig()
-	//consumer, err := saramaX.NewConsumerGroup(addr, "test_group", cfg)
-	//assert.NoError(t, err)
+	// 创建消费者配置
+	cm := NewConsumer(ConsumerConf{
+		Addr:       addr,
+		GroupId:    "test_group",
+		SaramaConf: cfg,
+	}, DbConf{
+		SrcDb: srcDb,
+		DstDb: dstDb,
+	}, InitLog())
 
-	// 开始构造log和消费者消费后的业务逻辑
-	// 构造logx
-	//l := InitLog()
-	//// 模拟业务逻辑处理，入库、缓存等等。。。
-	//fn := func(msg *saramaX.ConsumerMessage, event events.InconsistentEvent) error {
-	//	srcDb := setupTestSrcDB()
-	//	dstDb := setupTestDstDB()
-	//	ov, er := NewOverrideFixer[myMovex.TestUser](srcDb, dstDb)
-	//	assert.NoError(t, er)
-	//	er = ov.Fix(context.Background(), event.ID)
-	//	assert.NoError(t, er)
-	//
-	//	l.Info("receive message success", logx.Int64("value_id: ", event.ID), logx.Any("event: ", event))
-	//	return nil
-	//}
-	//consumerMsg := serviceLogic.NewSaramaConsumerGroupMessage[events.InconsistentEvent](l, fn, nil)
-	//// 构造消费者组处理逻辑【也可自行实现sarama.ConsumerGroupHandler接口】
-	//consumerGroupHandlers := ConsumerGroupHandlerx.NewConsumerGroupHandler[events.InconsistentEvent](consumerMsg)
-	//
-	//csr := saramaConsumerx.NewConsumerIn(consumer, consumerGroupHandlers)
-	//
-	//ctx, cancel := context.WithCancel(context.Background()) // 持续消费
-	//defer cancel()
-	//err = csr.ReceiveMessage(ctx, []messageQueuex.Tp{{Topic: "dbMove"}})
-	//assert.NoError(t, err)
+	// 初始化消费者
+	err = cm.InitConsumer(context.Background(), "dbMove")
+	if err != nil {
+		// 检查是否为连接错误
+		if isConnectionError(err) {
+			t.Skipf("跳过测试：无法连接Kafka或初始化消费者: %v", err)
+			return
+		}
+		assert.NoError(t, err)
+	}
+}
 
-	cm := NewConsumer(ConsumerConf{Addr: addr, GroupId: "test_group", SaramaConf: cfg}, DbConf{SrcDb: setupTestSrcDB(), DstDb: setupTestDstDB()}, InitLog())
-	err := cm.InitConsumer(context.Background(), "dbMove")
-	assert.NoError(t, err)
+// isConnectionError 检查错误是否为连接错误
+func isConnectionError(err error) bool {
+	errStr := err.Error()
+	// 检查常见的连接错误消息
+	connectionErrors := []string{
+		"connection refused",
+		"connectex",
+		"no such host",
+		"timeout",
+		"dial tcp",
+		"network is unreachable",
+		"brokers not available",
+		"cannot connect",
+	}
+
+	for _, connErr := range connectionErrors {
+		if containsIgnoreCase(errStr, connErr) {
+			return true
+		}
+	}
+	return false
+}
+
+// containsIgnoreCase 检查字符串是否包含子字符串（忽略大小写）
+func containsIgnoreCase(s, substr string) bool {
+	return strings.Contains(strings.ToLower(s), strings.ToLower(substr))
 }

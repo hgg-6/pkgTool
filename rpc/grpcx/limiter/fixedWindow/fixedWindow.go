@@ -2,11 +2,12 @@ package fixedWindow
 
 import (
 	"context"
+	"sync"
+	"time"
+
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
-	"sync"
-	"time"
 )
 
 // FixedWindowLimiter 固定窗口限流算法
@@ -18,26 +19,42 @@ type FixedWindowLimiter struct {
 	lock            sync.Mutex    // 保护临界资源
 }
 
+// NewFixedWindowLimiter 创建固定窗口限流器
 func NewFixedWindowLimiter(window time.Duration, threshold int) *FixedWindowLimiter {
-	return &FixedWindowLimiter{window: window, lastWindowStart: time.Now(), cnt: 0, threshold: threshold}
+	return &FixedWindowLimiter{
+		window:          window,
+		lastWindowStart: time.Now(),
+		cnt:             0,
+		threshold:       threshold,
+	}
 }
 
-// BuildServerInterceptor 固定窗口限流算法
+// BuildServerInterceptor 构建gRPC服务端拦截器
 func (c *FixedWindowLimiter) BuildServerInterceptor() grpc.UnaryServerInterceptor {
 	return func(ctx context.Context, req any, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (resp any, err error) {
-		c.lock.Lock() // 加锁
+		// 加锁保护共享状态
+		c.lock.Lock()
+
 		now := time.Now()
-		// 判断是否到了新的窗口
-		if now.After(c.lastWindowStart.Add(c.window)) {
+		// 判断是否进入新的窗口
+		if now.Sub(c.lastWindowStart) > c.window {
+			// 重置窗口
 			c.cnt = 0
 			c.lastWindowStart = now
 		}
-		cnt := c.cnt + 1
-		c.lock.Unlock() // 解锁
-		if cnt <= c.threshold {
-			resp, err = handler(ctx, req) // 处理请求，可以执行业务代码
-			return
+
+		// 检查是否超过阈值
+		if c.cnt >= c.threshold {
+			c.lock.Unlock()
+			return nil, status.Errorf(codes.ResourceExhausted,
+				"固定窗口限流：当前窗口请求数 %d，阈值 %d", c.cnt, c.threshold)
 		}
-		return nil, status.Errorf(codes.ResourceExhausted, "限流")
+
+		// 增加计数器并允许请求
+		c.cnt++
+		c.lock.Unlock()
+
+		// 处理请求
+		return handler(ctx, req)
 	}
 }

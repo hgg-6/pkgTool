@@ -3,14 +3,15 @@ package saramaProducerx
 import (
 	"context"
 	"encoding/json"
-	"gitee.com/hgg_test/pkg_tool/v2/channelx/messageQueuex"
-	"github.com/IBM/sarama"
-	"github.com/stretchr/testify/assert"
-	"golang.org/x/sync/errgroup"
 	"log"
 	"strconv"
 	"testing"
 	"time"
+
+	"gitee.com/hgg_test/pkg_tool/v2/channelx/messageQueuex"
+	"github.com/IBM/sarama"
+	"github.com/stretchr/testify/assert"
+	"golang.org/x/sync/errgroup"
 )
 
 var addr []string = []string{"localhost:9094"}
@@ -21,14 +22,13 @@ func TestNewSaramaProducerStrSync(t *testing.T) {
 	//========同步发送==========
 	cfg.Producer.Return.Successes = true
 
-	syncPro, err := sarama.NewSyncProducer(addr, cfg)
+	pro, err := NewSyncProducer(addr, cfg)
 	if err != nil {
-		t.Skipf("无法连接 Kafka: %v", err)
+		t.Skipf("无法创建生产者: %v", err)
 		return
 	}
-	pro := NewSaramaProducerStr[sarama.SyncProducer](syncPro, cfg)
 	// CloseProducer 关闭生产者Producer，请在main函数最顶层defer住生产者的Producer.Close()，优雅关闭防止goroutine泄露
-	defer pro.CloseProducer()
+	defer pro.Close()
 
 	value, err := json.Marshal(ValTest{
 		Name: "test-同步发送",
@@ -52,14 +52,13 @@ func TestNewSaramaProducerStrAsync(t *testing.T) {
 	// =========异步发送==========新增
 	cfg.Producer.Return.Errors = true
 
-	asyncPro, err := sarama.NewAsyncProducer(addr, cfg)
+	pro, err := NewAsyncProducer(addr, cfg, nil)
 	if err != nil {
-		t.Skipf("无法连接 Kafka: %v", err)
+		t.Skipf("无法创建生产者: %v", err)
 		return
 	}
-	pro := NewSaramaProducerStr[sarama.AsyncProducer](asyncPro, cfg)
 	// CloseProducer 关闭生产者Producer，请在main函数最顶层defer住生产者的Producer.Close()，优雅关闭防止goroutine泄露
-	defer pro.CloseProducer()
+	defer pro.Close()
 
 	value, err := json.Marshal(ValTest{
 		Name: "test-异步发送",
@@ -89,21 +88,19 @@ func TestNewSaramaProducerStrAsyncs(t *testing.T) {
 	cfgs.Producer.Flush.Messages = 5                // 触发刷新所需的最大消息数,5条消息刷新批量发送一次
 
 	// =========创建同步生产者=========
-	syncPro, err := sarama.NewSyncProducer(addr, cfg)
+	pro, err := NewSyncProducer(addr, cfg)
 	if err != nil {
-		t.Skipf("无法连接 Kafka (同步生产者): %v", err)
+		t.Skipf("无法创建同步生产者: %v", err)
 		return
 	}
-	pro := NewSaramaProducerStr[sarama.SyncProducer](syncPro, cfg)
 
 	// =========创建异步生产者=========
-	asyncPros, err := sarama.NewAsyncProducer(addr, cfgs)
+	pros, err := NewAsyncProducer(addr, cfgs, nil)
 	if err != nil {
-		pro.CloseProducer()
-		t.Skipf("无法连接 Kafka (异步生产者): %v", err)
+		pro.Close()
+		t.Skipf("无法创建异步生产者: %v", err)
 		return
 	}
-	pros := NewSaramaProducerStr[sarama.AsyncProducer](asyncPros, cfgs)
 
 	// 发送数据
 	value, err := json.Marshal(ValTest{
@@ -139,9 +136,9 @@ func TestNewSaramaProducerStrAsyncs(t *testing.T) {
 	assert.NoError(t, err)
 
 	// CloseProducer 关闭生产者Producer，请在main函数最顶层defer住生产者的Producer.Close()，优雅关闭防止goroutine泄露
-	err = pro.CloseProducer()
+	err = pro.Close()
 	assert.NoError(t, err)
 	// CloseProducer 关闭生产者Producer，请在main函数最顶层defer住生产者的Producer.Close()，优雅关闭防止goroutine泄露
-	err = pros.CloseProducer()
+	err = pros.Close()
 	assert.NoError(t, err)
 }
