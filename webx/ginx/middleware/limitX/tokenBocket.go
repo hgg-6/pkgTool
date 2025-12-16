@@ -1,10 +1,11 @@
 package limitX
 
 import (
-	"github.com/gin-gonic/gin"
 	"net/http"
 	"sync"
 	"time"
+
+	"github.com/gin-gonic/gin"
 )
 
 // TokenBucketLimiter 令牌桶限流算法
@@ -30,6 +31,7 @@ func (c *TokenBucketLimiter) Build() gin.HandlerFunc {
 	// 发令牌
 	ticker := time.NewTicker(c.interval)
 	go func() {
+		defer ticker.Stop() // 确保 ticker 被正确停止，防止资源泄漏
 		for {
 			select {
 			case <-ticker.C:
