@@ -2,11 +2,12 @@ package tokenBucket
 
 import (
 	"context"
+	"sync"
+	"time"
+
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
-	"sync"
-	"time"
 )
 
 // TokenBucketLimiter 令牌桶限流算法
@@ -32,6 +33,7 @@ func (c *TokenBucketLimiter) BuildServerInterceptor() grpc.UnaryServerIntercepto
 	// 发令牌
 	ticker := time.NewTicker(c.interval)
 	go func() {
+		defer ticker.Stop() // 确保 ticker 被正确停止，防止资源泄漏
 		for {
 			select {
 			case <-ticker.C:

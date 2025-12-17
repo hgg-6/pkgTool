@@ -33,7 +33,8 @@ func TestExampleOffsetConsumer(t *testing.T) {
 		AutoCommit:   false, // 由 handler 控制
 	})
 	if err != nil {
-		panic(err)
+		t.Skipf("跳过测试：无法连接 Kafka: %v", err)
+		return
 	}
 	defer consumer.Close()
 
