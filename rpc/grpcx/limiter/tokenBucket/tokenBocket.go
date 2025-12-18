@@ -17,6 +17,8 @@ type TokenBucketLimiter struct {
 	buckets   chan struct{} // 令牌桶
 	closeCh   chan struct{} // 关闭信号
 	closeOnce sync.Once     // 关闭信号只关闭一次
+	started   bool          // 标记是否已启动goroutine
+	mu        sync.Mutex    // 保护started字段
 }
 
 // NewTokenBucketLimiter 创建令牌桶限流算法
@@ -25,11 +27,27 @@ type TokenBucketLimiter struct {
 func NewTokenBucketLimiter(interval time.Duration, capacity int) *TokenBucketLimiter {
 	bucket := make(chan struct{}, capacity)
 	closec := make(chan struct{})
-	return &TokenBucketLimiter{interval: interval, buckets: bucket, closeCh: closec}
+	limiter := &TokenBucketLimiter{
+		interval: interval,
+		buckets:  bucket,
+		closeCh:  closec,
+		started:  false,
+	}
+	// 在构造函数中启动goroutine
+	limiter.startTokenGenerator()
+	return limiter
 }
 
-// BuildServerInterceptor 令牌桶限流算法
-func (c *TokenBucketLimiter) BuildServerInterceptor() grpc.UnaryServerInterceptor {
+// startTokenGenerator 启动令牌生成goroutine（只启动一次）
+func (c *TokenBucketLimiter) startTokenGenerator() {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	if c.started {
+		return // 已启动，避免重复
+	}
+	c.started = true
+
 	// 发令牌
 	ticker := time.NewTicker(c.interval)
 	go func() {
@@ -47,6 +65,10 @@ func (c *TokenBucketLimiter) BuildServerInterceptor() grpc.UnaryServerIntercepto
 			}
 		}
 	}()
+}
+
+// BuildServerInterceptor 令牌桶限流算法
+func (c *TokenBucketLimiter) BuildServerInterceptor() grpc.UnaryServerInterceptor {
 	// 取令牌
 	return func(ctx context.Context, req any, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (resp any, err error) {
 		select {
@@ -61,6 +83,8 @@ func (c *TokenBucketLimiter) BuildServerInterceptor() grpc.UnaryServerIntercepto
 		}
 	}
 }
+
+// Close 关闭限流器，释放资源
 func (c *TokenBucketLimiter) Close() error {
 	c.closeOnce.Do(func() {
 		close(c.closeCh)

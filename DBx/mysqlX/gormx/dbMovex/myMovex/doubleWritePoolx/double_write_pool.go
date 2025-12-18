@@ -11,10 +11,11 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	"gitee.com/hgg_test/pkg_tool/v2/logx"
-	"gitee.com/hgg_test/pkg_tool/v2/syncX/atomicx"
 	"sync"
 	"time"
+
+	"gitee.com/hgg_test/pkg_tool/v2/logx"
+	"gitee.com/hgg_test/pkg_tool/v2/syncX/atomicx"
 
 	"gorm.io/gorm"
 )
@@ -44,9 +45,11 @@ type DoubleWritePool struct {
 	mu      sync.RWMutex
 
 	// 添加控制goroutine退出的字段
-	ctx        context.Context
-	cancel     context.CancelFunc
-	metricsWg  sync.WaitGroup
+	ctx            context.Context
+	cancel         context.CancelFunc
+	metricsWg      sync.WaitGroup
+	metricsStarted bool       // 标记指标收集是否已启动
+	metricsStartMu sync.Mutex // 保护metricsStarted字段
 }
 
 // Metrics 监控指标
@@ -97,8 +100,17 @@ func (d *DoubleWritePool) Close() error {
 	return nil
 }
 
-// startMetricsCollection 启动指标收集
+// startMetricsCollection 启动指标收集（只启动一次）
 func (d *DoubleWritePool) startMetricsCollection() {
+	d.metricsStartMu.Lock()
+	defer d.metricsStartMu.Unlock()
+
+	if d.metricsStarted {
+		d.L.Warn("指标收集已启动，避免重复启动")
+		return
+	}
+	d.metricsStarted = true
+
 	d.metricsWg.Add(1)
 	go func() {
 		defer d.metricsWg.Done()

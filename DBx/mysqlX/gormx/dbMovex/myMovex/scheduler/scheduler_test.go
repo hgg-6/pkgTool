@@ -1,6 +1,7 @@
 package scheduler
 
 import (
+	"log"
 	"os"
 	"sync"
 	"testing"
@@ -51,7 +52,7 @@ func newProducer() mqX.Producer {
 		Async: false, // 同步模式
 	})
 	if err != nil {
-		panic(err)
+		log.Fatalf("Failed to create producer: %v", err)
 	}
 	return pro
 }
@@ -70,7 +71,7 @@ func newProducer() mqX.Producer {
 func setupTestSrcDB() *gorm.DB {
 	srcdb, err := gorm.Open(mysql.Open("root:root@tcp(localhost:13306)/src_db?parseTime=true"), &gorm.Config{})
 	if err != nil {
-		panic("failed to connect database")
+		log.Fatalf("failed to connect src database: %v", err)
 	}
 
 	// 自动迁移表结构
@@ -80,7 +81,7 @@ func setupTestSrcDB() *gorm.DB {
 func setupTestDstDB() *gorm.DB {
 	dstdb, err := gorm.Open(mysql.Open("root:root@tcp(localhost:13306)/dst_db?parseTime=true"), &gorm.Config{})
 	if err != nil {
-		panic("failed to connect database")
+		log.Fatalf("failed to connect dst database: %v", err)
 	}
 
 	// 自动迁移表结构
