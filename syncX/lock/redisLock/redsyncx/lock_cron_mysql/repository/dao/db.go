@@ -48,3 +48,42 @@ type CronJob struct {
 	Ctime float64
 	Utime float64
 }
+
+// ExecutionStatus 任务执行状态
+type ExecutionStatus string
+
+const (
+	// ExecutionStatusSuccess 执行成功
+	ExecutionStatusSuccess ExecutionStatus = "success"
+	// ExecutionStatusFailure 执行失败
+	ExecutionStatusFailure ExecutionStatus = "failure"
+	// ExecutionStatusRetrying 重试中
+	ExecutionStatusRetrying ExecutionStatus = "retrying"
+	// ExecutionStatusTimeout 执行超时
+	ExecutionStatusTimeout ExecutionStatus = "timeout"
+)
+
+// JobHistory 任务执行历史记录
+type JobHistory struct {
+	ID int64 `json:"id" gorm:"primaryKey;autoIncrement"`
+	// 任务ID
+	CronId int64 `gorm:"column:cron_id;index;not null"`
+	// 任务名称
+	JobName string `gorm:"column:job_name;type:varchar(128);size:128"`
+	// 执行状态
+	Status ExecutionStatus `gorm:"column:status;type:varchar(32);size:32;index"`
+	// 开始时间
+	StartTime int64 `gorm:"column:start_time;not null;index"`
+	// 结束时间
+	EndTime int64 `gorm:"column:end_time"`
+	// 执行时长(毫秒)
+	Duration int64 `gorm:"column:duration"`
+	// 重试次数
+	RetryCount int `gorm:"column:retry_count;default:0"`
+	// 错误信息
+	ErrorMessage sql.NullString `gorm:"column:error_message;type:text"`
+	// 执行结果详情
+	Result sql.NullString `gorm:"column:result;type:text"`
+	// 创建时间
+	Ctime float64 `gorm:"column:ctime"`
+}

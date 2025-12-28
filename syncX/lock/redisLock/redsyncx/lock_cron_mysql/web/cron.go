@@ -2,17 +2,23 @@ package web
 
 import (
 	"errors"
+	"strconv"
+	"strings"
+
 	"gitee.com/hgg_test/pkg_tool/v2/logx"
 	"gitee.com/hgg_test/pkg_tool/v2/syncX/lock/redisLock/redsyncx/lock_cron_mysql/domain"
 	"gitee.com/hgg_test/pkg_tool/v2/syncX/lock/redisLock/redsyncx/lock_cron_mysql/service"
 	"github.com/gin-gonic/gin"
-	"strconv"
-	"strings"
 )
 
 type CronWeb struct {
 	cronSvc service.CronService
 	l       logx.Loggerx
+}
+
+// NewCronWeb 创建CronWeb实例
+func NewCronWeb(cronSvc service.CronService, l logx.Loggerx) *CronWeb {
+	return &CronWeb{cronSvc: cronSvc, l: l}
 }
 
 func (c *CronWeb) Register(server *gin.Engine) {
@@ -24,15 +30,20 @@ func (c *CronWeb) Register(server *gin.Engine) {
 		g.POST("/adds", c.Adds)                // 批量添加任务
 		g.DELETE("/delete/:cron_id", c.Delete) // 删除单个任务，删除任务后续可实现管理员删除的用户权限控制
 		g.DELETE("/deletes/", c.Deletes)       // 批量删除任务
+		// 状态管理接口
+		g.PUT("/start/:cron_id", c.StartJob)   // 启动任务
+		g.PUT("/pause/:cron_id", c.PauseJob)   // 暂停任务
+		g.PUT("/resume/:cron_id", c.ResumeJob) // 恢复任务
 	}
 }
 
 func (c *CronWeb) FindId(ctx *gin.Context) {
-	id := ctx.Query("cron_id")
+	id := ctx.Param("cron_id")
 	cronId, err := strconv.ParseInt(id, 10, 64)
 	if err != nil {
 		c.l.Error("参数错误", logx.Error(err))
 		ctx.JSON(400, gin.H{"error": errors.New("查找失败")})
+		return
 	}
 	cron, err := c.cronSvc.GetCronJob(ctx.Request.Context(), cronId)
 	switch err {
@@ -124,11 +135,12 @@ func (c *CronWeb) Adds(ctx *gin.Context) {
 }
 
 func (c *CronWeb) Delete(ctx *gin.Context) {
-	id := ctx.Query("cron_id")
+	id := ctx.Param("cron_id")
 	cronId, err := strconv.ParseInt(id, 10, 64)
 	if err != nil {
 		c.l.Error("参数错误", logx.Error(err))
 		ctx.JSON(400, gin.H{"error": errors.New("查找失败")})
+		return
 	}
 	err = c.cronSvc.DelCronJob(ctx.Request.Context(), cronId)
 	if err != nil {
@@ -175,4 +187,97 @@ func (c *CronWeb) Deletes(ctx *gin.Context) {
 		"msg":  "success",
 		"data": "delete ok!",
 	})
+}
+
+// StartJob 启动任务
+func (c *CronWeb) StartJob(ctx *gin.Context) {
+	id := ctx.Param("cron_id")
+	cronId, err := strconv.ParseInt(id, 10, 64)
+	if err != nil {
+		c.l.Error("参数错误", logx.Error(err))
+		ctx.JSON(400, gin.H{"error": errors.New("参数错误")})
+		return
+	}
+
+	err = c.cronSvc.StartJob(ctx.Request.Context(), cronId)
+	switch err {
+	case service.ErrDataRecordNotFound:
+		c.l.Error("任务不存在", logx.Int64("cronId", cronId), logx.Error(err))
+		ctx.JSON(404, gin.H{"error": errors.New("任务不存在")})
+	case service.ErrInvalidStatusChange:
+		c.l.Error("无效的状态变更", logx.Int64("cronId", cronId), logx.Error(err))
+		ctx.JSON(400, gin.H{"error": errors.New("任务当前状态不允许启动")})
+	case nil:
+		c.l.Info("启动任务成功", logx.Int64("cronId", cronId))
+		ctx.JSON(200, gin.H{
+			"code": 200,
+			"msg":  "success",
+			"data": "task started",
+		})
+	default:
+		c.l.Error("启动任务失败", logx.Int64("cronId", cronId), logx.Error(err))
+		ctx.JSON(500, gin.H{"error": errors.New("启动任务失败")})
+	}
+}
+
+// PauseJob 暂停任务
+func (c *CronWeb) PauseJob(ctx *gin.Context) {
+	id := ctx.Param("cron_id")
+	cronId, err := strconv.ParseInt(id, 10, 64)
+	if err != nil {
+		c.l.Error("参数错误", logx.Error(err))
+		ctx.JSON(400, gin.H{"error": errors.New("参数错误")})
+		return
+	}
+
+	err = c.cronSvc.PauseJob(ctx.Request.Context(), cronId)
+	switch err {
+	case service.ErrDataRecordNotFound:
+		c.l.Error("任务不存在", logx.Int64("cronId", cronId), logx.Error(err))
+		ctx.JSON(404, gin.H{"error": errors.New("任务不存在")})
+	case service.ErrInvalidStatusChange:
+		c.l.Error("无效的状态变更", logx.Int64("cronId", cronId), logx.Error(err))
+		ctx.JSON(400, gin.H{"error": errors.New("任务当前状态不允许暂停")})
+	case nil:
+		c.l.Info("暂停任务成功", logx.Int64("cronId", cronId))
+		ctx.JSON(200, gin.H{
+			"code": 200,
+			"msg":  "success",
+			"data": "task paused",
+		})
+	default:
+		c.l.Error("暂停任务失败", logx.Int64("cronId", cronId), logx.Error(err))
+		ctx.JSON(500, gin.H{"error": errors.New("暂停任务失败")})
+	}
+}
+
+// ResumeJob 恢复任务
+func (c *CronWeb) ResumeJob(ctx *gin.Context) {
+	id := ctx.Param("cron_id")
+	cronId, err := strconv.ParseInt(id, 10, 64)
+	if err != nil {
+		c.l.Error("参数错误", logx.Error(err))
+		ctx.JSON(400, gin.H{"error": errors.New("参数错误")})
+		return
+	}
+
+	err = c.cronSvc.ResumeJob(ctx.Request.Context(), cronId)
+	switch err {
+	case service.ErrDataRecordNotFound:
+		c.l.Error("任务不存在", logx.Int64("cronId", cronId), logx.Error(err))
+		ctx.JSON(404, gin.H{"error": errors.New("任务不存在")})
+	case service.ErrInvalidStatusChange:
+		c.l.Error("无效的状态变更", logx.Int64("cronId", cronId), logx.Error(err))
+		ctx.JSON(400, gin.H{"error": errors.New("任务当前状态不允许恢复")})
+	case nil:
+		c.l.Info("恢复任务成功", logx.Int64("cronId", cronId))
+		ctx.JSON(200, gin.H{
+			"code": 200,
+			"msg":  "success",
+			"data": "task resumed",
+		})
+	default:
+		c.l.Error("恢复任务失败", logx.Int64("cronId", cronId), logx.Error(err))
+		ctx.JSON(500, gin.H{"error": errors.New("恢复任务失败")})
+	}
 }
