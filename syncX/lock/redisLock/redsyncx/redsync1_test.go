@@ -2,20 +2,19 @@ package redsyncx
 
 import (
 	"context"
+	"os"
+	"testing"
+	"time"
+
 	"gitee.com/hgg_test/pkg_tool/v2/logx/zerologx"
 	"github.com/redis/go-redis/v9"
 	"github.com/robfig/cron/v3"
 	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/assert"
-	"log"
-	"os"
-	"testing"
-	"time"
 )
 
 func TestNewResSyncStr1(t *testing.T) {
 	var clis []*redis.Client
-	// 创建 Redis 客户端
 	client := redis.NewClient(&redis.Options{
 		Addr: "localhost:6379",
 	})
@@ -25,24 +24,18 @@ func TestNewResSyncStr1(t *testing.T) {
 	})
 	clis = append(clis, client1)
 	client2 := redis.NewClient(&redis.Options{
-		Addr: "localhost:6380",
+		Addr: "localhost:6381",
 	})
 	clis = append(clis, client2)
 
-	// 测试 Redis 连接
 	if err := client.Ping(context.Background()).Err(); err != nil {
-		assert.NoError(t, err)
-		log.Fatal("Redis连接失败:", err)
+		t.Fatalf("Redis连接失败: %v", err)
 	}
-	// 测试 Redis 连接
 	if err := client1.Ping(context.Background()).Err(); err != nil {
-		assert.NoError(t, err)
-		log.Fatal("Redis1连接失败:", err)
+		t.Fatalf("Redis1连接失败: %v", err)
 	}
-	// 测试 Redis 连接
 	if err := client2.Ping(context.Background()).Err(); err != nil {
-		assert.NoError(t, err)
-		log.Fatal("Redis1连接失败:", err)
+		t.Fatalf("Redis2连接失败: %v", err)
 	}
 
 	// =========================

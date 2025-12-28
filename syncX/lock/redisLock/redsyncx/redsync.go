@@ -43,6 +43,7 @@ type LockResult struct {
 
 // LockRedsync 分布式锁重构版
 type LockRedsync struct {
+	rs       *redsync.Redsync
 	rsMutex  *redsync.Mutex
 	logger   logx.Loggerx
 	lockName string
@@ -112,6 +113,9 @@ func NewLockRedsync(redisClient []*redis.Client, logger logx.Loggerx, config Con
 		if config.RenewalInterval < time.Second {
 			config.RenewalInterval = time.Second
 		}
+		if config.RenewalInterval > config.Expiry/2 {
+			config.RenewalInterval = config.Expiry / 2
+		}
 	}
 	if config.StatusChanBuffer <= 0 {
 		config.StatusChanBuffer = DefaultConfig().StatusChanBuffer
@@ -135,6 +139,7 @@ func NewLockRedsync(redisClient []*redis.Client, logger logx.Loggerx, config Con
 	ctx, cancel := context.WithCancel(context.Background())
 
 	return &LockRedsync{
+		rs:         rs,
 		rsMutex:    mutex,
 		logger:     logger,
 		lockName:   config.LockName,
@@ -182,27 +187,24 @@ func (dl *LockRedsync) Stop() {
 
 	dl.logger.Info("停止锁服务...")
 	dl.isRunning = false
+
+	status := dl.status
 	dl.mu.Unlock()
 
-	// 取消上下文，通知所有goroutine退出
 	dl.cancel()
 
-	// 停止续约ticker
 	if dl.renewalTicker != nil {
 		dl.renewalTicker.Stop()
 	}
 
-	// 如果持有锁，尝试释放
-	if dl.Status() == LockStatusAcquired {
+	if status == LockStatusAcquired {
 		dl.mu.Lock()
 		dl.releaseLock()
 		dl.mu.Unlock()
 	}
 
-	// 等待所有goroutine退出
 	dl.wg.Wait()
 
-	// 关闭状态通道
 	close(dl.statusChan)
 
 	dl.logger.Info("锁服务已停止")
@@ -374,14 +376,12 @@ func (dl *LockRedsync) renewalLoop(ticker *time.Ticker) {
 				if errors.Is(err, ErrLockStopped) {
 					return
 				}
-				// 续约失败，锁可能已丢失
 				dl.mu.Lock()
 				if dl.status == LockStatusAcquired {
 					dl.updateStatus(LockStatusLost, err)
 					dl.logger.Error("锁续约失败，锁已丢失", logx.Error(err))
 				}
 				dl.mu.Unlock()
-				return
 			}
 		}
 	}
@@ -515,4 +515,14 @@ func (dl *LockRedsync) GetLockInfo() map[string]interface{} {
 	}
 
 	return info
+}
+
+// CreateMutex 创建一个新的 mutex 实例
+func (dl *LockRedsync) CreateMutex(name string) *redsync.Mutex {
+	return dl.rs.NewMutex(
+		name,
+		redsync.WithExpiry(dl.config.Expiry),
+		redsync.WithTries(dl.config.MaxRetries),
+		redsync.WithRetryDelay(dl.config.RetryDelay),
+	)
 }
