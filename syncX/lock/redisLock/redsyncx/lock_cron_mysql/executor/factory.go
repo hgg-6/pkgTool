@@ -2,6 +2,7 @@ package executor
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"time"
@@ -152,34 +153,96 @@ func (r *RetryableExecutor) Type() domain.TaskType {
 	return r.executor.Type()
 }
 
-// FunctionExecutor Function类型任务执行器（占位符）
+// FunctionExecutor Function类型任务执行器
 type FunctionExecutor struct {
 	l logx.Loggerx
+	// 函数注册表：函数名 -> 函数实现
+	functions map[string]func(context.Context, map[string]interface{}) (interface{}, error)
 }
 
 // NewFunctionExecutor 创建Function执行器
 func NewFunctionExecutor(l logx.Loggerx) *FunctionExecutor {
-	return &FunctionExecutor{l: l}
+	return &FunctionExecutor{
+		l:         l,
+		functions: make(map[string]func(context.Context, map[string]interface{}) (interface{}, error)),
+	}
+}
+
+// RegisterFunction 注册函数
+func (f *FunctionExecutor) RegisterFunction(name string, fn func(context.Context, map[string]interface{}) (interface{}, error)) {
+	f.functions[name] = fn
+	f.l.Info("注册Function任务函数", logx.String("name", name))
 }
 
 // Execute 执行Function任务
 func (f *FunctionExecutor) Execute(ctx context.Context, job domain.CronJob) (*ExecutionResult, error) {
 	startTime := time.Now()
 
+	// 解析任务配置
+	var config struct {
+		FunctionName string                 `json:"function_name"`
+		Parameters   map[string]interface{} `json:"parameters"`
+	}
+
+	if err := json.Unmarshal([]byte(job.Description), &config); err != nil {
+		return &ExecutionResult{
+			Success:   false,
+			Message:   fmt.Sprintf("解析Function任务配置失败: %v", err),
+			StartTime: startTime.Unix(),
+			EndTime:   time.Now().Unix(),
+		}, err
+	}
+
+	// 验证配置
+	if config.FunctionName == "" {
+		return &ExecutionResult{
+			Success:   false,
+			Message:   "Function任务function_name不能为空",
+			StartTime: startTime.Unix(),
+			EndTime:   time.Now().Unix(),
+		}, fmt.Errorf("function_name is required")
+	}
+
+	// 查找函数
+	fn, exists := f.functions[config.FunctionName]
+	if !exists {
+		return &ExecutionResult{
+			Success:   false,
+			Message:   fmt.Sprintf("未找到注册的函数: %s", config.FunctionName),
+			StartTime: startTime.Unix(),
+			EndTime:   time.Now().Unix(),
+		}, fmt.Errorf("function %s not found", config.FunctionName)
+	}
+
 	f.l.Info("执行Function任务",
 		logx.Int64("job_id", job.CronId),
 		logx.String("job_name", job.Name),
+		logx.String("function_name", config.FunctionName),
 	)
 
-	// TODO: 这里应该实现实际的函数调用逻辑
-	// 目前作为占位符，返回成功
-
+	// 执行函数
+	result, err := fn(ctx, config.Parameters)
 	endTime := time.Now()
 	duration := endTime.Sub(startTime).Milliseconds()
 
+	if err != nil {
+		return &ExecutionResult{
+			Success:   false,
+			Message:   fmt.Sprintf("Function执行失败: %v", err),
+			StartTime: startTime.Unix(),
+			EndTime:   endTime.Unix(),
+			Duration:  duration,
+		}, err
+	}
+
+	// 构造执行结果
+	resultMsg := fmt.Sprintf("Function执行成功: %v", result)
 	return &ExecutionResult{
-		Success:   true,
-		Message:   "Function任务执行成功（占位符实现）",
+		Success: true,
+		Message: resultMsg,
+		Data: map[string]interface{}{
+			"result": result,
+		},
 		StartTime: startTime.Unix(),
 		EndTime:   endTime.Unix(),
 		Duration:  duration,

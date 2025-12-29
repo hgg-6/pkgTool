@@ -26,15 +26,28 @@ type CronService interface {
 	PauseJob(ctx context.Context, id int64) error
 	ResumeJob(ctx context.Context, id int64) error
 	UpdateJobStatus(ctx context.Context, id int64, status domain.JobStatus) error
+	// 设置调度器
+	SetScheduler(scheduler Scheduler)
+}
+
+// Scheduler 调度器接口
+type Scheduler interface {
+	UpdateJob(job domain.CronJob) error
 }
 
 type cronService struct {
-	cronRepo repository.CronRepository
+	cronRepo  repository.CronRepository
+	scheduler Scheduler
 }
 
 // NewCronService 创建CronService实例
-func NewCronService(cronRepo repository.CronRepository) CronService {
-	return &cronService{cronRepo: cronRepo}
+func NewCronService(cronRepo repository.CronRepository, scheduler Scheduler) CronService {
+	return &cronService{cronRepo: cronRepo, scheduler: scheduler}
+}
+
+// SetScheduler 设置调度器
+func (c *cronService) SetScheduler(scheduler Scheduler) {
+	c.scheduler = scheduler
 }
 
 func (c *cronService) GetCronJob(ctx context.Context, id int64) (domain.CronJob, error) {
@@ -72,7 +85,17 @@ func (c *cronService) StartJob(ctx context.Context, id int64) error {
 		return ErrInvalidStatusChange
 	}
 
-	return c.cronRepo.UpdateStatus(ctx, id, domain.JobStatusActive)
+	// 更新任务状态
+	if err := c.cronRepo.UpdateStatus(ctx, id, domain.JobStatusActive); err != nil {
+		return err
+	}
+
+	// 通知调度器更新任务
+	if c.scheduler != nil {
+		return c.scheduler.UpdateJob(job)
+	}
+
+	return nil
 }
 
 // PauseJob 暂停任务
@@ -88,7 +111,17 @@ func (c *cronService) PauseJob(ctx context.Context, id int64) error {
 		return ErrInvalidStatusChange
 	}
 
-	return c.cronRepo.UpdateStatus(ctx, id, domain.JobStatusPaused)
+	// 更新任务状态
+	if err := c.cronRepo.UpdateStatus(ctx, id, domain.JobStatusPaused); err != nil {
+		return err
+	}
+
+	// 通知调度器更新任务
+	if c.scheduler != nil {
+		return c.scheduler.UpdateJob(job)
+	}
+
+	return nil
 }
 
 // ResumeJob 恢复任务
@@ -104,7 +137,17 @@ func (c *cronService) ResumeJob(ctx context.Context, id int64) error {
 		return ErrInvalidStatusChange
 	}
 
-	return c.cronRepo.UpdateStatus(ctx, id, domain.JobStatusActive)
+	// 更新任务状态
+	if err := c.cronRepo.UpdateStatus(ctx, id, domain.JobStatusActive); err != nil {
+		return err
+	}
+
+	// 通知调度器更新任务
+	if c.scheduler != nil {
+		return c.scheduler.UpdateJob(job)
+	}
+
+	return nil
 }
 
 // UpdateJobStatus 更新任务状态（直接更新，不检查状态转换）

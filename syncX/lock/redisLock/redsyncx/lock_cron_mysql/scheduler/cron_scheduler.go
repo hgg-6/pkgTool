@@ -235,6 +235,7 @@ func (s *CronScheduler) executeJob(job domain.CronJob) error {
 	// 获取执行器
 	exec, err := s.executorFactory.GetExecutor(job.TaskType)
 	if err != nil {
+		s.sendExecutionAlert(job, fmt.Errorf("获取执行器失败: %w", err))
 		return fmt.Errorf("获取执行器失败: %w", err)
 	}
 
@@ -248,6 +249,7 @@ func (s *CronScheduler) executeJob(job domain.CronJob) error {
 			logx.Int64("job_id", job.CronId),
 			logx.Error(err),
 		)
+		s.sendExecutionAlert(job, err)
 		return err
 	}
 
@@ -264,9 +266,22 @@ func (s *CronScheduler) executeJob(job domain.CronJob) error {
 			logx.String("job_name", job.Name),
 			logx.String("message", result.Message),
 		)
+		s.sendExecutionAlert(job, fmt.Errorf("任务执行失败: %s", result.Message))
 	}
 
 	return nil
+}
+
+// sendExecutionAlert 发送执行告警
+func (s *CronScheduler) sendExecutionAlert(job domain.CronJob, err error) {
+	// 这里可以实现告警逻辑，比如发送邮件、短信、企业微信通知等
+	// 目前先记录日志，后续可以扩展为实际的告警渠道
+	s.l.Error("发送任务执行告警",
+		logx.Int64("job_id", job.CronId),
+		logx.String("job_name", job.Name),
+		logx.String("task_type", string(job.TaskType)),
+		logx.Error(err),
+	)
 }
 
 // GetJobCount 获取已注册任务数量
