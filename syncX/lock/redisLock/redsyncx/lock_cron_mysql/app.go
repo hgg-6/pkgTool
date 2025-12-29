@@ -3,6 +3,7 @@ package lock_cron_mysql
 import (
 	"gitee.com/hgg_test/pkg_tool/v2/logx"
 	"gitee.com/hgg_test/pkg_tool/v2/syncX/lock/redisLock/redsyncx"
+	"gitee.com/hgg_test/pkg_tool/v2/syncX/lock/redisLock/redsyncx/lock_cron_mysql/config"
 	"gitee.com/hgg_test/pkg_tool/v2/syncX/lock/redisLock/redsyncx/lock_cron_mysql/executor"
 	"gitee.com/hgg_test/pkg_tool/v2/syncX/lock/redisLock/redsyncx/lock_cron_mysql/middleware"
 	"gitee.com/hgg_test/pkg_tool/v2/syncX/lock/redisLock/redsyncx/lock_cron_mysql/repository"
@@ -20,6 +21,7 @@ type CronMysql struct {
 	db      *gorm.DB
 	redSync redsyncx.RedSyncIn
 	l       logx.Loggerx
+	cfg     *config.Config // 配置信息
 
 	// 各层组件
 	cronWeb        *web.CronWeb
@@ -37,7 +39,7 @@ type CronMysql struct {
 }
 
 // NewCronMysql 创建CronMysql实例（带完整依赖注入）
-func NewCronMysql(engine *gin.Engine, db *gorm.DB, redSync redsyncx.RedSyncIn, l logx.Loggerx) *CronMysql {
+func NewCronMysql(engine *gin.Engine, db *gorm.DB, redSync redsyncx.RedSyncIn, l logx.Loggerx, cfg *config.Config) *CronMysql {
 	// DAO层
 	cronDb := dao.NewCronDb(db)
 	jobHistoryDao := dao.NewJobHistoryDAO(db) // 添加任务历史DAO
@@ -59,7 +61,8 @@ func NewCronMysql(engine *gin.Engine, db *gorm.DB, redSync redsyncx.RedSyncIn, l
 	authRepo := repository.NewAuthRepository(userRoleDb, cronPermDb)
 
 	// Service层
-	cronSvc := service.NewCronService(cronRepo)
+	// 注意：这里需要先创建调度器，但调度器依赖cronSvc，所以需要先创建cronSvc，然后再创建调度器，最后更新cronSvc的调度器
+	cronSvc := service.NewCronService(cronRepo, nil)
 	jobHistorySvc := service.NewJobHistoryService(jobHistoryRepo) // 添加任务历史Service
 	deptSvc := service.NewDepartmentService(deptRepo)
 	userSvc := service.NewUserService(userRepo)
@@ -91,6 +94,8 @@ func NewCronMysql(engine *gin.Engine, db *gorm.DB, redSync redsyncx.RedSyncIn, l
 
 	// 创建调度器
 	scheduler := scheduler.NewCronScheduler(cronSvc, executorFactory, redSync, l)
+	// 更新cronSvc的调度器
+	cronSvc.SetScheduler(scheduler)
 
 	return &CronMysql{
 		web:             engine,
