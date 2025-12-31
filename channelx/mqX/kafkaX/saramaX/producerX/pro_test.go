@@ -3,12 +3,13 @@ package producerX
 import (
 	"context"
 	"encoding/json"
-	"gitee.com/hgg_test/pkg_tool/v2/channelx/mqX"
-	"github.com/stretchr/testify/assert"
-	"golang.org/x/sync/errgroup"
 	"strconv"
 	"testing"
 	"time"
+
+	"gitee.com/hgg_test/pkg_tool/v2/channelx/mqX"
+	"github.com/stretchr/testify/assert"
+	"golang.org/x/sync/errgroup"
 )
 
 var addr []string = []string{"localhost:9094"}
@@ -21,13 +22,20 @@ func TestNewKafkaProducer(t *testing.T) {
 		BatchSize:    200,             // 批量发送消息数量
 		BatchTimeout: 3 * time.Second, // 批量发送消息时间间隔
 	})
-	assert.NoError(t, err)
+	if err != nil {
+		t.Skipf("无法连接 Kafka (异步生产者): %v", err)
+		return
+	}
 
 	// =========创建同步生产者=========
 	pros, err := NewKafkaProducer(addr, &ProducerConfig{
 		Async: false, // false为同步
 	})
-	assert.NoError(t, err)
+	if err != nil {
+		pro.Close()
+		t.Skipf("无法连接 Kafka (同步生产者): %v", err)
+		return
+	}
 
 	defer func() {
 		pro.Close()

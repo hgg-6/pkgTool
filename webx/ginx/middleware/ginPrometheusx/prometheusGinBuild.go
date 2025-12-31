@@ -1,10 +1,11 @@
 package ginPrometheusx
 
 import (
-	"github.com/gin-gonic/gin"
-	"github.com/prometheus/client_golang/prometheus"
 	"strconv"
 	"time"
+
+	"github.com/gin-gonic/gin"
+	"github.com/prometheus/client_golang/prometheus"
 )
 
 type Builder struct {
@@ -48,7 +49,17 @@ func (b *Builder) BuildResponseTime() gin.HandlerFunc {
 		},
 		Help: b.Help,
 	}, labels)
-	prometheus.MustRegister(vector) // prometheus.MustRegister() 会自动注册指标，如果重复注册会 panic
+	// prometheus.MustRegister() 会自动注册指标，如果重复注册会 panic
+	// 使用 Register 代替 MustRegister，并处理重复注册的情况
+	if err := prometheus.Register(vector); err != nil {
+		if are, ok := err.(prometheus.AlreadyRegisteredError); ok {
+			// 如果已经注册，使用已有的 collector
+			vector = are.ExistingCollector.(*prometheus.SummaryVec)
+		} else {
+			// 其他错误，panic
+			panic(err)
+		}
+	}
 
 	return func(ctx *gin.Context) {
 		start := time.Now()
@@ -79,7 +90,18 @@ func (b *Builder) BuildActiveRequest() gin.HandlerFunc {
 		},
 		Help: b.Help,
 	})
-	prometheus.MustRegister(gauge) // prometheus.MustRegister() 会自动注册指标，如果重复注册会 panic
+	// prometheus.MustRegister() 会自动注册指标，如果重复注册会 panic
+	// 使用 Register 代替 MustRegister，并处理重复注册的情况
+	if err := prometheus.Register(gauge); err != nil {
+		if are, ok := err.(prometheus.AlreadyRegisteredError); ok {
+			// 如果已经注册，使用已有的 collector
+			gauge = are.ExistingCollector.(prometheus.Gauge)
+		} else {
+			// 其他错误，panic
+			panic(err)
+		}
+	}
+
 	return func(ctx *gin.Context) {
 		gauge.Inc()       // 每次请求加一
 		defer gauge.Dec() // 请求结束后减一

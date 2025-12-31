@@ -1,0 +1,148 @@
+任务执行历史功能说明
+================================
+
+## 功能概述
+任务执行历史模块提供了完整的任务执行记录、查询、统计和管理功能。
+
+## 核心功能
+
+### 1. 执行历史自动记录
+- 任务每次执行都会自动记录到job_history表
+- 记录内容包括：
+  * 执行状态（成功/失败/重试中/超时）
+  * 开始和结束时间
+  * 执行时长（毫秒）
+  * 重试次数
+  * 错误信息
+  * 执行结果详情
+
+### 2. 执行状态追踪
+支持以下执行状态：
+- success: 执行成功
+- failure: 执行失败
+- retrying: 重试中
+- timeout: 执行超时
+
+### 3. API接口
+
+#### 查询接口
+- GET /job-history/detail/:id - 获取单条执行历史
+- GET /job-history/list/:cron_id?page=1&page_size=10 - 获取任务的执行历史列表（分页）
+- GET /job-history/list-by-status?status=success&page=1&page_size=10 - 根据状态查询
+- GET /job-history/list-by-time?start_time=xxx&end_time=xxx&page=1&page_size=10 - 根据时间范围查询
+- GET /job-history/latest/:cron_id - 获取任务的最新执行历史
+
+#### 统计接口
+- GET /job-history/statistics/:cron_id?days=7 - 获取任务的执行统计信息
+  返回数据包括：
+  * total_count: 总执行次数
+  * success_count: 成功次数
+  * failure_count: 失败次数
+  * timeout_count: 超时次数
+  * avg_duration: 平均执行时长
+  * max_duration: 最大执行时长
+  * min_duration: 最小执行时长
+  * success_rate: 成功率（百分比）
+
+#### 管理接口
+- DELETE /job-history/delete/:id - 删除单条历史记录
+- DELETE /job-history/delete-by-job/:cron_id - 删除任务的所有历史记录
+- DELETE /job-history/cleanup?days=30 - 清理N天前的历史记录（默认30天）
+
+## 数据库表结构
+
+```sql
+CREATE TABLE job_history (
+    id BIGINT PRIMARY KEY AUTO_INCREMENT,
+    cron_id BIGINT NOT NULL,
+    job_name VARCHAR(128),
+    status VARCHAR(32),
+    start_time BIGINT NOT NULL,
+    end_time BIGINT,
+    duration BIGINT,
+    retry_count INT DEFAULT 0,
+    error_message TEXT,
+    result TEXT,
+    ctime DOUBLE,
+    INDEX idx_cron_id (cron_id),
+    INDEX idx_status (status),
+    INDEX idx_start_time (start_time)
+);
+```
+
+## 使用示例
+
+### 1. 查询某个任务的执行历史
+```bash
+curl "http://localhost:8080/job-history/list/123?page=1&page_size=10"
+```
+
+### 2. 查询最近7天的统计数据
+```bash
+curl "http://localhost:8080/job-history/statistics/123?days=7"
+```
+
+### 3. 查询失败的任务
+```bash
+curl "http://localhost:8080/job-history/list-by-status?status=failure&page=1&page_size=20"
+```
+
+### 4. 清理30天前的历史记录
+```bash
+curl -X DELETE "http://localhost:8080/job-history/cleanup?days=30"
+```
+
+## 架构设计
+
+### 分层结构
+1. Domain层 (domain/db.go)
+   - JobHistory: 任务执行历史领域模型
+   - ExecutionStatus: 执行状态枚举
+
+2. DAO层 (repository/dao/job_history.go)
+   - JobHistoryDAO: 数据访问接口
+   - 提供增删改查和统计功能
+
+3. Repository层 (repository/job_history_repo.go)
+   - JobHistoryRepository: 仓储接口
+   - 负责DAO实体与Domain实体的转换
+
+4. Service层 (service/job_history_service.go)
+   - JobHistoryService: 业务逻辑层
+   - 提供分页、统计、清理等业务功能
+
+5. Web层 (web/job_history_web.go)
+   - JobHistoryWeb: HTTP接口处理
+   - 处理请求参数验证和响应
+
+6. Executor层 (executor/history_executor.go)
+   - HistoryRecordingExecutor: 历史记录执行器包装器
+   - RetryableHistoryExecutor: 带重试和历史记录的执行器
+   - 自动记录任务执行过程
+
+## 特性
+
+### 1. 自动记录
+- 执行器工厂自动包装所有执行器，无需手动调用记录接口
+- 异步保存历史记录，不影响任务执行性能
+
+### 2. 重试追踪
+- 记录每次重试的信息
+- 统计最终的重试次数
+
+### 3. 性能优化
+- 使用索引加速查询（cron_id, status, start_time）
+- 提供分页查询，避免大数据量查询
+- 异步保存，不阻塞任务执行
+
+### 4. 数据管理
+- 支持定期清理旧数据
+- 支持按任务删除历史
+- 支持按ID精确删除
+
+## 注意事项
+
+1. 历史记录是异步保存的，可能存在短暂延迟
+2. 定期清理历史记录以避免数据库过大
+3. 查询统计数据时，建议不要设置过长的时间范围
+4. 所有历史查询接口都需要 cron:read 权限

@@ -3,6 +3,11 @@ package saramaConsumerx
 import (
 	"context"
 	"encoding/json"
+	"log"
+	"os"
+	"testing"
+	"time"
+
 	"gitee.com/hgg_test/pkg_tool/v2/channelx/messageQueuex"
 	"gitee.com/hgg_test/pkg_tool/v2/channelx/messageQueuex/saramax/saramaConsumerx/ConsumerGroupHandlerx"
 	"gitee.com/hgg_test/pkg_tool/v2/channelx/messageQueuex/saramax/saramaConsumerx/serviceLogic"
@@ -12,10 +17,6 @@ import (
 	"github.com/IBM/sarama"
 	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/assert"
-	"log"
-	"os"
-	"testing"
-	"time"
 )
 
 /*
@@ -34,7 +35,11 @@ var addr []string = []string{"localhost:9094"}
 func TestNewConsumerGroupHandler(t *testing.T) {
 	cfg := sarama.NewConfig()
 	consumer, err := sarama.NewConsumerGroup(addr, "test_group", cfg)
-	assert.NoError(t, err)
+	if err != nil {
+		t.Skipf("无法连接 Kafka: %v", err)
+		return
+	}
+	defer consumer.Close()
 
 	// 开始构造log和消费者消费后的业务逻辑
 	// 构造logx
@@ -61,7 +66,11 @@ func TestNewConsumerGroupHandler(t *testing.T) {
 func TestNewConsumerGroupHandler_Offset(t *testing.T) {
 	cfg := sarama.NewConfig()
 	consumer, err := sarama.NewConsumerGroup(addr, "test_group", cfg)
-	assert.NoError(t, err)
+	if err != nil {
+		t.Skipf("无法连接 Kafka: %v", err)
+		return
+	}
+	defer consumer.Close()
 
 	// 开始构造log和消费者消费后的业务逻辑
 	// 构造logx
@@ -93,7 +102,11 @@ func TestNewConsumerGroupHandler_Offset(t *testing.T) {
 func TestNewConsumerGroupHandler_batch(t *testing.T) {
 	cfg := sarama.NewConfig()
 	consumer, err := sarama.NewConsumerGroup(addr, "test_group", cfg)
-	assert.NoError(t, err)
+	if err != nil {
+		t.Skipf("无法连接 Kafka: %v", err)
+		return
+	}
+	defer consumer.Close()
 
 	// 开始构造log和消费者消费后的业务逻辑
 	// 构造logx

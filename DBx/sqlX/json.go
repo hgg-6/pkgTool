@@ -49,3 +49,28 @@ func (j *JsonColumn[T]) Scan(src any) error {
 	j.Valid = true
 	return nil
 }
+
+// MarshalJSON 实现 json.Marshaler 接口
+// 当 Valid 为 true 时，直接序列化 Val 的值；否则序列化为 null
+func (j JsonColumn[T]) MarshalJSON() ([]byte, error) {
+	if !j.Valid {
+		return []byte("null"), nil
+	}
+	return json.Marshal(j.Val)
+}
+
+// UnmarshalJSON 实现 json.Unmarshaler 接口
+// 当输入为 null 时，设置 Valid 为 false；否则反序列化到 Val
+func (j *JsonColumn[T]) UnmarshalJSON(data []byte) error {
+	if string(data) == "null" {
+		var zero T
+		j.Val = zero
+		j.Valid = false
+		return nil
+	}
+	if err := json.Unmarshal(data, &j.Val); err != nil {
+		return err
+	}
+	j.Valid = true
+	return nil
+}

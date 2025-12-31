@@ -2,216 +2,403 @@ package saramaProducerx
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"sync"
+	"time"
+
 	"gitee.com/hgg_test/pkg_tool/v2/channelx/messageQueuex"
 	"github.com/IBM/sarama"
 )
 
-// Deprecated: messageQueuex此包弃用，此方法将在未来版本中删除，请使用mqX包
-type SaramaProducerStr[ProducerTyp any] struct {
-	SyncProducer  sarama.SyncProducer
-	AsyncProducer sarama.AsyncProducer
-	Config        *sarama.Config
-	ProducerTyp   uint // 0-同步，1-异步
-	// 保存 cancelFunc
-	cancelFunc context.CancelFunc
+// 定义生产者类型枚举
+type ProducerType int
+
+const (
+	ProducerTypeSync  ProducerType = 0
+	ProducerTypeAsync ProducerType = 1
+)
+
+// 定义通用生产者接口
+type Producer interface {
+	// SendMessage 发送消息
+	SendMessage(ctx context.Context, keyOrTopic messageQueuex.Tp, value []byte) error
+	// Close 关闭生产者，释放资源
+	Close() error
+	// Type 返回生产者类型
+	Type() ProducerType
 }
 
-// Deprecated: messageQueuex此包弃用，此方法将在未来版本中删除，请使用mqX包
-// NewSaramaProducerStr 创建一个SaramaProducerStr实现【Sync单条消息，Async异步才支持批量】
-//   - 同步发送消息，就注入同步发送消息的配置监听success通道配置为true
-//   - 异步批量发送消息，需注入异步批量发送消息的配置Producer.Flush.Messages Producer.Flush.Frequency以及监听success和error通道配置为true
-//   - 如果项目中既有同步发送消息，也有异步发送消息，那么在wire构造注入时，单独wire.NewSet同步实现和wire.NewSet异步实现
-func NewSaramaProducerStr[ProducerTyp any, /*ProducerTyp: saramaX.SyncProducer & saramaX.AsyncProducer*/
-](Producer ProducerTyp /*saramaX.SyncProducer & saramaX.AsyncProducer*/, config *sarama.Config) messageQueuex.ProducerIn[ProducerTyp] {
+// AsyncResultHandler 异步结果处理器接口
+type AsyncResultHandler interface {
+	// HandleSuccess 处理成功发送的消息
+	HandleSuccess(success *sarama.ProducerMessage)
+	// HandleError 处理发送失败的消息
+	HandleError(err *sarama.ProducerError)
+}
 
-	h := &SaramaProducerStr[ProducerTyp]{}
-	h.Config = config
+// DefaultAsyncResultHandler 默认的异步结果处理器
+type DefaultAsyncResultHandler struct{}
 
-	switch producer := any(Producer).(type) {
-	case sarama.SyncProducer:
-		h.ProducerTyp = 0
-		h.SyncProducer = producer
-		if h.Config.Producer.Return.Successes != true {
-			h.Config.Producer.Return.Successes = true
-		}
-	case sarama.AsyncProducer:
-		h.ProducerTyp = 1
-		if h.Config.Producer.Return.Successes != true || h.Config.Producer.Return.Errors != true {
-			h.Config.Producer.Return.Successes = true
-			h.Config.Producer.Return.Errors = true
-		}
-		h.AsyncProducer = producer
-		// 是否为异步批量发送消息，需持续监听success和error通道
-		if h.Config.Producer.Flush.Messages > 0 || h.Config.Producer.Flush.Frequency > 0 {
-			ctx, cancel := context.WithCancel(context.Background())
-			// 将 cancelFunc 赋值给结构体
-			h.cancelFunc = cancel
-			go h.handleAsyncResults(ctx, h.cancelFunc)
-		}
-	default:
-		panic("kafka Producer Invalid producer type, kafka Producer无效的卡夫卡的生产者类型【非sarama.SyncProducer/saramaX.AsyncProducer】")
+func (h *DefaultAsyncResultHandler) HandleSuccess(success *sarama.ProducerMessage) {
+	// 默认实现：记录日志
+	// 实际使用中可以自定义实现，例如重试、监控等
+}
+
+func (h *DefaultAsyncResultHandler) HandleError(err *sarama.ProducerError) {
+	// 默认实现：记录错误日志
+	// 实际使用中可以自定义实现，例如重试、告警等
+}
+
+// SyncProducer 同步生产者实现
+type SyncProducer struct {
+	producer sarama.SyncProducer
+	config   *sarama.Config
+}
+
+// NewSyncProducer 创建同步生产者
+func NewSyncProducer(brokers []string, config *sarama.Config) (*SyncProducer, error) {
+	if config == nil {
+		config = sarama.NewConfig()
 	}
-	return h
-}
+	config.Producer.Return.Successes = true
+	config.Producer.Return.Errors = true
+	config.Producer.RequiredAcks = sarama.WaitForAll
 
-//func NewSaramaProducerStrV1[ProducerTyp any, /*ProducerTyp: saramaX.SyncProducer saramaX.AsyncProducer*/
-//	Val any](Producer ProducerTyp /*saramaX.SyncProducer saramaX.AsyncProducer*/, config *saramaX.Config) *SaramaProducerStr[ProducerTyp, Val] {
-//
-//	h := &SaramaProducerStr[ProducerTyp, Val]{}
-//	h.Config = config
-//
-//	switch producer := any(Producer).(type) {
-//	case saramaX.SyncProducer:
-//		h.ProducerTyp = 0
-//		h.SyncProducer = producer
-//		if h.Config.Producer.Return.Successes != true {
-//			h.Config.Producer.Return.Successes = true
-//		}
-//	case saramaX.AsyncProducer:
-//		h.ProducerTyp = 1
-//		if h.Config.Producer.Return.Successes != true || h.Config.Producer.Return.Errors != true {
-//			h.Config.Producer.Return.Successes = true
-//			h.Config.Producer.Return.Errors = true
-//		}
-//		h.AsyncProducer = producer
-//		// 是否为异步批量发送消息，需持续监听success和error通道
-//		if h.Config.Producer.Flush.Messages > 0 || h.Config.Producer.Flush.Frequency > 0 {
-//			ctx, cancel := context.WithCancel(context.Background())
-//			// 将 cancelFunc 赋值给结构体
-//			h.cancelFunc = cancel
-//			go h.handleAsyncResults(ctx, h.cancelFunc)
-//		}
-//	default:
-//		panic("kafka Producer Invalid producer type, kafka Producer无效的卡夫卡的生产者类型【非sarama.SyncProducer/saramaX.AsyncProducer】")
-//	}
-//	return h
-//}
-
-// SendMessage Producer生产者发送消息
-func (s *SaramaProducerStr[ProducerTyp]) SendMessage(ctx context.Context, keyOrTopic messageQueuex.Tp, value []byte) error {
-	switch s.ProducerTyp {
-	case 0:
-		return s.sendMessageSync(ctx, keyOrTopic, value)
-	case 1:
-		return s.sendMessageAsync(ctx, keyOrTopic, value)
-	default:
-		return fmt.Errorf("kafka Producer Invalid producer type, kafka Producer无效的卡夫卡的生产者类型【使用的非sarama.SyncProducer/saramaX.AsyncProducer】")
+	producer, err := sarama.NewSyncProducer(brokers, config)
+	if err != nil {
+		return nil, fmt.Errorf("创建同步生产者失败: %w", err)
 	}
+
+	return &SyncProducer{
+		producer: producer,
+		config:   config,
+	}, nil
 }
 
-// CloseProducer 关闭生产者
-//   - 请在main函数最顶层defer住生产者的Producer.Close()，优雅关闭防止goroutine泄露
-func (s *SaramaProducerStr[ProducerTyp]) CloseProducer() error {
-	var err error
-	switch s.ProducerTyp {
-	case 1:
-		// 取消 context，通知后台 goroutine 退出
-		if s.cancelFunc != nil {
-			s.cancelFunc()
-		}
-		// 关闭 AsyncProducer，这会自动关闭 Successes() 和 Errors() 通道
-		if s.AsyncProducer != nil {
-			err = s.AsyncProducer.Close()
-		}
-	case 0:
-		//  关闭 SyncProducer（如果存在）
-		if s.SyncProducer != nil {
-			if closeErr := s.SyncProducer.Close(); closeErr != nil {
-				err = closeErr
-			}
-		}
+// SendMessage 发送消息（同步）
+func (p *SyncProducer) SendMessage(ctx context.Context, keyOrTopic messageQueuex.Tp, value []byte) error {
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
 	default:
-		err = fmt.Errorf("close kafka Producer Invalid producer type, 关闭kafka Producer时无效的卡夫卡的生产者类型【使用的非sarama.SyncProducer/saramaX.AsyncProducer】")
 	}
-	return err
-}
 
-// ========================内部逻辑=======================
-
-// sendMessageSync 同步发送消息
-func (s *SaramaProducerStr[ProducerTyp]) sendMessageSync(ctx context.Context, keyOrTopic messageQueuex.Tp, value []byte) error {
-	//if s.ProducerTyp != 0 {
-	//	return fmt.Errorf("kafka Producer Invalid producer type, kafka Producer无效的卡夫卡的生产者类型【使用的非sarama.SyncProducer】")
-	//}
-	//v, err := json.Marshal(value)
-	//if err != nil {
-	//	return err
-	//}
-	_, _, err := s.SyncProducer.SendMessage(&sarama.ProducerMessage{
+	msg := &sarama.ProducerMessage{
 		Topic: keyOrTopic.Topic,
 		Key:   sarama.StringEncoder(keyOrTopic.Key),
-		//Value: saramaX.StringEncoder(v),
 		Value: sarama.StringEncoder(value),
-	})
-	return err
+	}
+
+	_, _, err := p.producer.SendMessage(msg)
+	if err != nil {
+		return fmt.Errorf("发送消息失败: %w", err)
+	}
+
+	return nil
 }
 
-// sendMessageAsync 异步发送消息
-//   - 异步批量发送，必须配置sarama.NewConfig的批量发送配置
-//   - cfg.Producer.Flush.Frequency = 5 * time.Second // 5秒刷新一次，不管有没有达到批量发送数量条件【只有提交了才会写入broker，success/errors通道才会有消息】
-//   - cfg.Producer.Flush.Messages = 5	// 触发刷新所需的最大消息数,5条消息刷新批量发送一次
-func (s *SaramaProducerStr[ProducerTyp]) sendMessageAsync(ctx context.Context, keyOrTopic messageQueuex.Tp, value []byte) error {
-	if s.ProducerTyp != 1 {
-		return fmt.Errorf("kafka Producer Invalid producer type, kafka Producer无效的卡夫卡的生产者类型【使用的非sarama.AsyncProducer】")
+// Close 关闭同步生产者
+func (p *SyncProducer) Close() error {
+	if p.producer != nil {
+		return p.producer.Close()
 	}
-	// 异步批量发送消息，需走new方法构造的后台for持续监听success和error通道
-	if s.Config.Producer.Flush.Messages > 0 || s.Config.Producer.Flush.Frequency > 0 {
-		msg := &sarama.ProducerMessage{
-			Topic: keyOrTopic.Topic,
-			Key:   sarama.StringEncoder(keyOrTopic.Key),
-			Value: sarama.StringEncoder(value),
-		}
-		select {
-		case s.AsyncProducer.Input() <- msg:
-			return nil // 入队成功，立即返回
-		case <-ctx.Done():
-			return ctx.Err() // 超时
-		}
-	} else {
-		// 异步发送单个消息
-		s.AsyncProducer.Input() <- &sarama.ProducerMessage{
-			Topic: keyOrTopic.Topic,
-			Key:   sarama.StringEncoder(keyOrTopic.Key),
-			Value: sarama.StringEncoder(value),
-		}
-		select {
-		case <-s.AsyncProducer.Successes():
-			return nil // 入队成功
-		case er := <-s.AsyncProducer.Errors():
-			return fmt.Errorf("send kafka error【监听kafka的errors通道出现错误】%v", er)
-		case <-ctx.Done():
-			return ctx.Err() // 超时
-		}
+	return nil
+}
+
+// Type 返回生产者类型
+func (p *SyncProducer) Type() ProducerType {
+	return ProducerTypeSync
+}
+
+// AsyncProducer 异步生产者实现
+type AsyncProducer struct {
+	producer    sarama.AsyncProducer
+	config      *sarama.Config
+	resultChan  chan interface{}
+	stopChan    chan struct{}
+	stoppedChan chan struct{}
+	wg          sync.WaitGroup
+	handler     AsyncResultHandler
+}
+
+// NewAsyncProducer 创建异步生产者
+func NewAsyncProducer(brokers []string, config *sarama.Config, handler AsyncResultHandler) (*AsyncProducer, error) {
+	if config == nil {
+		config = sarama.NewConfig()
+	}
+	config.Producer.Return.Successes = true
+	config.Producer.Return.Errors = true
+
+	producer, err := sarama.NewAsyncProducer(brokers, config)
+	if err != nil {
+		return nil, fmt.Errorf("创建异步生产者失败: %w", err)
+	}
+
+	if handler == nil {
+		handler = &DefaultAsyncResultHandler{}
+	}
+
+	asyncProducer := &AsyncProducer{
+		producer:    producer,
+		config:      config,
+		resultChan:  make(chan interface{}, 100),
+		stopChan:    make(chan struct{}),
+		stoppedChan: make(chan struct{}),
+		handler:     handler,
+	}
+
+	// 启动结果处理goroutine
+	asyncProducer.wg.Add(1)
+	go asyncProducer.handleResults()
+
+	return asyncProducer, nil
+}
+
+// SendMessage 发送消息（异步）
+func (p *AsyncProducer) SendMessage(ctx context.Context, keyOrTopic messageQueuex.Tp, value []byte) error {
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	default:
+	}
+
+	msg := &sarama.ProducerMessage{
+		Topic: keyOrTopic.Topic,
+		Key:   sarama.StringEncoder(keyOrTopic.Key),
+		Value: sarama.StringEncoder(value),
+	}
+
+	// 异步发送消息
+	select {
+	case p.producer.Input() <- msg:
+		return nil
+	case <-ctx.Done():
+		return ctx.Err()
+	case <-p.stopChan:
+		return errors.New("生产者已关闭")
 	}
 }
 
-// handleAsyncResults 监听异步生产结果
-func (s *SaramaProducerStr[ProducerTyp]) handleAsyncResults(ctx context.Context, cancel context.CancelFunc) {
-	defer func() {
-		<-s.AsyncProducer.Successes() // 等待所有Successes处理完
-		<-s.AsyncProducer.Errors()    // 等待所有Errors处理完
-		cancel()
-	}()
+// handleResults 处理异步发送结果
+func (p *AsyncProducer) handleResults() {
+	defer p.wg.Done()
+	defer close(p.stoppedChan)
+
 	for {
 		select {
-		case success, ok := <-s.AsyncProducer.Successes():
-			//log.Printf("✅ 消息发送成功: Topic=%s, Partition=%d, Offset=%d",
-			//	success.Topic, success.Partition, success.Offset)
+		case success, ok := <-p.producer.Successes():
 			if !ok {
+				// 通道已关闭，退出
 				return
 			}
-			// 处理成功消息
-			_ = success
-		case err, ok := <-s.AsyncProducer.Errors():
-			//log.Printf("❌ 消息发送失败: %v", err)
+			p.handler.HandleSuccess(success)
+
+		case err, ok := <-p.producer.Errors():
 			if !ok {
+				// 通道已关闭，退出
 				return
 			}
-			// 处理错误
-			_ = err
-		case <-ctx.Done(): // 退出
+			p.handler.HandleError(err)
+
+		case <-p.stopChan:
+			// 收到停止信号，关闭生产者并退出
+			if err := p.producer.Close(); err != nil {
+				// 记录关闭错误但不返回，继续执行退出流程
+			}
 			return
 		}
 	}
+}
+
+// Close 关闭异步生产者，等待所有goroutine退出
+func (p *AsyncProducer) Close() error {
+	close(p.stopChan)
+
+	// 等待结果处理goroutine退出
+	p.wg.Wait()
+
+	// 确保所有通道都已关闭
+	select {
+	case <-p.stoppedChan:
+		// 已经停止
+	default:
+		close(p.stoppedChan)
+	}
+
+	return nil
+}
+
+// Type 返回生产者类型
+func (p *AsyncProducer) Type() ProducerType {
+	return ProducerTypeAsync
+}
+
+// BatchAsyncProducer 批量异步生产者（支持批量发送配置）
+type BatchAsyncProducer struct {
+	*AsyncProducer
+	batchSize     int
+	batchInterval time.Duration
+	batchChan     chan *sarama.ProducerMessage
+	batchWG       sync.WaitGroup
+}
+
+// NewBatchAsyncProducer 创建批量异步生产者
+func NewBatchAsyncProducer(brokers []string, config *sarama.Config, handler AsyncResultHandler,
+	batchSize int, batchInterval time.Duration) (*BatchAsyncProducer, error) {
+
+	if config == nil {
+		config = sarama.NewConfig()
+	}
+	config.Producer.Flush.Messages = batchSize
+	config.Producer.Flush.Frequency = batchInterval
+
+	asyncProducer, err := NewAsyncProducer(brokers, config, handler)
+	if err != nil {
+		return nil, err
+	}
+
+	batchProducer := &BatchAsyncProducer{
+		AsyncProducer: asyncProducer,
+		batchSize:     batchSize,
+		batchInterval: batchInterval,
+		batchChan:     make(chan *sarama.ProducerMessage, batchSize*2),
+	}
+
+	// 启动批量处理goroutine
+	batchProducer.batchWG.Add(1)
+	go batchProducer.batchProcessor()
+
+	return batchProducer, nil
+}
+
+// batchProcessor 批量消息处理器
+func (p *BatchAsyncProducer) batchProcessor() {
+	defer p.batchWG.Done()
+
+	ticker := time.NewTicker(p.batchInterval)
+	defer ticker.Stop()
+
+	batch := make([]*sarama.ProducerMessage, 0, p.batchSize)
+
+	for {
+		select {
+		case msg := <-p.batchChan:
+			if msg == nil {
+				// 通道已关闭，处理剩余消息
+				if len(batch) > 0 {
+					p.sendBatch(batch)
+				}
+				return
+			}
+
+			batch = append(batch, msg)
+			if len(batch) >= p.batchSize {
+				p.sendBatch(batch)
+				batch = batch[:0] // 重置batch
+			}
+
+		case <-ticker.C:
+			if len(batch) > 0 {
+				p.sendBatch(batch)
+				batch = batch[:0] // 重置batch
+			}
+
+		case <-p.stopChan:
+			// 处理剩余消息
+			if len(batch) > 0 {
+				p.sendBatch(batch)
+			}
+			return
+		}
+	}
+}
+
+// sendBatch 发送批量消息
+func (p *BatchAsyncProducer) sendBatch(batch []*sarama.ProducerMessage) {
+	for _, msg := range batch {
+		select {
+		case p.producer.Input() <- msg:
+			// 成功入队
+		case <-p.stopChan:
+			// 生产者已关闭，停止发送
+			return
+		}
+	}
+}
+
+// SendMessage 发送消息（批量异步）
+func (p *BatchAsyncProducer) SendMessage(ctx context.Context, keyOrTopic messageQueuex.Tp, value []byte) error {
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	default:
+	}
+
+	msg := &sarama.ProducerMessage{
+		Topic: keyOrTopic.Topic,
+		Key:   sarama.StringEncoder(keyOrTopic.Key),
+		Value: sarama.StringEncoder(value),
+	}
+
+	// 将消息加入批量队列
+	select {
+	case p.batchChan <- msg:
+		return nil
+	case <-ctx.Done():
+		return ctx.Err()
+	case <-p.stopChan:
+		return errors.New("生产者已关闭")
+	}
+}
+
+// Close 关闭批量异步生产者
+func (p *BatchAsyncProducer) Close() error {
+	// 先关闭批量处理通道
+	close(p.batchChan)
+
+	// 等待批量处理器退出
+	p.batchWG.Wait()
+
+	// 调用父类的Close方法
+	return p.AsyncProducer.Close()
+}
+
+// 兼容旧版本的包装器（为了向后兼容）
+type SaramaProducerWrapper struct {
+	producer Producer
+	typ      ProducerType
+}
+
+// NewSaramaProducerWrapper 创建生产者包装器（向后兼容）
+func NewSaramaProducerWrapper(producer Producer) *SaramaProducerWrapper {
+	return &SaramaProducerWrapper{
+		producer: producer,
+		typ:      producer.Type(),
+	}
+}
+
+// SendMessage 发送消息
+func (w *SaramaProducerWrapper) SendMessage(ctx context.Context, keyOrTopic messageQueuex.Tp, value []byte) error {
+	return w.producer.SendMessage(ctx, keyOrTopic, value)
+}
+
+// CloseProducer 关闭生产者
+func (w *SaramaProducerWrapper) CloseProducer() error {
+	return w.producer.Close()
+}
+
+// ProducerTyp 获取生产者类型（兼容旧版本）
+func (w *SaramaProducerWrapper) ProducerTyp() uint {
+	return uint(w.typ)
+}
+
+// IsAsync 检查是否为异步生产者
+func (w *SaramaProducerWrapper) IsAsync() bool {
+	return w.typ == ProducerTypeAsync
+}
+
+// IsSync 检查是否为同步生产者
+func (w *SaramaProducerWrapper) IsSync() bool {
+	return w.typ == ProducerTypeSync
 }

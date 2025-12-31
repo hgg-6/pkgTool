@@ -4,6 +4,14 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"log"
+	"net/http"
+	"net/http/httptest"
+	"os"
+	"strconv"
+	"testing"
+	"time"
+
 	"gitee.com/hgg_test/pkg_tool/v2/DBx/mysqlX/gormx/dbMovex/myMovex/doubleWritePoolx"
 	"gitee.com/hgg_test/pkg_tool/v2/DBx/mysqlX/gormx/dbMovex/myMovex/events"
 	"gitee.com/hgg_test/pkg_tool/v2/DBx/mysqlX/gormx/dbMovex/myMovex/messageQueue/consumerx"
@@ -21,12 +29,6 @@ import (
 	"github.com/stretchr/testify/suite"
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
-	"net/http"
-	"net/http/httptest"
-	"os"
-	"strconv"
-	"testing"
-	"time"
 )
 
 type MoveTest struct {
@@ -593,7 +595,7 @@ func TestMoveTest(t *testing.T) {
 func initDb(key string) *gorm.DB {
 	db, err := gorm.Open(mysql.Open(key), &gorm.Config{})
 	if err != nil {
-		panic(err)
+		log.Fatalf("failed to connect database: %v", err)
 	}
 	return db
 }

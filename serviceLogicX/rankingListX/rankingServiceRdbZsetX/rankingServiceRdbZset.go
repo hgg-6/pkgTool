@@ -3,13 +3,14 @@ package rankingServiceRdbZsetX
 import (
 	"context"
 	"fmt"
+	"sort"
+	"sync"
+	"time"
+
 	"gitee.com/hgg_test/pkg_tool/v2/DBx/localCahceX"
 	"gitee.com/hgg_test/pkg_tool/v2/logx"
 	"gitee.com/hgg_test/pkg_tool/v2/serviceLogicX/rankingListX/rankingServiceRdbZsetX/types"
 	"github.com/redis/go-redis/v9"
-	"sort"
-	"sync"
-	"time"
 )
 
 // BizRankingService 是具体业务榜单实例（如 article 榜）
@@ -84,7 +85,9 @@ func (s *RankingServiceZset) backgroundRefresh(ctx context.Context, interval tim
 			s.logger.Info("background refresh stopped")
 			return
 		case <-ticker.C:
-			s.backgroundRefresh(ctx, interval) // 预加载 Top 100
+			// 注意：这里不应该递归调用自己，应该执行实际的刷新逻辑
+			// TODO: 需要实现具体的刷新逻辑，例如预加载热门数据到本地缓存
+			s.logger.Debug("background refresh triggered, but no specific refresh logic implemented yet")
 		}
 	}
 }

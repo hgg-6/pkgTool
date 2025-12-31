@@ -3,6 +3,7 @@ package dao
 import (
 	"context"
 	"errors"
+
 	"gitee.com/hgg_test/pkg_tool/v2/syncX/lock/redisLock/redsyncx/lock_cron_mysql/domain"
 	"github.com/go-sql-driver/mysql"
 	"gorm.io/gorm"
@@ -20,10 +21,18 @@ type CronDb interface {
 	Inserts(ctx context.Context, jobs []domain.CronJob) error
 	Delete(ctx context.Context, id int64) error
 	Deletes(ctx context.Context, ids []int64) error
+	// 状态管理方法
+	UpdateStatus(ctx context.Context, id int64, status JobStatus) error
+	UpdateJob(ctx context.Context, job CronJob) error
 }
 
 type cronCronDb struct {
 	db *gorm.DB
+}
+
+// NewCronDb 创建CronDb实例
+func NewCronDb(db *gorm.DB) CronDb {
+	return &cronCronDb{db: db}
 }
 
 func (c *cronCronDb) FindById(ctx context.Context, id int64) (CronJob, error) {
@@ -38,7 +47,7 @@ func (c *cronCronDb) FindById(ctx context.Context, id int64) (CronJob, error) {
 }
 func (c *cronCronDb) FindAll(ctx context.Context) ([]CronJob, error) {
 	var cronJobs []CronJob
-	err := c.db.Model(&cronJobs).WithContext(ctx).Where("cron_id >= ", 0).Find(&cronJobs).Error
+	err := c.db.Model(&CronJob{}).WithContext(ctx).Find(&cronJobs).Error
 	switch err {
 	case gorm.ErrRecordNotFound:
 		return []CronJob{}, ErrDataRecordNotFound
@@ -48,15 +57,14 @@ func (c *cronCronDb) FindAll(ctx context.Context) ([]CronJob, error) {
 }
 
 func (c *cronCronDb) Insert(ctx context.Context, job CronJob) error {
-	var cron CronJob
-	err := c.db.Model(&cron).WithContext(ctx).Where("cron_id = ?", job.ID).First(&cron).Error
+	err := c.db.Model(&CronJob{}).WithContext(ctx).Create(&job).Error
 	if e, ok := err.(*mysql.MySQLError); ok {
 		const duplicateError uint16 = 1062
 		if e.Number == duplicateError {
 			return ErrDuplicateData
 		}
 	}
-	return c.db.Model(&job).WithContext(ctx).Create(&job).Error
+	return err
 }
 
 func (c *cronCronDb) Inserts(ctx context.Context, jobs []domain.CronJob) error {
@@ -67,7 +75,7 @@ func (c *cronCronDb) Inserts(ctx context.Context, jobs []domain.CronJob) error {
 			return ErrDuplicateData
 		}
 	}
-	return c.db.Model(&jobs).WithContext(ctx).Create(&jobs).Error
+	return err
 }
 
 func (c *cronCronDb) Delete(ctx context.Context, id int64) error {
@@ -75,4 +83,14 @@ func (c *cronCronDb) Delete(ctx context.Context, id int64) error {
 }
 func (c *cronCronDb) Deletes(ctx context.Context, ids []int64) error {
 	return c.db.Model(&CronJob{}).WithContext(ctx).Where("cron_id in ?", ids).Delete(&CronJob{}).Error
+}
+
+// UpdateStatus 更新任务状态
+func (c *cronCronDb) UpdateStatus(ctx context.Context, id int64, status JobStatus) error {
+	return c.db.Model(&CronJob{}).WithContext(ctx).Where("cron_id = ?", id).Update("status", status).Error
+}
+
+// UpdateJob 更新任务信息
+func (c *cronCronDb) UpdateJob(ctx context.Context, job CronJob) error {
+	return c.db.Model(&CronJob{}).WithContext(ctx).Where("cron_id = ?", job.CronId).Updates(&job).Error
 }

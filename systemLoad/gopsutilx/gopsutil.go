@@ -2,12 +2,13 @@ package gopsutilx
 
 import (
 	"context"
+	"time"
+
 	"github.com/shirou/gopsutil/v4/cpu"
 	"github.com/shirou/gopsutil/v4/disk"
 	"github.com/shirou/gopsutil/v4/host"
 	"github.com/shirou/gopsutil/v4/load"
 	"github.com/shirou/gopsutil/v4/mem"
-	"time"
 )
 
 type SystemLoad struct {
@@ -121,7 +122,7 @@ func (s *SystemLoad) SystemLoad() (uint, error) {
 	var nowLoadCpu uint
 	if l.Load1 < float64(c) {
 		nowLoadCpu = uint(1)
-	} else if l.Load1 > float64(c) || l.Load1 < float64(c)*2 {
+	} else if l.Load1 >= float64(c) && l.Load1 < float64(c)*2 {
 		nowLoadCpu = uint(2)
 	} else {
 		// 系统危险负载
@@ -136,7 +137,7 @@ func (s *SystemLoad) SystemLoad() (uint, error) {
 	var nowLoadMem uint
 	if m.UsedPercent < 70 {
 		nowLoadMem = uint(1)
-	} else if m.UsedPercent > 70 || m.UsedPercent < 90 {
+	} else if m.UsedPercent >= 70 && m.UsedPercent < 90 {
 		nowLoadMem = uint(2)
 	} else {
 		// 系统危险负载

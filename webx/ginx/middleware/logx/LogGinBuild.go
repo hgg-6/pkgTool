@@ -3,17 +3,19 @@ package middleware
 import (
 	"bytes"
 	"fmt"
-	"gitee.com/hgg_test/pkg_tool/v2/logx"
-	"github.com/gin-gonic/gin"
 	"io"
 	"net/http"
 	"time"
+
+	"gitee.com/hgg_test/pkg_tool/v2/logx"
+	"github.com/gin-gonic/gin"
 )
 
 type GinLogx struct {
 	logx          logx.Loggerx
-	allowReqBody  bool //  是否允许打印请求体
-	allowRespBody bool // 是否允许打印响应体
+	allowReqBody  bool  //  是否允许打印请求体
+	allowRespBody bool  // 是否允许打印响应体
+	maxBodySize   int64 // 请求体和响应体最大读取大小（字节）
 }
 
 // NewGinLogx 自定义Gin日志中间件【基于zeroLog高性能日志库】
@@ -22,6 +24,7 @@ func NewGinLogx(logx logx.Loggerx) *GinLogx {
 		logx:          logx,
 		allowReqBody:  true,
 		allowRespBody: true,
+		maxBodySize:   1024 * 1024, // 默认1MB
 	}
 }
 
@@ -37,6 +40,14 @@ func (l *GinLogx) AllowRespBody(isPrint bool) *GinLogx {
 	return l
 }
 
+// SetMaxBodySize 设置请求体和响应体最大读取大小（字节）
+func (l *GinLogx) SetMaxBodySize(size int64) *GinLogx {
+	if size > 0 {
+		l.maxBodySize = size
+	}
+	return l
+}
+
 // ZerologLogger 自定义Gin日志中间件
 //   - 【注意，中间件需在gin的Handler注册中间件最前，否则可能会获取不到请求内容】
 func (g *GinLogx) BuildGinHandlerLog() gin.HandlerFunc {
@@ -48,20 +59,38 @@ func (g *GinLogx) BuildGinHandlerLog() gin.HandlerFunc {
 		//	允许打印请求体
 		if g.allowReqBody {
 			al.ReqBody = ""
-			// 读取请求体
+			// 读取请求体，限制大小为1MB防止内存消耗过大
 			if c.Request.Body != nil {
-				bodyBytes, _ := io.ReadAll(c.Request.Body)
+				// 使用LimitReader限制读取大小
+				limitedReader := io.LimitReader(c.Request.Body, 1024*1024) // 1MB限制
+				bodyBytes, _ := io.ReadAll(limitedReader)
 				al.ReqBody = string(bodyBytes)
 				// 恢复请求体，以便后续处理
-				c.Request.Body = io.NopCloser(bytes.NewBuffer(bodyBytes))
+				// 注意：由于使用了LimitReader，需要重新读取原始请求体
+				// 这里我们创建一个新的读取器，包含已读取的部分和剩余部分
+				if int64(len(bodyBytes)) < 1024*1024 {
+					// 如果读取的字节数小于限制，说明请求体已经全部读取
+					c.Request.Body = io.NopCloser(bytes.NewBuffer(bodyBytes))
+				} else {
+					// 如果达到限制，记录警告并丢弃剩余部分
+					if g.logx != nil {
+						g.logx.Warn("请求体超过1MB限制，已截断",
+							logx.String("path", c.Request.URL.Path),
+							logx.String("method", c.Request.Method))
+					}
+					// 创建一个空的读取器，因为请求体已经被部分消费
+					c.Request.Body = io.NopCloser(bytes.NewReader(nil))
+				}
 			}
 		}
 		// 允许打印响应体
 		if g.allowRespBody {
-			// 使用自定义responseWriter
+			// 使用自定义responseWriter，限制响应体大小
 			writer := &responseWriter{
 				ResponseWriter: c.Writer,
 				al:             al,
+				maxBodySize:    g.maxBodySize,
+				logx:           g.logx,
 			}
 			c.Writer = writer
 		}
@@ -126,11 +155,44 @@ type AccessLog struct {
 //   - 响应体，因为gin的ctx没有暴漏响应体，但是暴漏了responseWriter，帮我们记录响应体
 type responseWriter struct {
 	gin.ResponseWriter
-	al *AccessLog
+	al           *AccessLog
+	maxBodySize  int64
+	logx         logx.Loggerx
+	bodyBuffer   *bytes.Buffer
+	bytesWritten int64
 }
 
 func (w *responseWriter) Write(data []byte) (int, error) {
-	w.al.RespBody = string(data)
+	// 记录响应体，但限制大小
+	if w.bodyBuffer == nil {
+		w.bodyBuffer = &bytes.Buffer{}
+	}
+
+	// 检查是否已经达到大小限制
+	if w.bytesWritten < w.maxBodySize {
+		remaining := w.maxBodySize - w.bytesWritten
+		if int64(len(data)) > remaining {
+			// 只记录剩余部分
+			w.bodyBuffer.Write(data[:remaining])
+			w.bytesWritten = w.maxBodySize
+
+			// 记录警告
+			if w.logx != nil {
+				w.logx.Warn("响应体超过大小限制，已截断",
+					logx.String("path", w.al.Path),
+					logx.String("method", w.al.Method))
+			}
+		} else {
+			w.bodyBuffer.Write(data)
+			w.bytesWritten += int64(len(data))
+		}
+	}
+
+	// 更新AccessLog中的响应体
+	if w.bodyBuffer.Len() > 0 {
+		w.al.RespBody = w.bodyBuffer.String()
+	}
+
 	return w.ResponseWriter.Write(data)
 }
 

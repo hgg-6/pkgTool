@@ -3,13 +3,14 @@ package gopsutilx
 import (
 	"context"
 	"fmt"
+	"log"
+	"testing"
+	"time"
+
 	"github.com/shirou/gopsutil/v4/cpu"
 	"github.com/shirou/gopsutil/v4/host"
 	"github.com/shirou/gopsutil/v4/load"
 	"github.com/stretchr/testify/assert"
-	"log"
-	"testing"
-	"time"
 )
 
 func TestGetProcessInfo(t *testing.T) {
@@ -20,7 +21,7 @@ func TestGetProcessInfo(t *testing.T) {
 	//loadAvg, err := load.Avg()
 	loadAvg, err := load.AvgWithContext(ctx)
 	if err != nil {
-		panic(err)
+		t.Fatal(err)
 	}
 
 	// 打印结果（Load1/Load5/Load15）
@@ -29,14 +30,14 @@ func TestGetProcessInfo(t *testing.T) {
 	// 获取系统信息
 	systemInfo, err := host.Info()
 	if err != nil {
-		panic(err)
+		t.Fatal(err)
 	}
 	fmt.Println("system info: ", systemInfo)
 
 	// 获取CPU信息
 	cpuInfo, err := cpu.Info()
 	if err != nil {
-		panic(err)
+		t.Fatal(err)
 	}
 	fmt.Println("cpu info num: ", len(cpuInfo))
 	for k, v := range cpuInfo {

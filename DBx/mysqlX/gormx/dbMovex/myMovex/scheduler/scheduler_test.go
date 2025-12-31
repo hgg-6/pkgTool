@@ -1,6 +1,7 @@
 package scheduler
 
 import (
+	"log"
 	"os"
 	"sync"
 	"testing"
@@ -11,7 +12,6 @@ import (
 	"gitee.com/hgg_test/pkg_tool/v2/channelx/mqX"
 	"gitee.com/hgg_test/pkg_tool/v2/channelx/mqX/kafkaX/saramaX/producerX"
 	"gitee.com/hgg_test/pkg_tool/v2/logx/zerologx"
-	"github.com/IBM/sarama"
 	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -47,9 +47,12 @@ import (
 // ===================
 func newProducer() mqX.Producer {
 	var addr []string = []string{"localhost:9094"}
-	pro, err := producerX.NewKafkaProducer(addr, &producerX.ProducerConfig{Async: false})
+	// 使用新的 mqX 包创建生产者
+	pro, err := producerX.NewKafkaProducer(addr, &producerX.ProducerConfig{
+		Async: false, // 同步模式
+	})
 	if err != nil {
-		panic(err)
+		log.Fatalf("Failed to create producer: %v", err)
 	}
 	return pro
 }
@@ -68,7 +71,7 @@ func newProducer() mqX.Producer {
 func setupTestSrcDB() *gorm.DB {
 	srcdb, err := gorm.Open(mysql.Open("root:root@tcp(localhost:13306)/src_db?parseTime=true"), &gorm.Config{})
 	if err != nil {
-		panic("failed to connect database")
+		log.Fatalf("failed to connect src database: %v", err)
 	}
 
 	// 自动迁移表结构
@@ -78,7 +81,7 @@ func setupTestSrcDB() *gorm.DB {
 func setupTestDstDB() *gorm.DB {
 	dstdb, err := gorm.Open(mysql.Open("root:root@tcp(localhost:13306)/dst_db?parseTime=true"), &gorm.Config{})
 	if err != nil {
-		panic("failed to connect database")
+		log.Fatalf("failed to connect dst database: %v", err)
 	}
 
 	// 自动迁移表结构
@@ -96,11 +99,10 @@ func TestSchedulerPatterns(t *testing.T) {
 	srcDB := setupTestSrcDB()
 	dstDB := setupTestDstDB()
 	producer := newProducer()
-
 	defer producer.Close()
 
 	pool := doubleWritePoolx.NewDoubleWritePool(srcDB, dstDB, l)
-	scheduler := NewScheduler[events.TestUser, sarama.SyncProducer](l, srcDB, dstDB, pool, producer)
+	scheduler := NewScheduler[events.TestUser, any](l, srcDB, dstDB, pool, producer)
 
 	// 测试初始状态
 	assert.Equal(t, StateInitial, scheduler.State)
@@ -132,11 +134,10 @@ func TestSchedulerValidation(t *testing.T) {
 	l := zerologx.NewZeroLogger(&logger)
 	// 创建生产者
 	producer := newProducer()
-
 	defer producer.Close()
 
 	pool := doubleWritePoolx.NewDoubleWritePool(srcDB, dstDB, l)
-	scheduler := NewScheduler[events.TestUser, sarama.SyncProducer](l, srcDB, dstDB, pool, producer)
+	scheduler := NewScheduler[events.TestUser, any](l, srcDB, dstDB, pool, producer)
 
 	// 启动全量校验
 	scheduler.StartFullValidation(nil)
@@ -162,7 +163,7 @@ func TestSchedulerIncrementalValidation(t *testing.T) {
 	defer producer.Close()
 
 	pool := doubleWritePoolx.NewDoubleWritePool(srcDB, dstDB, l)
-	scheduler := NewScheduler[events.TestUser, sarama.SyncProducer](l, srcDB, dstDB, pool, producer)
+	scheduler := NewScheduler[events.TestUser, any](l, srcDB, dstDB, pool, producer)
 
 	// 启动增量校验
 	req := StartIncrRequest{
@@ -197,7 +198,7 @@ func TestSchedulerConcurrent(t *testing.T) {
 	defer producer.Close()
 
 	pool := doubleWritePoolx.NewDoubleWritePool(srcDB, dstDB, l)
-	scheduler := NewScheduler[events.TestUser, sarama.SyncProducer](l, srcDB, dstDB, pool, producer)
+	scheduler := NewScheduler[events.TestUser, any](l, srcDB, dstDB, pool, producer)
 
 	// 并发执行模式切换
 	var wg sync.WaitGroup
@@ -240,7 +241,7 @@ func TestSchedulerAutoPromotion(t *testing.T) {
 	//}
 
 	pool := doubleWritePoolx.NewDoubleWritePool(srcDB, dstDB, l)
-	scheduler := NewScheduler[events.TestUser, sarama.SyncProducer](l, srcDB, dstDB, pool, producer)
+	scheduler := NewScheduler[events.TestUser, any](l, srcDB, dstDB, pool, producer)
 
 	// 设置为源库优先模式
 	scheduler.SrcFirst(nil)
@@ -269,7 +270,7 @@ func TestSchedulerHealthCheck(t *testing.T) {
 	defer producer.Close()
 
 	pool := doubleWritePoolx.NewDoubleWritePool(srcDB, dstDB, l)
-	scheduler := NewScheduler[events.TestUser, sarama.SyncProducer](l, srcDB, dstDB, pool, producer)
+	scheduler := NewScheduler[events.TestUser, any](l, srcDB, dstDB, pool, producer)
 
 	// 健康检查应该返回健康状态
 	// 这里需要模拟HTTP上下文来测试
@@ -290,7 +291,7 @@ func TestNewValidator(t *testing.T) {
 	defer producer.Close()
 
 	pool := doubleWritePoolx.NewDoubleWritePool(srcDB, dstDB, l)
-	scheduler := NewScheduler[events.TestUser, sarama.SyncProducer](l, srcDB, dstDB, pool, producer)
+	scheduler := NewScheduler[events.TestUser, any](l, srcDB, dstDB, pool, producer)
 
 	// 测试不同模式下的校验器创建
 	scheduler.Pattern = doubleWritePoolx.PatternSrcFirst
@@ -323,7 +324,7 @@ func BenchmarkSchedulerPatternSwitch(b *testing.B) {
 	defer producer.Close()
 
 	pool := doubleWritePoolx.NewDoubleWritePool(srcDB, dstDB, l)
-	scheduler := NewScheduler[events.TestUser, sarama.SyncProducer](l, srcDB, dstDB, pool, producer)
+	scheduler := NewScheduler[events.TestUser, any](l, srcDB, dstDB, pool, producer)
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {

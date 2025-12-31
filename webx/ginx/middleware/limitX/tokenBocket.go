@@ -1,10 +1,11 @@
 package limitX
 
 import (
-	"github.com/gin-gonic/gin"
 	"net/http"
 	"sync"
 	"time"
+
+	"github.com/gin-gonic/gin"
 )
 
 // TokenBucketLimiter 令牌桶限流算法
@@ -14,6 +15,8 @@ type TokenBucketLimiter struct {
 	buckets   chan struct{} // 令牌桶
 	closeCh   chan struct{} // 关闭信号
 	closeOnce sync.Once     // 关闭信号只关闭一次
+	started   bool          // 标记是否已启动goroutine
+	mu        sync.Mutex    // 保护started字段
 }
 
 // NewTokenBucketBuilder 创建令牌桶限流算法
@@ -22,14 +25,31 @@ type TokenBucketLimiter struct {
 func NewTokenBucketBuilder(interval time.Duration, capacity int) *TokenBucketLimiter {
 	bucket := make(chan struct{}, capacity)
 	closec := make(chan struct{})
-	return &TokenBucketLimiter{interval: interval, buckets: bucket, closeCh: closec}
+	limiter := &TokenBucketLimiter{
+		interval: interval,
+		buckets:  bucket,
+		closeCh:  closec,
+		started:  false,
+	}
+	// 在构造函数中启动goroutine
+	limiter.startTokenGenerator()
+	return limiter
 }
 
-// Build 令牌桶限流算法
-func (c *TokenBucketLimiter) Build() gin.HandlerFunc {
+// startTokenGenerator 启动令牌生成goroutine（只启动一次）
+func (c *TokenBucketLimiter) startTokenGenerator() {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	if c.started {
+		return // 已启动，避免重复
+	}
+	c.started = true
+
 	// 发令牌
 	ticker := time.NewTicker(c.interval)
 	go func() {
+		defer ticker.Stop() // 确保 ticker 被正确停止，防止资源泄漏
 		for {
 			select {
 			case <-ticker.C:
@@ -43,6 +63,10 @@ func (c *TokenBucketLimiter) Build() gin.HandlerFunc {
 			}
 		}
 	}()
+}
+
+// Build 令牌桶限流算法
+func (c *TokenBucketLimiter) Build() gin.HandlerFunc {
 	// 取令牌
 	return func(ctx *gin.Context) {
 		select {
@@ -59,6 +83,8 @@ func (c *TokenBucketLimiter) Build() gin.HandlerFunc {
 		}
 	}
 }
+
+// Close 关闭限流器，释放资源
 func (c *TokenBucketLimiter) Close() error {
 	c.closeOnce.Do(func() {
 		close(c.closeCh)

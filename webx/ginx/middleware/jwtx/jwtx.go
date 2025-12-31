@@ -2,11 +2,12 @@ package jwtx
 
 import (
 	"fmt"
+	"strings"
+	"time"
+
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/redis/go-redis/v9"
-	"strings"
-	"time"
 )
 
 type JwtxMiddlewareGinxConfig struct {
@@ -76,7 +77,7 @@ func (j *JwtxMiddlewareGinx) SetToken(ctx *gin.Context, userId int64, name strin
 		var u UserClaims
 		return &u, err
 	}
-	err = j.cache.Set(ctx, "user:token:info:"+fmt.Sprintf("%s", userId), tokenStr, j.DurationExpiresIn).Err()
+	err = j.cache.Set(ctx, "user:token:info:"+fmt.Sprintf("%d", userId), tokenStr, j.DurationExpiresIn).Err()
 	if err != nil {
 		var u UserClaims
 		return &u, err
@@ -97,7 +98,7 @@ func (j *JwtxMiddlewareGinx) SetToken(ctx *gin.Context, userId int64, name strin
 		var u UserClaims
 		return &u, err
 	}
-	err = j.cache.Set(ctx, "user:longToken:info:"+fmt.Sprintf("%s", userId), longTokenStr, j.LongDurationExpiresIn).Err()
+	err = j.cache.Set(ctx, "user:longToken:info:"+fmt.Sprintf("%d", userId), longTokenStr, j.LongDurationExpiresIn).Err()
 	if err != nil {
 		var u UserClaims
 		return &u, err
@@ -143,7 +144,7 @@ func (j *JwtxMiddlewareGinx) VerifyToken(ctx *gin.Context) (*UserClaims, error) 
 	}
 
 	// 验证redis中的 token
-	rdGet, err := j.cache.Get(ctx, "user:token:info:"+fmt.Sprintf("%s", uc.Uid)).Result()
+	rdGet, err := j.cache.Get(ctx, "user:token:info:"+fmt.Sprintf("%d", uc.Uid)).Result()
 	if err != nil || tokenStr != rdGet {
 		return uc, fmt.Errorf("invalid token, token无效/伪造的token %v", err)
 	}
@@ -167,7 +168,7 @@ func (j *JwtxMiddlewareGinx) LongVerifyToken(ctx *gin.Context) (*RefreshUserClai
 		return uc, fmt.Errorf("invalid token, token无效/伪造的token %v", err)
 	}
 	// 验证redis中的 token
-	rdGet, err := j.cache.Get(ctx, "user:longToken:info:"+fmt.Sprintf("%s", uc.Uid)).Result()
+	rdGet, err := j.cache.Get(ctx, "user:longToken:info:"+fmt.Sprintf("%d", uc.Uid)).Result()
 	if err != nil || tokenStr != rdGet {
 		return uc, fmt.Errorf("invalid token, 长token无效/伪造的token %v", err)
 	}
@@ -188,12 +189,12 @@ func (j *JwtxMiddlewareGinx) RefreshToken(ctx *gin.Context, ssid string) (*UserC
 	ctx.Header(j.HeaderJwtTokenKey, "")
 	ctx.Header(j.LongHeaderJwtTokenKey, "")
 	// 删除Redis中的用户信息使用
-	err = j.cache.Del(ctx, "user:token:info:"+fmt.Sprintf("%s", uc.Uid)).Err()
+	err = j.cache.Del(ctx, "user:token:info:"+fmt.Sprintf("%d", uc.Uid)).Err()
 	if err != nil {
 		var u *UserClaims
 		return u, fmt.Errorf("delete redis token info error: %v", err)
 	}
-	err = j.cache.Del(ctx, "user:longToken:info:"+fmt.Sprintf("%s", uc.Uid)).Err()
+	err = j.cache.Del(ctx, "user:longToken:info:"+fmt.Sprintf("%d", uc.Uid)).Err()
 
 	// 重新设置token
 	//ssid := uuid.New().String()
@@ -211,11 +212,11 @@ func (j *JwtxMiddlewareGinx) DeleteToken(ctx *gin.Context) (*UserClaims, error) 
 	ctx.Header(j.LongHeaderJwtTokenKey, "")
 
 	// 删除Redis中的用户信息使用
-	err = j.cache.Del(ctx, "user:token:info:"+fmt.Sprintf("%s", uc.Uid)).Err()
+	err = j.cache.Del(ctx, "user:token:info:"+fmt.Sprintf("%d", uc.Uid)).Err()
 	if err != nil {
 		return uc, fmt.Errorf("delete redis token info error: %v", err)
 	}
-	return uc, j.cache.Del(ctx, "user:longToken:info:"+fmt.Sprintf("%s", uc.Uid)).Err()
+	return uc, j.cache.Del(ctx, "user:longToken:info:"+fmt.Sprintf("%d", uc.Uid)).Err()
 }
 
 // UserClaims  登录【JWT方式实现：json-web-token】
