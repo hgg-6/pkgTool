@@ -13,12 +13,3 @@ type Field struct {
 	Key   string
 	Value any
 }
-
-//type Zlogger interface {
-//	Info() *zerolog.Event
-//	Error() *zerolog.Event
-//	Debug() *zerolog.Event
-//	Warn() *zerolog.Event
-//	With() zerolog.Context
-//	GetZerolog() *zerolog.Logger
-//}

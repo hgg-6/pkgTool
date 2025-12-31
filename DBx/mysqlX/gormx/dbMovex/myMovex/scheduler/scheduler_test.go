@@ -1,10 +1,15 @@
 package scheduler
 
 import (
+	"os"
+	"sync"
+	"testing"
+	"time"
+
 	"gitee.com/hgg_test/pkg_tool/v2/DBx/mysqlX/gormx/dbMovex/myMovex/doubleWritePoolx"
 	"gitee.com/hgg_test/pkg_tool/v2/DBx/mysqlX/gormx/dbMovex/myMovex/events"
-	"gitee.com/hgg_test/pkg_tool/v2/channelx/messageQueuex"
-	"gitee.com/hgg_test/pkg_tool/v2/channelx/messageQueuex/saramax/saramaProducerx"
+	"gitee.com/hgg_test/pkg_tool/v2/channelx/mqX"
+	"gitee.com/hgg_test/pkg_tool/v2/channelx/mqX/kafkaX/saramaX/producerX"
 	"gitee.com/hgg_test/pkg_tool/v2/logx/zerologx"
 	"github.com/IBM/sarama"
 	"github.com/rs/zerolog"
@@ -12,10 +17,6 @@ import (
 	"github.com/stretchr/testify/require"
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
-	"os"
-	"sync"
-	"testing"
-	"time"
 )
 
 // TestUser 测试用户实体
@@ -44,18 +45,12 @@ import (
 //}
 
 // ===================
-func newProducer() messageQueuex.ProducerIn[sarama.SyncProducer] {
+func newProducer() mqX.Producer {
 	var addr []string = []string{"localhost:9094"}
-	cfg := sarama.NewConfig()
-	//========同步发送==========
-	cfg.Producer.Return.Successes = true
-
-	syncPro, err := sarama.NewSyncProducer(addr, cfg)
+	pro, err := producerX.NewKafkaProducer(addr, &producerX.ProducerConfig{Async: false})
 	if err != nil {
 		panic(err)
 	}
-	pro := saramaProducerx.NewSaramaProducerStr[sarama.SyncProducer](syncPro, cfg)
-	// CloseProducer 关闭生产者Producer，请在main函数最顶层defer住生产者的Producer.Close()，优雅关闭防止goroutine泄露
 	return pro
 }
 
@@ -101,7 +96,8 @@ func TestSchedulerPatterns(t *testing.T) {
 	srcDB := setupTestSrcDB()
 	dstDB := setupTestDstDB()
 	producer := newProducer()
-	defer producer.CloseProducer()
+
+	defer producer.Close()
 
 	pool := doubleWritePoolx.NewDoubleWritePool(srcDB, dstDB, l)
 	scheduler := NewScheduler[events.TestUser, sarama.SyncProducer](l, srcDB, dstDB, pool, producer)
@@ -136,7 +132,8 @@ func TestSchedulerValidation(t *testing.T) {
 	l := zerologx.NewZeroLogger(&logger)
 	// 创建生产者
 	producer := newProducer()
-	defer producer.CloseProducer()
+
+	defer producer.Close()
 
 	pool := doubleWritePoolx.NewDoubleWritePool(srcDB, dstDB, l)
 	scheduler := NewScheduler[events.TestUser, sarama.SyncProducer](l, srcDB, dstDB, pool, producer)
@@ -162,7 +159,7 @@ func TestSchedulerIncrementalValidation(t *testing.T) {
 	l := zerologx.NewZeroLogger(&logger)
 	// 创建生产者
 	producer := newProducer()
-	defer producer.CloseProducer()
+	defer producer.Close()
 
 	pool := doubleWritePoolx.NewDoubleWritePool(srcDB, dstDB, l)
 	scheduler := NewScheduler[events.TestUser, sarama.SyncProducer](l, srcDB, dstDB, pool, producer)
@@ -197,7 +194,7 @@ func TestSchedulerConcurrent(t *testing.T) {
 	l := zerologx.NewZeroLogger(&logger)
 	// 创建生产者
 	producer := newProducer()
-	defer producer.CloseProducer()
+	defer producer.Close()
 
 	pool := doubleWritePoolx.NewDoubleWritePool(srcDB, dstDB, l)
 	scheduler := NewScheduler[events.TestUser, sarama.SyncProducer](l, srcDB, dstDB, pool, producer)
@@ -235,7 +232,7 @@ func TestSchedulerAutoPromotion(t *testing.T) {
 	l := zerologx.NewZeroLogger(&logger)
 	// 创建生产者
 	producer := newProducer()
-	defer producer.CloseProducer()
+	defer producer.Close()
 
 	//config := SchedulerConfig{
 	//	EnableAutoPromotion: true,
@@ -269,7 +266,7 @@ func TestSchedulerHealthCheck(t *testing.T) {
 	l := zerologx.NewZeroLogger(&logger)
 	// 创建生产者
 	producer := newProducer()
-	defer producer.CloseProducer()
+	defer producer.Close()
 
 	pool := doubleWritePoolx.NewDoubleWritePool(srcDB, dstDB, l)
 	scheduler := NewScheduler[events.TestUser, sarama.SyncProducer](l, srcDB, dstDB, pool, producer)
@@ -290,7 +287,7 @@ func TestNewValidator(t *testing.T) {
 	l := zerologx.NewZeroLogger(&logger)
 	// 创建生产者
 	producer := newProducer()
-	defer producer.CloseProducer()
+	defer producer.Close()
 
 	pool := doubleWritePoolx.NewDoubleWritePool(srcDB, dstDB, l)
 	scheduler := NewScheduler[events.TestUser, sarama.SyncProducer](l, srcDB, dstDB, pool, producer)
@@ -323,7 +320,7 @@ func BenchmarkSchedulerPatternSwitch(b *testing.B) {
 	l := zerologx.NewZeroLogger(&logger)
 	// 创建生产者
 	producer := newProducer()
-	defer producer.CloseProducer()
+	defer producer.Close()
 
 	pool := doubleWritePoolx.NewDoubleWritePool(srcDB, dstDB, l)
 	scheduler := NewScheduler[events.TestUser, sarama.SyncProducer](l, srcDB, dstDB, pool, producer)
