@@ -90,9 +90,15 @@ func (c *cronService) StartJob(ctx context.Context, id int64) error {
 		return err
 	}
 
+	// 重新获取更新后的任务
+	updatedJob, err := c.cronRepo.FindById(ctx, id)
+	if err != nil {
+		return err
+	}
+
 	// 通知调度器更新任务
 	if c.scheduler != nil {
-		return c.scheduler.UpdateJob(job)
+		return c.scheduler.UpdateJob(updatedJob)
 	}
 
 	return nil
@@ -116,9 +122,15 @@ func (c *cronService) PauseJob(ctx context.Context, id int64) error {
 		return err
 	}
 
+	// 重新获取更新后的任务
+	updatedJob, err := c.cronRepo.FindById(ctx, id)
+	if err != nil {
+		return err
+	}
+
 	// 通知调度器更新任务
 	if c.scheduler != nil {
-		return c.scheduler.UpdateJob(job)
+		return c.scheduler.UpdateJob(updatedJob)
 	}
 
 	return nil
@@ -142,9 +154,15 @@ func (c *cronService) ResumeJob(ctx context.Context, id int64) error {
 		return err
 	}
 
+	// 重新获取更新后的任务
+	updatedJob, err := c.cronRepo.FindById(ctx, id)
+	if err != nil {
+		return err
+	}
+
 	// 通知调度器更新任务
 	if c.scheduler != nil {
-		return c.scheduler.UpdateJob(job)
+		return c.scheduler.UpdateJob(updatedJob)
 	}
 
 	return nil

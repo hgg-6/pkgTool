@@ -58,9 +58,11 @@ func (c *CronWeb) FindId(ctx *gin.Context) {
 			"msg":  "success",
 			"data": cron,
 		})
+		return
 	default:
 		c.l.Error("查找失败", logx.Int64("cronId", cronId), logx.Error(err))
 		ctx.JSON(500, gin.H{"error": errors.New("查找失败")})
+		return
 	}
 
 }
@@ -79,9 +81,11 @@ func (c *CronWeb) FindAll(ctx *gin.Context) {
 			"msg":  "success",
 			"data": crons,
 		})
+		return
 	default:
 		c.l.Error("查找失败", logx.Error(err))
 		ctx.JSON(500, gin.H{"error": errors.New("查找失败")})
+		return
 	}
 }
 
@@ -90,12 +94,14 @@ func (c *CronWeb) Add(ctx *gin.Context) {
 	err := ctx.Bind(&cronJob)
 	if err != nil {
 		ctx.JSON(400, gin.H{"error": errors.New("参数错误")})
+		return
 	}
 	err = c.cronSvc.AddCronJob(ctx.Request.Context(), cronJob)
 	switch err {
 	case service.ErrDuplicateData:
 		c.l.Error("数据已存在, 添加失败", logx.Int64("cronId", cronJob.ID), logx.String("cronName", cronJob.Name), logx.Error(err))
 		ctx.JSON(400, gin.H{"error": errors.New("添加失败")})
+		return
 	case nil:
 		c.l.Info("添加成功", logx.Any("data", cronJob))
 		ctx.JSON(200, gin.H{
@@ -103,9 +109,11 @@ func (c *CronWeb) Add(ctx *gin.Context) {
 			"msg":  "success",
 			"data": "add ok!",
 		})
+		return
 	default:
 		c.l.Error("添加失败", logx.Int64("cronId", cronJob.ID), logx.String("cronName", cronJob.Name), logx.Error(err))
 		ctx.JSON(500, gin.H{"error": errors.New("添加失败")})
+		return
 	}
 }
 
@@ -115,12 +123,14 @@ func (c *CronWeb) Adds(ctx *gin.Context) {
 	if err != nil {
 		c.l.Error("参数错误", logx.Error(err))
 		ctx.JSON(400, gin.H{"error": errors.New("参数错误")})
+		return
 	}
 	err = c.cronSvc.AddCronJobs(ctx.Request.Context(), cronJobs)
 	switch err {
 	case service.ErrDuplicateData:
 		c.l.Error("数据已存在, 添加失败", logx.Error(err))
 		ctx.JSON(400, gin.H{"error": errors.New("添加失败")})
+		return
 	case nil:
 		c.l.Info("添加成功", logx.Any("data", cronJobs))
 		ctx.JSON(200, gin.H{
@@ -128,9 +138,11 @@ func (c *CronWeb) Adds(ctx *gin.Context) {
 			"msg":  "success",
 			"data": "add ok!",
 		})
+		return
 	default:
 		c.l.Error("添加失败", logx.Error(err))
 		ctx.JSON(500, gin.H{"error": errors.New("添加失败")})
+		return
 	}
 }
 
@@ -146,6 +158,7 @@ func (c *CronWeb) Delete(ctx *gin.Context) {
 	if err != nil {
 		c.l.Error("删除失败", logx.Int64("cronId", cronId), logx.Error(err))
 		ctx.JSON(500, gin.H{"error": errors.New("删除失败")})
+		return
 	}
 	c.l.Info("删除成功", logx.Int64("cronId", cronId))
 	ctx.JSON(200, gin.H{
@@ -172,6 +185,7 @@ func (c *CronWeb) Deletes(ctx *gin.Context) {
 		if err != nil {
 			c.l.Error("参数错误, 批量删除时，cron_id参数解析失败", logx.Error(err))
 			ctx.JSON(400, gin.H{"error": "参数错误"})
+			return
 		}
 		ids = append(ids, id)
 	}
@@ -180,6 +194,7 @@ func (c *CronWeb) Deletes(ctx *gin.Context) {
 	if err != nil {
 		c.l.Error("批量删除失败", logx.Error(err))
 		ctx.JSON(500, gin.H{"error": errors.New("删除失败")})
+		return
 	}
 	c.l.Info("批量删除成功")
 	ctx.JSON(200, gin.H{
@@ -204,9 +219,11 @@ func (c *CronWeb) StartJob(ctx *gin.Context) {
 	case service.ErrDataRecordNotFound:
 		c.l.Error("任务不存在", logx.Int64("cronId", cronId), logx.Error(err))
 		ctx.JSON(404, gin.H{"error": errors.New("任务不存在")})
+		return
 	case service.ErrInvalidStatusChange:
 		c.l.Error("无效的状态变更", logx.Int64("cronId", cronId), logx.Error(err))
 		ctx.JSON(400, gin.H{"error": errors.New("任务当前状态不允许启动")})
+		return
 	case nil:
 		c.l.Info("启动任务成功", logx.Int64("cronId", cronId))
 		ctx.JSON(200, gin.H{
@@ -214,9 +231,11 @@ func (c *CronWeb) StartJob(ctx *gin.Context) {
 			"msg":  "success",
 			"data": "task started",
 		})
+		return
 	default:
 		c.l.Error("启动任务失败", logx.Int64("cronId", cronId), logx.Error(err))
 		ctx.JSON(500, gin.H{"error": errors.New("启动任务失败")})
+		return
 	}
 }
 
@@ -235,9 +254,11 @@ func (c *CronWeb) PauseJob(ctx *gin.Context) {
 	case service.ErrDataRecordNotFound:
 		c.l.Error("任务不存在", logx.Int64("cronId", cronId), logx.Error(err))
 		ctx.JSON(404, gin.H{"error": errors.New("任务不存在")})
+		return
 	case service.ErrInvalidStatusChange:
 		c.l.Error("无效的状态变更", logx.Int64("cronId", cronId), logx.Error(err))
 		ctx.JSON(400, gin.H{"error": errors.New("任务当前状态不允许暂停")})
+		return
 	case nil:
 		c.l.Info("暂停任务成功", logx.Int64("cronId", cronId))
 		ctx.JSON(200, gin.H{
@@ -245,9 +266,11 @@ func (c *CronWeb) PauseJob(ctx *gin.Context) {
 			"msg":  "success",
 			"data": "task paused",
 		})
+		return
 	default:
 		c.l.Error("暂停任务失败", logx.Int64("cronId", cronId), logx.Error(err))
 		ctx.JSON(500, gin.H{"error": errors.New("暂停任务失败")})
+		return
 	}
 }
 
@@ -266,9 +289,11 @@ func (c *CronWeb) ResumeJob(ctx *gin.Context) {
 	case service.ErrDataRecordNotFound:
 		c.l.Error("任务不存在", logx.Int64("cronId", cronId), logx.Error(err))
 		ctx.JSON(404, gin.H{"error": errors.New("任务不存在")})
+		return
 	case service.ErrInvalidStatusChange:
 		c.l.Error("无效的状态变更", logx.Int64("cronId", cronId), logx.Error(err))
 		ctx.JSON(400, gin.H{"error": errors.New("任务当前状态不允许恢复")})
+		return
 	case nil:
 		c.l.Info("恢复任务成功", logx.Int64("cronId", cronId))
 		ctx.JSON(200, gin.H{
@@ -276,8 +301,10 @@ func (c *CronWeb) ResumeJob(ctx *gin.Context) {
 			"msg":  "success",
 			"data": "task resumed",
 		})
+		return
 	default:
 		c.l.Error("恢复任务失败", logx.Int64("cronId", cronId), logx.Error(err))
 		ctx.JSON(500, gin.H{"error": errors.New("恢复任务失败")})
+		return
 	}
 }

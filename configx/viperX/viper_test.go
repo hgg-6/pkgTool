@@ -1,13 +1,14 @@
 package viperX
 
 import (
+	"os"
+	"testing"
+	"time"
+
 	"gitee.com/hgg_test/pkg_tool/v2/logx"
 	"gitee.com/hgg_test/pkg_tool/v2/logx/zerologx"
 	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/assert"
-	"os"
-	"testing"
-	"time"
 )
 
 const (
@@ -55,6 +56,22 @@ func TestInitViperLocals(t *testing.T) {
 	t.Logf("confDb: %s", confDb.Dsn)
 	t.Logf("confRe: %s", confRe.Addr)
 	t.Log(time.Now().UnixMilli())
+
+	// 测试读取整个配置文件
+	conf1 := NewViperConfigStr(InitLog())
+	conf1.InitViperLocal(DbConfFile)
+	//type testKey1 struct {
+	//	val string `yaml:"val"`
+	//}
+	type test1 struct {
+		Dsn string `yaml:"dsn"`
+		//testKey1
+	}
+	var test test1
+	err = GetUnmarshalStruct(conf1, "mysql", &test)
+	t.Log(test)
+	assert.NoError(t, err)
+
 }
 
 // TestInitViperLocalsWatchs 测试读取多个配置文件并监听文件变化

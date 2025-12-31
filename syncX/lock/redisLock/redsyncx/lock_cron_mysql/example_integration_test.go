@@ -7,6 +7,7 @@ import (
 
 	"gitee.com/hgg_test/pkg_tool/v2/logx/zerologx"
 	"gitee.com/hgg_test/pkg_tool/v2/syncX/lock/redisLock/redsyncx"
+	"gitee.com/hgg_test/pkg_tool/v2/syncX/lock/redisLock/redsyncx/lock_cron_mysql/config"
 	"github.com/gin-gonic/gin"
 	"github.com/redis/go-redis/v9"
 	"github.com/rs/zerolog"
@@ -45,7 +46,7 @@ func TestCronMysqlIntegration(t *testing.T) {
 	engine := gin.Default()
 
 	// 2. 使用集成层创建完整的系统（一行代码完成所有依赖注入）
-	cronSystem := NewCronMysql(engine, db, redSync, l)
+	cronSystem := NewCronMysql(engine, db, redSync, l, &config.Config{})
 
 	// 3. 启动系统（自动完成数据库迁移、路由注册、调度器启动）
 	err = cronSystem.Start()
@@ -90,7 +91,7 @@ func TestCronMysqlDependencyInjection(t *testing.T) {
 	engine := gin.Default()
 
 	// 创建系统实例
-	cronSystem := NewCronMysql(engine, db, redSync, l)
+	cronSystem := NewCronMysql(engine, db, redSync, l, &config.Config{})
 
 	// 验证所有组件都已正确注入
 	tests := []struct {
@@ -153,7 +154,7 @@ func TestCronMysqlLayerArchitecture(t *testing.T) {
 	})
 	engine := gin.Default()
 
-	cronSystem := NewCronMysql(engine, db, redSync, l)
+	cronSystem := NewCronMysql(engine, db, redSync, l, &config.Config{})
 
 	// 验证调度器已正确获取Service依赖
 	scheduler := cronSystem.GetScheduler()
@@ -196,7 +197,7 @@ func TestCronMysqlFullWorkflow(t *testing.T) {
 	engine := gin.Default()
 
 	// 步骤1: 创建系统（自动完成所有依赖注入）
-	cronSystem := NewCronMysql(engine, db, redSync, l)
+	cronSystem := NewCronMysql(engine, db, redSync, l, &config.Config{})
 	t.Log("✅ 步骤1: 系统创建完成，所有依赖已注入")
 
 	// 步骤2: 启动系统
