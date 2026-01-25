@@ -19,7 +19,7 @@ func DiffSet[T comparable](src, dst []T) []T {
 
 // DiffSetFunc 差集，已去重
 // 你应该优先使用 DiffSet
-func DiffSetFunc[T any](src, dst []T, equal equalFunc[T]) []T {
+func DiffSetFunc[T any](src, dst []T, equal EqualFunc[T]) []T {
 	var ret = make([]T, 0, len(src))
 	for _, val := range src {
 		if !ContainsFunc[T](dst, func(src T) bool {

@@ -2,7 +2,6 @@ package viperX
 
 import (
 	"fmt"
-	"sync"
 	"time"
 
 	"gitee.com/hgg_test/pkg_tool/v2/configx"
@@ -13,11 +12,9 @@ import (
 )
 
 type ViperConfigStr struct {
-	Config *viper.Viper
-	//Configs  map[string]*viper.Viper
-	Configs  *syncX.Map[string, *viper.Viper]
-	mutex    sync.RWMutex
-	interval time.Duration // 远程配置中心监听文件变更的间隔时间,默认5秒
+	Config   *viper.Viper
+	Configs  *syncX.Map[string, *viper.Viper] // 使用并发安全的Map，无需额外锁
+	interval time.Duration                    // 远程配置中心监听文件变更的间隔时间,默认5秒
 
 	l logx.Loggerx
 }
@@ -40,10 +37,7 @@ func (v *ViperConfigStr) GetViper() *viper.Viper {
 // GetNamedViper 获取指定名称的viper实例【用于配置多个配置文件时使用】
 // - name是配置文件名称，如：dev.yaml
 func (v *ViperConfigStr) GetNamedViper(name string) (*viper.Viper, error) {
-	v.mutex.RLock()
-	defer v.mutex.RUnlock()
-
-	//if v, ok := v.Configs[name]; ok {
+	// 使用并发安全的Map，无需加锁
 	if val, ok := v.Configs.Load(name); ok {
 		return val, nil
 	}

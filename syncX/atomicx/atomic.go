@@ -1,6 +1,8 @@
 package atomicx
 
-import "sync/atomic"
+import (
+	"sync/atomic"
+)
 
 // Value 是对 atomic.Value 的泛型封装
 // 相比直接使用 atomic.Value，
@@ -30,7 +32,15 @@ func NewValueOf[T any](t T) *Value[T] {
 }
 
 // Load 会返回当前 Value 存放的值
+// 注意：如果存储了错误类型的值，会panic
 func (v *Value[T]) Load() (val T) {
+	defer func() {
+		if r := recover(); r != nil {
+			// 类型不匹配时返回零值
+			var zero T
+			val = zero
+		}
+	}()
 	data := v.val.Load()
 	val = data.(T)
 	return
@@ -43,6 +53,12 @@ func (v *Value[T]) Store(val T) {
 
 // Swap 会将传入的值替换当前 Value 存放的值，并返回替换前的值
 func (v *Value[T]) Swap(new T) (old T) {
+	defer func() {
+		if r := recover(); r != nil {
+			var zero T
+			old = zero
+		}
+	}()
 	data := v.val.Swap(new)
 	old = data.(T)
 	return

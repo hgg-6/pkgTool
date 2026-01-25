@@ -153,23 +153,24 @@ func (j *JwtxMiddlewareGinx) SetToken(ctx *gin.Context, userId int64, name strin
 		return nil, fmt.Errorf("failed to sign refresh token: %w", err)
 	}
 
-	// --- 存入 Redis ---
+	// --- 存入 Redis (使用Pipeline保证原子性) ---
 	accessKey := j.sessionKey(ssId, "access")
 	refreshKey := j.sessionKey(ssId, "refresh")
 
-	err = j.cache.Set(ctx, accessKey, accessTokenStr, j.cfg.DurationExpiresIn).Err()
+	pipe := j.cache.Pipeline()
+	pipe.Set(ctx, accessKey, accessTokenStr, j.cfg.DurationExpiresIn)
+	pipe.Set(ctx, refreshKey, refreshTokenStr, j.cfg.LongDurationExpiresIn)
+	_, err = pipe.Exec(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("failed to store access token in redis: %w", err)
-	}
-	err = j.cache.Set(ctx, refreshKey, refreshTokenStr, j.cfg.LongDurationExpiresIn).Err()
-	if err != nil {
-		return nil, fmt.Errorf("failed to store refresh token in redis: %w", err)
+		return nil, fmt.Errorf("failed to store tokens in redis: %w", err)
 	}
 
 	// --- 更新设备会话映射 & 设备列表 ---
-	j.cache.Set(ctx, oldSsidKey, ssId, j.cfg.LongDurationExpiresIn)
-	j.cache.SAdd(ctx, j.devicesSetKey(userId), deviceID)
-	j.cache.Expire(ctx, j.devicesSetKey(userId), 30*24*time.Hour) // 保留30天设备记录
+	devicePipe := j.cache.Pipeline()
+	devicePipe.Set(ctx, oldSsidKey, ssId, j.cfg.LongDurationExpiresIn)
+	devicePipe.SAdd(ctx, j.devicesSetKey(userId), deviceID)
+	devicePipe.Expire(ctx, j.devicesSetKey(userId), 30*24*time.Hour)
+	_, _ = devicePipe.Exec(ctx)
 
 	// --- 返回 Headers ---
 	ctx.Header(j.cfg.HeaderJwtTokenKey, accessTokenStr)

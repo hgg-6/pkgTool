@@ -121,6 +121,10 @@ func (m *RWMutexMap[K, V]) Clear() {
 }
 
 // Range 遍历map，如果函数返回false则停止遍历
+// 注意：
+//   - 用户函数在读锁保护下执行，确保数据读取一致性
+//   - 警告：用户函数不应修改map，否则可能导致竞态条件
+//   - 如果需要修改map，请使用Set/Delete方法
 func (m *RWMutexMap[K, V]) Range(f func(key K, value V) bool) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()

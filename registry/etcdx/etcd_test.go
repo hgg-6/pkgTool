@@ -48,43 +48,35 @@ func (e *EtcdTestSuite) TestServer() {
 	})
 	require.NoError(t, err)
 
+	// 创建ticker和stop chan来控制goroutine
+	ticker := time.NewTicker(time.Second)
+	defer ticker.Stop() // 确保在测试结束时停止ticker
+	stopChan := make(chan struct{})
+
 	go func() {
-		// 模拟注册信息变更
-		ticker := time.NewTicker(time.Second)
-		for now := range ticker.C { // ticker.C 是一个通道，每秒发送一个时间
-			ctx1, cancel1 := context.WithTimeout(context.Background(), time.Second)
-			// 更新注册中心
-			err1 := em.Update(ctx1, []*endpoints.UpdateWithOpts{
-				{
-					Update: endpoints.Update{
-						Op:  endpoints.Add,
-						Key: key,
-						Endpoint: endpoints.Endpoint{
-							Addr:     addr,
-							Metadata: now.String(),
+		for {
+			select {
+			case now := <-ticker.C:
+				ctx1, cancel1 := context.WithTimeout(context.Background(), time.Second)
+				// 更新注册中心
+				err1 := em.Update(ctx1, []*endpoints.UpdateWithOpts{
+					{
+						Update: endpoints.Update{
+							Op:  endpoints.Add,
+							Key: key,
+							Endpoint: endpoints.Endpoint{
+								Addr:     addr,
+								Metadata: now.String(),
+							},
 						},
 					},
-				},
-				// Update的话，两条【key】不能相同
-				//{
-				//	Update: endpoints.Update{
-				//		Op:  endpoints.Add,
-				//		Key: key1,
-				//		Endpoint: endpoints.Endpoint{
-				//			Addr:     addr,
-				//			Metadata: now.String(),
-				//		},
-				//	},
-				//},
-			})
-			// 更新注册中心，AddEndpoint简化写法。INSERT OR UPDATE, SAVE 的语义
-			//err1 := em.AddEndpoint(ctx, key, endpoints.Endpoint{
-			//	Addr:     addr,
-			//	Metadata: now.String(),
-			//})
-			cancel1()
-			if err1 != nil {
-				t.Log(err1)
+				})
+				cancel1()
+				if err1 != nil {
+					t.Log(err1)
+				}
+			case <-stopChan:
+				return
 			}
 		}
 	}()
@@ -92,9 +84,18 @@ func (e *EtcdTestSuite) TestServer() {
 	// grpc服务端
 	server := grpc.NewServer()
 	RegisterUserServiceServer(server, &Service{})
-	// 启动服务
-	err = server.Serve(l)
-	require.NoError(t, err)
+
+	// 在goroutine中启动服务，以便能够优雅停止
+	serverDone := make(chan error, 1)
+	go func() {
+		serverDone <- server.Serve(l)
+	}()
+
+	// 等待测试完成信号（这里简化为等待一小段时间）
+	time.Sleep(2 * time.Second)
+
+	// 发送停止信号给goroutine
+	close(stopChan)
 
 	// 删除一个服务
 	err = em.DeleteEndpoint(ctx, key)
@@ -103,6 +104,9 @@ func (e *EtcdTestSuite) TestServer() {
 	server.GracefulStop() // gRPC优雅关闭退出
 	err = e.cli.Close()   // 关闭etcd客户端
 	require.NoError(t, err)
+
+	// 清理server
+	<-serverDone
 }
 
 func TestEtcd(t *testing.T) {

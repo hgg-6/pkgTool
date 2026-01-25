@@ -1,5 +1,8 @@
 package sliceX
 
+// EqualFunc 比较两个元素是否相等的函数类型
+type EqualFunc[T any] func(src, dst T) bool
+
 // Contains 判断 src 里面是否存在 dst
 func Contains[T comparable](src []T, dst T) bool {
 	return ContainsFunc[T](src, func(src T) bool {
@@ -32,7 +35,7 @@ func ContainsAny[T comparable](src, dst []T) bool {
 
 // ContainsAnyFunc 判断 src 里面是否存在 dst 中的任何一个元素
 // 你应该优先使用 ContainsAny
-func ContainsAnyFunc[T any](src, dst []T, equal equalFunc[T]) bool {
+func ContainsAnyFunc[T any](src, dst []T, equal EqualFunc[T]) bool {
 	for _, valDst := range dst {
 		for _, valSrc := range src {
 			if equal(valSrc, valDst) {
@@ -56,7 +59,7 @@ func ContainsAll[T comparable](src, dst []T) bool {
 
 // ContainsAllFunc 判断 src 里面是否存在 dst 中的所有元素
 // 你应该优先使用 ContainsAll
-func ContainsAllFunc[T any](src, dst []T, equal equalFunc[T]) bool {
+func ContainsAllFunc[T any](src, dst []T, equal EqualFunc[T]) bool {
 	for _, valDst := range dst {
 		if !ContainsFunc[T](src, func(src T) bool {
 			return equal(src, valDst)
