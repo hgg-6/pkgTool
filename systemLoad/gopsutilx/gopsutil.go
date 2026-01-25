@@ -122,12 +122,10 @@ func (s *SystemLoad) SystemLoad() (uint, error) {
 	var nowLoadCpu uint
 	if l.Load1 < float64(c) {
 		nowLoadCpu = uint(1)
-	} else if l.Load1 >= float64(c) && l.Load1 < float64(c)*2 {
+	} else if l.Load1 < float64(c)*2 {
 		nowLoadCpu = uint(2)
 	} else {
-		// 系统危险负载
 		nowLoadCpu = uint(3)
-		return nowLoadCpu, nil
 	}
 
 	m, err := s.MemUsage()
@@ -137,21 +135,18 @@ func (s *SystemLoad) SystemLoad() (uint, error) {
 	var nowLoadMem uint
 	if m.UsedPercent < 70 {
 		nowLoadMem = uint(1)
-	} else if m.UsedPercent >= 70 && m.UsedPercent < 90 {
+	} else if m.UsedPercent < 90 {
 		nowLoadMem = uint(2)
 	} else {
-		// 系统危险负载
 		nowLoadMem = uint(3)
-		return nowLoadMem, nil
 	}
 
-	if nowLoadCpu == 1 || nowLoadMem == 1 {
-		return uint(1), nil
-	} else if nowLoadCpu == 3 || nowLoadMem == 3 {
+	if nowLoadCpu == 3 || nowLoadMem == 3 {
 		return uint(3), nil
-	} else {
+	} else if nowLoadCpu == 2 || nowLoadMem == 2 {
 		return uint(2), nil
 	}
+	return uint(1), nil
 }
 
 type HostInfo struct {

@@ -145,8 +145,14 @@ func (j *JwtxMiddlewareGinx) VerifyToken(ctx *gin.Context) (*UserClaims, error) 
 
 	// 验证redis中的 token
 	rdGet, err := j.cache.Get(ctx, "user:token:info:"+fmt.Sprintf("%d", uc.Uid)).Result()
-	if err != nil || tokenStr != rdGet {
-		return uc, fmt.Errorf("invalid token, token无效/伪造的token %v", err)
+	if err == redis.Nil {
+		return uc, fmt.Errorf("invalid token, token已过期或不存在")
+	}
+	if err != nil {
+		return uc, fmt.Errorf("redis错误: %v", err)
+	}
+	if tokenStr != rdGet {
+		return uc, fmt.Errorf("invalid token, token无效/伪造的token")
 	}
 	ctx.Set("user", uc)
 	return uc, nil
@@ -169,8 +175,14 @@ func (j *JwtxMiddlewareGinx) LongVerifyToken(ctx *gin.Context) (*RefreshUserClai
 	}
 	// 验证redis中的 token
 	rdGet, err := j.cache.Get(ctx, "user:longToken:info:"+fmt.Sprintf("%d", uc.Uid)).Result()
-	if err != nil || tokenStr != rdGet {
-		return uc, fmt.Errorf("invalid token, 长token无效/伪造的token %v", err)
+	if err == redis.Nil {
+		return uc, fmt.Errorf("invalid token, 长token已过期或不存在")
+	}
+	if err != nil {
+		return uc, fmt.Errorf("redis错误: %v", err)
+	}
+	if tokenStr != rdGet {
+		return uc, fmt.Errorf("invalid token, 长token无效/伪造的token")
 	}
 	ctx.Set("userLong", uc)
 	return uc, nil

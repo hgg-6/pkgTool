@@ -273,13 +273,12 @@ func (r *CronX) refreshSystemLoad() {
 					r.ResumeCrons() // 恢复继续任务
 				}
 			case uint(0), uint(3):
-				//if r.atc == int32(0) { //	判断任务状态
-				if r.atc.Load() == int32(cronPause) { //	判断任务状态
+				if r.atc.Load() == int32(cronPause) {
 					r.logx.Info("当前系统负载异常, 即将暂停定时任务", logx.String("系统负载", fmt.Sprintf("%d", sid)))
-					r.PauseCrons() // 暂停任务
+					r.PauseCrons()
 				}
 			default:
-				r.logx.Error("获取系统负载失败", logx.Uint("系统负载", sid), logx.Error(err))
+				r.logx.Error("系统负载状态未知", logx.Uint("系统负载", sid))
 			}
 		}
 	}

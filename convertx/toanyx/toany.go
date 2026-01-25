@@ -204,9 +204,9 @@ func convertFloat[T ~float32 | ~float64](src any) (T, bool) {
 	case uint, uint8, uint16, uint32, uint64:
 		return T(reflectToUint64(v)), true
 	case float32:
-		return T(v), true
+		return T(int64(v)), true
 	case float64:
-		return T(v), true
+		return T(int64(v)), true
 	case string:
 		if f, err := strconv.ParseFloat(v, 64); err == nil {
 			return T(f), true
@@ -311,14 +311,10 @@ func convertTime(src any) (time.Time, bool) {
 		return time.Unix(reflectToInt64(v), 0), true
 	case uint, uint8, uint16, uint32, uint64:
 		return time.Unix(int64(reflectToUint64(v)), 0), true
-	case float32, float64:
-		f := float64(reflectToUint64(v))
-		if v, ok := src.(float32); ok {
-			f = float64(v)
-		} else if v, ok := src.(float64); ok {
-			f = v
-		}
-		return time.Unix(int64(f), 0), true
+	case float32:
+		return time.Unix(int64(v), 0), true
+	case float64:
+		return time.Unix(int64(v), 0), true
 	}
 	return time.Time{}, false
 }
@@ -336,14 +332,10 @@ func convertDuration(src any) (time.Duration, bool) {
 		return time.Duration(reflectToInt64(v)), true
 	case uint, uint8, uint16, uint32, uint64:
 		return time.Duration(reflectToUint64(v)), true
-	case float32, float64:
-		f := float64(reflectToUint64(v))
-		if v, ok := src.(float32); ok {
-			f = float64(v)
-		} else if v, ok := src.(float64); ok {
-			f = v
-		}
-		return time.Duration(f), true
+	case float32:
+		return time.Duration(int64(v)), true
+	case float64:
+		return time.Duration(int64(v)), true
 	}
 	return 0, false
 }

@@ -9,7 +9,6 @@ import (
 	"gitee.com/hgg_test/pkg_tool/v2/logx"
 	"gitee.com/hgg_test/pkg_tool/v2/syncX"
 	"github.com/fsnotify/fsnotify"
-	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
 )
 
@@ -55,11 +54,7 @@ func (v *ViperConfigStr) GetNamedViper(name string) (*viper.Viper, error) {
 //   - filePath是文件路径 精确到文件名，如：config/dev.yaml
 //   - defaultConfig是默认配置项【viper.SetDefault("mysql.dsn", "root:root@tcp(localhost:3306)/webook")】
 func (v *ViperConfigStr) InitViperLocal(filePath string, defaultConfig ...configx.DefaultConfig) error {
-	//cfilg := pflag.String("config", "config/dev.yaml", "配置文件路径") // pflag.String是设置命令行参数，用于指定配置文件路径
-	cfilg := pflag.String("config", filePath, "配置文件路径") // pflag.String是设置命令行参数，用于指定配置文件路径
-	pflag.Parse()                                       // 解析命令行参数，pflag.String时cfilg还没有值，需要调一下pflag.Parse()，cfilg才有值config/config.yaml
-
-	v.Config.SetConfigFile(*cfilg) // 配置文件名称【pflag.String时cfilg指定配置文件路径】
+	v.Config.SetConfigFile(filePath)
 
 	if len(defaultConfig) != 0 {
 		for _, s := range defaultConfig {
@@ -67,7 +62,7 @@ func (v *ViperConfigStr) InitViperLocal(filePath string, defaultConfig ...config
 		}
 	}
 
-	err := v.Config.ReadInConfig() // 读取配置文件
+	err := v.Config.ReadInConfig()
 	if err != nil {
 		return err
 	}
@@ -120,11 +115,7 @@ func (v *ViperConfigStr) InitViperRemote(provider, endpoint, path string) error 
 //   - filePath是文件路径 精确到文件名，如：config/dev.yaml
 //   - defaultConfig是默认配置项【viper.SetDefault("mysql.dsn", "root:root@tcp(localhost:3306)/webook")】
 func (v *ViperConfigStr) InitViperLocalWatch(filePath string, defaultConfig ...configx.DefaultConfig) error {
-	//cfilg := pflag.String("config", "config/dev.yaml", "配置文件路径") // pflag.String是设置命令行参数，用于指定配置文件路径
-	cfilg := pflag.String("config", filePath, "配置文件路径") // pflag.String是设置命令行参数，用于指定配置文件路径
-	pflag.Parse()                                       // 解析命令行参数，pflag.String时cfilg还没有值，需要调一下pflag.Parse()，cfilg才有值config/config.yaml
-
-	v.Config.SetConfigFile(*cfilg) // 配置文件名称【pflag.String时cfilg指定配置文件路径】
+	v.Config.SetConfigFile(filePath)
 
 	if len(defaultConfig) != 0 {
 		for _, s := range defaultConfig {
@@ -140,7 +131,7 @@ func (v *ViperConfigStr) InitViperLocalWatch(filePath string, defaultConfig ...c
 		v.l.Warn("本地配置文件发生变更: ", logx.String("fileName", in.Name), logx.String("op", in.Op.String()))
 	})
 
-	err := v.Config.ReadInConfig() // 读取配置文件
+	err := v.Config.ReadInConfig()
 	if err != nil {
 		return err
 	}
