@@ -204,9 +204,9 @@ func convertFloat[T ~float32 | ~float64](src any) (T, bool) {
 	case uint, uint8, uint16, uint32, uint64:
 		return T(reflectToUint64(v)), true
 	case float32:
-		return T(int64(v)), true
+		return T(v), true
 	case float64:
-		return T(int64(v)), true
+		return T(v), true
 	case string:
 		if f, err := strconv.ParseFloat(v, 64); err == nil {
 			return T(f), true
@@ -312,9 +312,9 @@ func convertTime(src any) (time.Time, bool) {
 	case uint, uint8, uint16, uint32, uint64:
 		return time.Unix(int64(reflectToUint64(v)), 0), true
 	case float32:
-		return time.Unix(int64(v), 0), true
+		return time.Unix(0, int64(float64(v)*1e9)), true
 	case float64:
-		return time.Unix(int64(v), 0), true
+		return time.Unix(0, int64(v*1e9)), true
 	}
 	return time.Time{}, false
 }
@@ -333,9 +333,9 @@ func convertDuration(src any) (time.Duration, bool) {
 	case uint, uint8, uint16, uint32, uint64:
 		return time.Duration(reflectToUint64(v)), true
 	case float32:
-		return time.Duration(int64(v)), true
+		return time.Duration(float64(v) * 1e9), true
 	case float64:
-		return time.Duration(int64(v)), true
+		return time.Duration(v * 1e9), true
 	}
 	return 0, false
 }

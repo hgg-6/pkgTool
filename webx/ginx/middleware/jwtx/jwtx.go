@@ -207,6 +207,10 @@ func (j *JwtxMiddlewareGinx) RefreshToken(ctx *gin.Context, ssid string) (*UserC
 		return u, fmt.Errorf("delete redis token info error: %v", err)
 	}
 	err = j.cache.Del(ctx, "user:longToken:info:"+fmt.Sprintf("%d", uc.Uid)).Err()
+	if err != nil && err != redis.Nil {
+		var u *UserClaims
+		return u, fmt.Errorf("delete redis long token info error: %v", err)
+	}
 
 	// 重新设置token
 	//ssid := uuid.New().String()

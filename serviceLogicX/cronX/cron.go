@@ -149,6 +149,7 @@ func (r *CronX) SetExprOrCmd(exprOrCmd ...CronXCmdConfig) {
 // PauseCrons 暂停所有任务
 func (r *CronX) PauseCrons() {
 	r.logx.Info("暂停任务")
+	r.atc.Store(cronPause)
 	r.adminCron.Range(func(key string, value CronXConfig) bool {
 		r.adminCron.Store(key, CronXConfig{EntryID: value.EntryID, cronStatus: 1})
 		return true
@@ -170,6 +171,7 @@ func (r *CronX) PauseCron(keys string) error {
 // ResumeCrons 恢复所有任务
 func (r *CronX) ResumeCrons() {
 	r.logx.Info("恢复任务")
+	r.atc.Store(cronSuccess)
 	r.adminCron.Range(func(key string, value CronXConfig) bool {
 		r.adminCron.Store(key, CronXConfig{EntryID: value.EntryID, cronStatus: 0})
 		return true

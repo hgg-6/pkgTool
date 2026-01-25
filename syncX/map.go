@@ -20,7 +20,7 @@ func NewMap[K comparable, V any]() *Map[K, V] {
 func (m *Map[K, V]) Load(key K) (value V, ok bool) {
 	var anyVal any
 	anyVal, ok = m.m.Load(key)
-	if anyVal != nil {
+	if ok {
 		value = anyVal.(V)
 	}
 	return
@@ -36,9 +36,7 @@ func (m *Map[K, V]) Store(key K, value V) {
 func (m *Map[K, V]) LoadOrStore(key K, value V) (actual V, loaded bool) {
 	var anyVal any
 	anyVal, loaded = m.m.LoadOrStore(key, value)
-	if anyVal != nil {
-		actual = anyVal.(V)
-	}
+	actual = anyVal.(V)
 	return
 }
 
@@ -63,7 +61,7 @@ func (m *Map[K, V]) LoadOrStoreFunc(key K, fn func() (V, error)) (actual V, load
 func (m *Map[K, V]) LoadAndDelete(key K) (value V, loaded bool) {
 	var anyVal any
 	anyVal, loaded = m.m.LoadAndDelete(key)
-	if anyVal != nil {
+	if loaded {
 		value = anyVal.(V)
 	}
 	return

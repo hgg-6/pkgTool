@@ -24,9 +24,7 @@ func (b *InterceptorBuilder) BuildServerUnaryInterceptor() grpc.UnaryServerInter
 			}
 			return
 		}
-		if status.Code(err) == codes.Unavailable {
-			b.breaker.MarkFailed()
-		}
+		b.breaker.MarkFailed()
 		return nil, status.Errorf(codes.Unavailable, "熔断")
 	}
 }
