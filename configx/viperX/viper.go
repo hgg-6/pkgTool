@@ -1,6 +1,7 @@
 package viperX
 
 import (
+	"context"
 	"fmt"
 	"time"
 
@@ -16,7 +17,9 @@ type ViperConfigStr struct {
 	Configs  *syncX.Map[string, *viper.Viper] // 使用并发安全的Map，无需额外锁
 	interval time.Duration                    // 远程配置中心监听文件变更的间隔时间,默认5秒
 
-	l logx.Loggerx
+	l                 logx.Loggerx
+	remoteWatchCtx    context.Context
+	remoteWatchCancel context.CancelFunc
 }
 
 func NewViperConfigStr(l logx.Loggerx) configx.ConfigIn {
@@ -96,7 +99,7 @@ func (v *ViperConfigStr) InitViperRemote(provider, endpoint, path string) error 
 	// AddRemoteProvider参数 provider 是远程配置的提供者，这里使用的是etcd, endpoint 是远程配置的访问地址，path 是远程配置的存储路径
 	err := v.Config.AddRemoteProvider(provider, endpoint, path)
 	if err != nil {
-		panic(err)
+		return err
 	}
 	err = v.Config.ReadRemoteConfig() // 读取远程配置文件
 	if err != nil {
@@ -174,25 +177,36 @@ func (v *ViperConfigStr) InitViperRemoteWatch(provider, endpoint, path string) e
 	// AddRemoteProvider参数 provider 是远程配置的提供者，这里使用的是etcd, endpoint 是远程配置的访问地址，path 是远程配置的存储路径
 	err := v.Config.AddRemoteProvider(provider, endpoint, path)
 	if err != nil {
-		panic(err)
+		return err
 	}
 	err = v.Config.ReadRemoteConfig() // 读取远程配置文件
 	if err != nil {
 		return err
 	}
 
+	// 如果已有监听goroutine，先停止它
+	if v.remoteWatchCancel != nil {
+		v.remoteWatchCancel()
+	}
+	v.remoteWatchCtx, v.remoteWatchCancel = context.WithCancel(context.Background())
+
 	// 启动监听远程配置变更
 	go func() {
+		ticker := time.NewTicker(v.interval)
+		defer ticker.Stop()
 		for {
-			// 控制检查频率，默认每5秒检查一次
-			time.Sleep(v.interval)
-			// 监听远程配置变更，如果有变更，则自动重新加载配置
-			er := viper.WatchRemoteConfig()
-			if er != nil {
-				fmt.Printf("WatchRemoteConfig error: %v\n", er)
-				continue
+			select {
+			case <-v.remoteWatchCtx.Done():
+				return
+			case <-ticker.C:
+				// 监听远程配置变更，如果有变更，则自动重新加载配置
+				er := v.Config.WatchRemoteConfig()
+				if er != nil {
+					fmt.Printf("WatchRemoteConfig error: %v\n", er)
+					continue
+				}
+				fmt.Println("远程配置中心监听变更，成功拉取并加载数据")
 			}
-			fmt.Println("远程配置中心监听变更，成功拉取并加载数据")
 		}
 	}()
 
@@ -235,4 +249,13 @@ func (v *ViperConfigStr) GetUnmarshalKey(key string, rawVal any, fileName ...str
 		return fmt.Errorf("config file %s not found", fileName[0])
 	}
 	return val.UnmarshalKey(key, &rawVal)
+}
+
+// StopRemoteWatch 停止远程配置监控
+func (v *ViperConfigStr) StopRemoteWatch() {
+	if v.remoteWatchCancel != nil {
+		v.remoteWatchCancel()
+		v.remoteWatchCancel = nil
+		v.remoteWatchCtx = nil
+	}
 }

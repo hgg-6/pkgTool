@@ -1,3 +1,4 @@
+// Package sliceX 提供切片操作的工具函数，包括过滤、映射、去重、集合运算等。
 package sliceX
 
 type NumberOrString interface {

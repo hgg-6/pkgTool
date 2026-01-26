@@ -1,6 +1,32 @@
+// Package syncX 提供并发安全的数据结构，是对标准库 sync 的扩展。
 package syncX
 
 import "sync"
+
+// convertAny 安全地将 any 转换为 T 类型
+// 如果 anyVal 是 nil 接口值，则返回 T 的零值
+func convertAny[T any](anyVal any) T {
+	if anyVal == nil {
+		var zero T
+		return zero
+	}
+	return anyVal.(T)
+}
+
+// future 表示一个延迟计算的值，用于 LoadOrStoreFunc 的并发安全初始化
+type future[V any] struct {
+	once sync.Once
+	val  V
+	err  error
+}
+
+// do 执行初始化函数 fn，确保只调用一次
+func (f *future[V]) do(fn func() (V, error)) (V, error) {
+	f.once.Do(func() {
+		f.val, f.err = fn()
+	})
+	return f.val, f.err
+}
 
 // Map 是对 sync.Map 的一个泛型封装
 // 要注意，K 必须是 comparable 的，并且谨慎使用指针作为 K。
@@ -21,7 +47,7 @@ func (m *Map[K, V]) Load(key K) (value V, ok bool) {
 	var anyVal any
 	anyVal, ok = m.m.Load(key)
 	if ok {
-		value = anyVal.(V)
+		value = convertAny[V](anyVal)
 	}
 	return
 }
@@ -36,7 +62,7 @@ func (m *Map[K, V]) Store(key K, value V) {
 func (m *Map[K, V]) LoadOrStore(key K, value V) (actual V, loaded bool) {
 	var anyVal any
 	anyVal, loaded = m.m.LoadOrStore(key, value)
-	actual = anyVal.(V)
+	actual = convertAny[V](anyVal)
 	return
 }
 
@@ -62,7 +88,7 @@ func (m *Map[K, V]) LoadAndDelete(key K) (value V, loaded bool) {
 	var anyVal any
 	anyVal, loaded = m.m.LoadAndDelete(key)
 	if loaded {
-		value = anyVal.(V)
+		value = convertAny[V](anyVal)
 	}
 	return
 }
@@ -80,12 +106,8 @@ func (m *Map[K, V]) Range(f func(key K, value V) bool) {
 			k K
 			v V
 		)
-		if value != nil {
-			v = value.(V)
-		}
-		if key != nil {
-			k = key.(K)
-		}
+		v = convertAny[V](value)
+		k = convertAny[K](key)
 		return f(k, v)
 	})
 }

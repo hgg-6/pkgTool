@@ -21,13 +21,14 @@ func (c *CounterLimiter) Build() gin.HandlerFunc {
 	return func(ctx *gin.Context) {
 		// 请求进来，先占坑
 		cnt := c.cnt.Add(1)
-		defer func() {
+		if cnt > c.threshold {
+			// 超过阈值，回滚计数并拒绝
 			c.cnt.Add(-1)
-		}()
-		if cnt >= c.threshold {
 			ctx.AbortWithStatus(http.StatusTooManyRequests)
 			return
 		}
+		// 在请求处理完成后减少计数
+		defer c.cnt.Add(-1)
 		ctx.Next()
 	}
 }

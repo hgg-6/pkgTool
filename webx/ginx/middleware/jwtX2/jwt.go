@@ -1,3 +1,4 @@
+// Package jwtX2 提供基于 JWT 的认证中间件，支持多设备管理和会话控制。
 package jwtX2
 
 import (
@@ -93,16 +94,27 @@ func (j *JwtxMiddlewareGinx) getDeviceID(ctx *gin.Context) string {
 		ua = "unknown"
 	}
 	h := sha256.Sum256([]byte(ua))
-	return fmt.Sprintf("%x", h)[:16] // 取前16字符作为设备ID
+	deviceID := fmt.Sprintf("%x", h)[:16] // 取前16字符作为设备ID
+	// 确保 deviceID 非空（理论上不会发生，但安全起见）
+	if deviceID == "" {
+		deviceID = uuid.New().String()
+	}
+	return deviceID
 }
 
 // SetToken 登录：自动按设备管理会话（同设备只保留最新）
 func (j *JwtxMiddlewareGinx) SetToken(ctx *gin.Context, userId int64, name string, ssid string) (*UserClaims, error) {
 	// 注意：ssid 参数已废弃，但为兼容接口保留（不使用）
 	deviceID := j.getDeviceID(ctx)
+	if deviceID == "" {
+		return nil, fmt.Errorf("device ID cannot be empty")
+	}
 	ssId := uuid.New().String()
 	if ssid != "" {
 		ssId = ssid
+	}
+	if ssId == "" {
+		ssId = uuid.New().String()
 	}
 
 	now := time.Now()

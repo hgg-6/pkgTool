@@ -33,12 +33,15 @@ func (c *FixedWindowLimiter) Build() gin.HandlerFunc {
 			c.cnt = 0
 			c.lastWindowStart = now
 		}
-		cnt := c.cnt + 1
-		c.lock.Unlock() // 解锁
-		if cnt >= c.threshold {
+		// 检查是否超过阈值
+		if c.cnt >= c.threshold {
+			c.lock.Unlock()
 			ctx.AbortWithStatus(http.StatusTooManyRequests)
 			return
 		}
+		// 增加计数
+		c.cnt++
+		c.lock.Unlock() // 解锁
 		ctx.Next()
 	}
 }

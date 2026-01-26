@@ -32,14 +32,14 @@ func (z *ZeroLogger) logEvent(level zerolog.Level, msg string, fields []logx.Fie
 	//event.Msg(msg)
 	event := z.logger.WithLevel(level)
 	// 当日志级别为，警告war和错误err 级别时，调用堆栈【默认跳过2层】
-	if level == 2 || level == 3 {
+	if level == zerolog.WarnLevel || level == zerolog.ErrorLevel {
 		event.Caller(2)
 	}
 	for _, f := range fields {
 		if f.Key == "" {
 			continue // 避免空 key
 		}
-		toIfType(f, event)
+		event = toIfType(f, event)
 	}
 	event.Msg(msg)
 }
@@ -60,68 +60,68 @@ func (z *ZeroLogger) Error(msg string, fields ...logx.Field) {
 	z.logEvent(zerolog.ErrorLevel, msg, fields)
 }
 
-func toIfType(f logx.Field, event *zerolog.Event) {
+func toIfType(f logx.Field, event *zerolog.Event) *zerolog.Event {
 	switch v := f.Value.(type) {
 	case string:
-		event = event.Str(f.Key, v)
+		return event.Str(f.Key, v)
 	case []string:
-		event = event.Strs(f.Key, v)
+		return event.Strs(f.Key, v)
 	case int:
-		event = event.Int(f.Key, v)
+		return event.Int(f.Key, v)
 	case int8:
-		event = event.Int8(f.Key, v)
+		return event.Int8(f.Key, v)
 	case int16:
-		event = event.Int16(f.Key, v)
+		return event.Int16(f.Key, v)
 	case int32:
-		event = event.Int32(f.Key, v)
+		return event.Int32(f.Key, v)
 	case int64:
-		event = event.Int64(f.Key, v)
+		return event.Int64(f.Key, v)
 	case uint:
-		event = event.Uint(f.Key, v)
+		return event.Uint(f.Key, v)
 	case uint8:
-		event = event.Uint8(f.Key, v)
+		return event.Uint8(f.Key, v)
 	case uint16:
-		event = event.Uint16(f.Key, v)
+		return event.Uint16(f.Key, v)
 	case uint32:
-		event = event.Uint32(f.Key, v)
+		return event.Uint32(f.Key, v)
 	case uint64:
-		event = event.Uint64(f.Key, v)
+		return event.Uint64(f.Key, v)
 	case float32:
-		event = event.Float32(f.Key, v)
+		return event.Float32(f.Key, v)
 	case float64:
-		event = event.Float64(f.Key, v)
+		return event.Float64(f.Key, v)
 	case bool:
-		event = event.Bool(f.Key, v)
+		return event.Bool(f.Key, v)
 	case time.Time:
-		event = event.Time(f.Key, v)
+		return event.Time(f.Key, v)
 	case time.Duration:
-		event = event.Dur(f.Key, v)
+		return event.Dur(f.Key, v)
 	case error:
 		if v != nil {
-			event = event.Str(f.Key, v.Error())
+			return event.Str(f.Key, v.Error())
 		} else {
-			event = event.Interface(f.Key, nil)
+			return event.Interface(f.Key, nil)
 		}
 	case fmt.Stringer:
 		if v != nil {
-			event = event.Str(f.Key, v.String())
+			return event.Str(f.Key, v.String())
 		} else {
-			event = event.Interface(f.Key, nil)
+			return event.Interface(f.Key, nil)
 		}
 	case encoding.TextMarshaler:
 		if v != nil {
 			if data, err := v.MarshalText(); err == nil {
-				event = event.Str(f.Key, string(data))
+				return event.Str(f.Key, string(data))
 			} else {
-				event = event.Interface(f.Key, v)
+				return event.Interface(f.Key, v)
 			}
 		} else {
-			event = event.Interface(f.Key, nil)
+			return event.Interface(f.Key, nil)
 		}
 	case nil:
-		event = event.Interface(f.Key, nil)
+		return event.Interface(f.Key, nil)
 	default:
-		event = event.Interface(f.Key, v) // fallback to reflection
+		return event.Interface(f.Key, v) // fallback to reflection
 	}
 }
 

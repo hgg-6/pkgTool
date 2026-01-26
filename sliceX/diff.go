@@ -20,13 +20,32 @@ func DiffSet[T comparable](src, dst []T) []T {
 // DiffSetFunc 差集，已去重
 // 你应该优先使用 DiffSet
 func DiffSetFunc[T any](src, dst []T, equal EqualFunc[T]) []T {
-	var ret = make([]T, 0, len(src))
-	for _, val := range src {
-		if !ContainsFunc[T](dst, func(src T) bool {
-			return equal(src, val)
-		}) {
-			ret = append(ret, val)
+	// 分组去重
+	srcGroups := groupByHash(src, equal)
+	dstGroups := groupByHash(dst, equal)
+
+	// 收集结果
+	var ret []T
+	for h, srcVals := range srcGroups {
+		dstVals, ok := dstGroups[h]
+		if !ok {
+			// 该哈希下 dst 中没有元素，srcVals 全部加入结果
+			ret = append(ret, srcVals...)
+			continue
+		}
+		// 对于每个 src 元素，检查是否在 dst 中出现
+		for _, sv := range srcVals {
+			found := false
+			for _, dv := range dstVals {
+				if equal(sv, dv) {
+					found = true
+					break
+				}
+			}
+			if !found {
+				ret = append(ret, sv)
+			}
 		}
 	}
-	return deduplicateFunc[T](ret, equal)
+	return ret
 }

@@ -42,7 +42,9 @@ func (b *Builder) Build() gin.HandlerFunc {
 		limited, err := b.limiter.Limit(ctx, fmt.Sprintf("%s:%s", b.prefix, ctx.ClientIP()))
 		if err != nil {
 			log.Println(err)
-			b.log.Error("限流出错，redis有误", logx.Error(err))
+			if b.log != nil {
+				b.log.Error("限流出错，redis有误", logx.Error(err))
+			}
 			// 这一步很有意思，就是如果这边出错了
 			// 要怎么办？
 			// 保守做法：因为借助于 Redis 来做限流，那么 Redis 崩溃了，为了防止系统崩溃，直接限流

@@ -1,3 +1,4 @@
+// Package syncX 提供并发安全的数据结构，是对标准库 sync 的扩展。
 package syncX
 
 import (
@@ -175,5 +176,5 @@ func (m *RWMutexMap[K, V]) String() string {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 
-	return fmt.Sprintf("RWMutexMap{len: %d, cap: %d, items: %v}", len(m.items), m.maxCap, m.items)
+	return fmt.Sprintf("RWMutexMap{len: %d, cap: %d}", len(m.items), m.maxCap)
 }
