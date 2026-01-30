@@ -189,9 +189,11 @@ func (dl *LockRedsync) Stop() {
 	dl.isRunning = false
 
 	status := dl.status
-	dl.mu.Unlock()
-
+	// 取消context，通知所有goroutine停止
 	dl.cancel()
+	// 关闭状态通道，让statusBroadcastLoop退出
+	close(dl.statusChan)
+	dl.mu.Unlock()
 
 	if dl.renewalTicker != nil {
 		dl.renewalTicker.Stop()
@@ -204,9 +206,6 @@ func (dl *LockRedsync) Stop() {
 	}
 
 	dl.wg.Wait()
-
-	close(dl.statusChan)
-
 	dl.logger.Info("锁服务已停止")
 }
 
@@ -450,6 +449,10 @@ func (dl *LockRedsync) updateStatus(status LockStatus, err error) {
 
 	// 只有在状态真正变更时才发送通知
 	if oldStatus != status {
+		// 检查服务是否还在运行，防止向已关闭的通道发送
+		if !dl.isRunning {
+			return
+		}
 		// 非阻塞发送状态变更
 		select {
 		case dl.statusChan <- LockResult{Status: status, Error: err}:

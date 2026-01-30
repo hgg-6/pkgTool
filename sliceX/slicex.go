@@ -9,29 +9,43 @@ type NumberOrString interface {
 }
 
 // Max 切片里面最大值
+// 如果切片为空，返回零值
 func Max[T NumberOrString](a []T) T {
+	val, _ := MaxSafe(a)
+	return val
+}
+
+// MaxSafe 切片里面最大值，返回值和是否成功
+func MaxSafe[T NumberOrString](a []T) (T, bool) {
 	if len(a) < 1 {
-		var s T
-		return s
+		var zero T
+		return zero, false
 	}
 	m := a[0]
 	for _, v := range a {
 		m = max(m, v)
 	}
-	return m
+	return m, true
 }
 
 // Min 切片里面最小值
+// 如果切片为空，返回零值
 func Min[T NumberOrString](a []T) T {
+	val, _ := MinSafe(a)
+	return val
+}
+
+// MinSafe 切片里面最小值，返回值和是否成功
+func MinSafe[T NumberOrString](a []T) (T, bool) {
 	if len(a) < 1 {
-		var s T
-		return s
+		var zero T
+		return zero, false
 	}
 	m := a[0]
 	for _, v := range a {
 		m = min(m, v)
 	}
-	return m
+	return m, true
 }
 
 // Sum 切片求和

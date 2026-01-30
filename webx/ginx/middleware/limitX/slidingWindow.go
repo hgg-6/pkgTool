@@ -96,5 +96,5 @@ func (c *SlidingWindowLimiter) GetCurrentCount() int {
 	windowStart := now.Add(-c.window)
 	c.removeExpired(windowStart)
 
-	return c.queue.Len()
+	return c.queue.Size()
 }

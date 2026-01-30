@@ -34,7 +34,8 @@ func (f *future[V]) do(fn func() (V, error)) (V, error) {
 // 而不是地址指向的值。可以参考 Load 测试。
 // 注意，key 不存在和 key 存在但是值恰好为零值（如 nil），是两码事
 type Map[K comparable, V any] struct {
-	m sync.Map
+	m       sync.Map
+	futures sync.Map // 用于 LoadOrStoreFunc 的 future 对象
 }
 
 // NewMap 为了防止有时使用时忘记&取地址，所以又加了New构造
@@ -71,15 +72,30 @@ func (m *Map[K, V]) LoadOrStore(key K, value V) (actual V, loaded bool) {
 // 它的代价就是 Key 不存在的时候会多一次 Load 调用。
 // 当 fn 返回 error 的时候，LoadOrStoreFunc 也会返回 error。
 func (m *Map[K, V]) LoadOrStoreFunc(key K, fn func() (V, error)) (actual V, loaded bool, err error) {
-	val, ok := m.Load(key)
-	if ok {
+	// 快速路径：检查是否已存在
+	if val, ok := m.Load(key); ok {
 		return val, true, nil
 	}
-	val, err = fn()
+
+	// 获取或创建 future
+	fut := &future[V]{}
+	actualFuture, _ := m.futures.LoadOrStore(key, fut)
+	f := actualFuture.(*future[V])
+
+	// 执行初始化函数（确保只执行一次）
+	val, err := f.do(fn)
 	if err != nil {
+		// 初始化失败，删除 future 以便重试
+		m.futures.Delete(key)
 		return
 	}
+
+	// 存储结果到主 map
 	actual, loaded = m.LoadOrStore(key, val)
+
+	// 清理 future
+	m.futures.Delete(key)
+
 	return
 }
 

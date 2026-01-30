@@ -24,6 +24,9 @@ type CronX struct {
 	IsSystemInfo          bool                  // 是否启用自动刷新系统负载信息,默认false
 	systemInfo            *gopsutilx.SystemLoad // 系统负载信息
 	refreshSystemInfoTime time.Duration         // 刷新系统负载间隔, 默认5秒
+	stopChan              chan struct{}         // 停止信号通道
+	stopWg                sync.WaitGroup        // 等待goroutine停止
+	stopOnce              sync.Once             // 确保stopChan只关闭一次
 }
 
 // NewCronX 创建定时任务服务【任务添加后, 启动定时器后，任务默认暂停状态，需显式调用ResumeCron/ResumeCrons启动】
@@ -32,7 +35,12 @@ type CronX struct {
 // func NewCronX(logx logx.Loggerx, systemInfo *gopsutilx.SystemLoad) *CronX {
 func NewCronX(logx logx.Loggerx) *CronX {
 	//c := &CronX{logx: logx, atc: atomic.Int32{}, systemInfo: systemInfo, refreshSystemInfo: time.Second * 5}
-	c := &CronX{logx: logx, refreshSystemInfoTime: time.Second * 5, IsSystemInfo: false}
+	c := &CronX{
+		logx:                  logx,
+		refreshSystemInfoTime: time.Second * 5,
+		IsSystemInfo:          false,
+		stopChan:              make(chan struct{}),
+	}
 	c.atc.Store(cronPause)
 	c.exprOrCmd = &syncX.Map[string, CronXCmdConfig]{}
 	c.adminCron = &syncX.Map[string, CronXConfig]{}
@@ -56,24 +64,33 @@ func (r *CronX) Start() error {
 
 	r.cron.Start() // 启动任务
 	if r.IsSystemInfo && r.systemInfo != nil && r.refreshSystemInfoTime != 0 {
-		go r.refreshSystemLoad() // 异步刷新系统负载，默认5秒刷新一次，用于控制当前系统健康是否适合进行定时任务执行
+		r.stopWg.Add(1)
+		go func() {
+			defer r.stopWg.Done()
+			r.refreshSystemLoad()
+		}() // 异步刷新系统负载，默认5秒刷新一次，用于控制当前系统健康是否适合进行定时任务执行
 	}
 	return nil
 }
 
 func (r *CronX) addTask(expr *cron.Cron) error {
-	var err error
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	var firstErr error
 	r.exprOrCmd.Range(func(key string, value CronXCmdConfig) bool {
-		r.mu.Lock()
-		defer r.mu.Unlock()
 		EntryID, err := expr.AddFunc(value.CronExpr, r.makeJobFunc(key, value))
 		if err != nil {
 			r.logx.Error("添加定时任务失败", logx.Error(err), logx.String("任务map keys", key), logx.String("cronName", value.CronName), logx.Int64("任务ID", value.CronId))
+			if firstErr == nil {
+				firstErr = err
+			}
+			return true // 继续处理其他任务
 		}
 		r.adminCron.Store(key, CronXConfig{EntryID: EntryID, cronStatus: 1}) // 存储cron的任务ID
 		return true
 	})
-	return err
+	return firstErr
 }
 
 // makeJobFunc 抽离 job 函数生成逻辑，避免重复
@@ -258,6 +275,7 @@ func (r *CronX) AddCronTask(config CronXCmdConfig) error {
 func (r *CronX) refreshSystemLoad() {
 	ticker := time.NewTicker(r.refreshSystemInfoTime)
 	defer ticker.Stop()
+
 	for {
 		select {
 		case <-ticker.C:
@@ -265,23 +283,25 @@ func (r *CronX) refreshSystemLoad() {
 			sid, err := r.systemInfo.SystemLoad() // 0: 获取失败，1: 良好【cpu&men<%70】，2: 负载警告【%90>cpu&men>%70】，3: 负载过高且内存使用率过高【cpu/men>%90】
 			if err != nil {
 				r.logx.Error("刷新系统负载失败", logx.Error(err))
-				return
+				continue // 继续重试，不退出监控
 			}
 			switch sid {
 			case uint(1), uint(2):
-				//if r.atc == int32(1) { //	判断任务状态
-				if r.atc.Load() == int32(cronSuccess) { //	判断任务状态
+				if r.atc.Load() == int32(cronPause) { // 当前是暂停状态，需要恢复
 					r.logx.Info("系统负载恢复正常, 即将恢复定时任务", logx.String("系统负载", fmt.Sprintf("%d", sid)))
 					r.ResumeCrons() // 恢复继续任务
 				}
 			case uint(0), uint(3):
-				if r.atc.Load() == int32(cronPause) {
+				if r.atc.Load() == int32(cronSuccess) { // 当前是运行状态，需要暂停
 					r.logx.Info("当前系统负载异常, 即将暂停定时任务", logx.String("系统负载", fmt.Sprintf("%d", sid)))
 					r.PauseCrons()
 				}
 			default:
 				r.logx.Error("系统负载状态未知", logx.Uint("系统负载", sid))
 			}
+		case <-r.stopChan:
+			r.logx.Info("停止系统负载监控")
+			return
 		}
 	}
 }
@@ -298,9 +318,19 @@ func (r *CronX) SetSystemInfo(systemInfo *gopsutilx.SystemLoad, isSystemInfo boo
 
 // StopCron 停止定时器任务服务
 func (r *CronX) StopCron() {
+	// 停止系统负载监控goroutine
+	r.stopOnce.Do(func() {
+		if r.stopChan != nil {
+			close(r.stopChan)
+		}
+	})
+
 	ctx := r.cron.Stop() // 暂停定时器，不调度新任务执行了，正在执行的继续执行
 	r.logx.Warn("正在停止定时任务调度器")
 	<-ctx.Done() // 彻底停止定时器
+
+	// 等待所有goroutine结束
+	r.stopWg.Wait()
 	r.logx.Warn("定时任务调度器已停止")
 }
 

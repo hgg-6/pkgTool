@@ -56,3 +56,17 @@ func (v *Value[T]) Swap(new T) (old T) {
 func (v *Value[T]) CompareAndSwap(old, new T) (swapped bool) {
 	return v.val.CompareAndSwap(old, new)
 }
+
+// LoadSafe 安全地加载值，如果存储了错误类型的值，返回零值和 false
+func (v *Value[T]) LoadSafe() (val T, ok bool) {
+	data := v.val.Load()
+	val, ok = data.(T)
+	return
+}
+
+// SwapSafe 安全地交换值，如果存储了错误类型的值，返回零值和 false
+func (v *Value[T]) SwapSafe(new T) (old T, ok bool) {
+	data := v.val.Swap(new)
+	old, ok = data.(T)
+	return
+}

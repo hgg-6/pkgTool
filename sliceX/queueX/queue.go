@@ -16,8 +16,12 @@ type PriorityQueue[T any] struct {
 // NewPriorityQueue 创建优先队列【支持批量入队】
 // capacity <= 0 表示无界队列；>0 表示有界队列（最大容量为 capacity）
 func NewPriorityQueue[T any](less func(a, b T) bool, capacity int) *PriorityQueue[T] {
+	initialCapacity := capacity
+	if capacity <= 0 {
+		initialCapacity = 16 // 无界队列默认初始容量，减少重新分配
+	}
 	pq := &PriorityQueue[T]{
-		items:    make([]T, 0, maxx(0, capacity)),
+		items:    make([]T, 0, initialCapacity),
 		less:     less,
 		capacity: capacity,
 	}

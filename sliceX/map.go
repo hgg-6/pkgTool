@@ -85,15 +85,27 @@ func toMap[T comparable](src []T) map[T]struct{} {
 }
 
 func deduplicateFunc[T any](data []T, equal EqualFunc[T]) []T {
-	var newData = make([]T, 0, len(data))
-	for k, v := range data {
-		if !ContainsFunc[T](data[k+1:], func(src T) bool {
-			return equal(src, v)
-		}) {
-			newData = append(newData, v)
+	seen := make(map[uint64][]T)
+	result := make([]T, 0, len(data))
+
+	for _, v := range data {
+		h := hashOf(v)
+		bucket, exists := seen[h]
+		found := false
+		if exists {
+			for _, existing := range bucket {
+				if equal(existing, v) {
+					found = true
+					break
+				}
+			}
+		}
+		if !found {
+			result = append(result, v)
+			seen[h] = append(bucket, v)
 		}
 	}
-	return newData
+	return result
 }
 
 func deduplicate[T comparable](data []T) []T {

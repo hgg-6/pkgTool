@@ -70,24 +70,23 @@ func (v *ViperConfigStr) InitViperLocal(filePath string, defaultConfig ...config
 //   - 读取多个配置文件,fileName是文件名 精确文件名不带后缀，fileType是文件得类型eg: yaml、json....，filePath是文件路径 精确到文件夹名，
 //   - defaultConfig是默认配置项【viper.SetDefault("mysql.dsn", "root:root@tcp(localhost:3306)/webook")】
 func (v *ViperConfigStr) InitViperLocals(fileName, fileType, filePath string, defaultConfig ...configx.DefaultConfig) error {
-	v.Config = viper.New()
-	v.Config.SetConfigName(fileName) // 配置文件名称(无扩展名)
-	v.Config.SetConfigType(fileType) // 配置文件类型
-	v.Config.AddConfigPath(filePath) // 添加配置文件路径，当前目录的config下【可以反复读多次，可以设置多个】
+	config := viper.New()
+	config.SetConfigName(fileName) // 配置文件名称(无扩展名)
+	config.SetConfigType(fileType) // 配置文件类型
+	config.AddConfigPath(filePath) // 添加配置文件路径，当前目录的config下【可以反复读多次，可以设置多个】
 
 	if len(defaultConfig) != 0 {
 		for _, s := range defaultConfig {
-			v.Config.SetDefault(s.Key, s.Val)
+			config.SetDefault(s.Key, s.Val)
 		}
 	}
 
-	err := v.Config.ReadInConfig() // 读取配置文件
+	err := config.ReadInConfig() // 读取配置文件
 	if err != nil {
 		return err
 	}
 
-	//v.Configs[fileName+"."+fileType] = v.Config
-	v.Configs.Store(fileName+"."+fileType, v.Config)
+	v.Configs.Store(fileName+"."+fileType, config)
 	return nil
 }
 

@@ -3,6 +3,7 @@ package ginx
 import (
 	"net/http"
 	"strconv"
+	"sync"
 
 	"gitee.com/hgg_test/pkg_tool/v2/logx"
 	"github.com/gin-gonic/gin"
@@ -11,20 +12,26 @@ import (
 )
 
 var (
-	vector *prometheus.CounterVec
-	L      logx.Loggerx
+	vector     *prometheus.CounterVec
+	L          logx.Loggerx
+	vectorOnce sync.Once
+	logOnce    sync.Once
 )
 
 func NewLogMdlHandlerFunc(l logx.Loggerx) {
-	L = l
-	if L != nil {
-		L.Info("init log prometheus middleware success")
-	}
+	logOnce.Do(func() {
+		L = l
+		if L != nil {
+			L.Info("init log prometheus middleware success")
+		}
+	})
 }
 
 func InitCounter(opt prometheus.CounterOpts) {
-	vector = prometheus.NewCounterVec(opt, []string{"code"})
-	prometheus.MustRegister(vector)
+	vectorOnce.Do(func() {
+		vector = prometheus.NewCounterVec(opt, []string{"code"})
+		prometheus.MustRegister(vector)
+	})
 }
 
 // WrapBodyAndClaims bizFn 就是你的业务逻辑
