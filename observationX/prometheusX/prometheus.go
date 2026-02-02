@@ -1,84 +1,93 @@
 package prometheusX
 
 import (
+	"errors"
+	"net/http"
+
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
-	"net/http"
 )
 
-func InitPrometheus(addr string) {
+// InitPrometheus 启动 Prometheus metrics 服务
+func InitPrometheus(addr string) error {
 	http.Handle("/metrics", promhttp.Handler())
-	err := http.ListenAndServe(addr, nil)
-	if err != nil {
+	return http.ListenAndServe(addr, nil)
+}
+
+// MustInitPrometheus 启动 Prometheus metrics 服务，失败时 panic
+// Deprecated: 推荐使用 InitPrometheus 并处理返回的 error
+func MustInitPrometheus(addr string) {
+	if err := InitPrometheus(addr); err != nil {
 		panic(err)
 	}
 }
 
-// PrometheusCounter 计数器
+// safeRegister 安全注册 collector，处理重复注册
+func safeRegister(c prometheus.Collector) error {
+	if err := prometheus.Register(c); err != nil {
+		var alreadyReg prometheus.AlreadyRegisteredError
+		if errors.As(err, &alreadyReg) {
+			return nil // 已注册，忽略
+		}
+		return err
+	}
+	return nil
+}
+
+// PrometheusCounter 计数器示例
 func PrometheusCounter() {
-	// 创建计数器
 	counter := prometheus.NewCounter(prometheus.CounterOpts{
-		Namespace: "hgg",            // 命名空间
-		Subsystem: "hgg_XiaoWeiShu", // 子系统
-		Name:      "hgg_counter",    // 名称
+		Namespace: "hgg",
+		Subsystem: "hgg_XiaoWeiShu",
+		Name:      "hgg_counter",
 	})
-	//  注册
-	prometheus.MustRegister(counter)
-	// +1，默认为0
+	_ = safeRegister(counter)
 	counter.Inc()
-	// 必须是正数，不能小于0
 	counter.Add(10.2)
 }
 
-// PrometheusGauge 仪表
+// PrometheusGauge 仪表示例
 func PrometheusGauge() {
 	gauge := prometheus.NewGauge(prometheus.GaugeOpts{
 		Namespace: "hgg",
 		Subsystem: "hgg_XiaoWeiShu",
 		Name:      "hgg_gauge",
 	})
-	prometheus.MustRegister(gauge)
-	// 设置 gauge 值
+	_ = safeRegister(gauge)
 	gauge.Set(12)
-	// gauge Add
 	gauge.Add(10.2)
 	gauge.Add(-3)
 	gauge.Sub(3)
 }
 
-// PrometheusHistogram 直方图
+// PrometheusHistogram 直方图示例
 func PrometheusHistogram() {
 	histogram := prometheus.NewHistogram(prometheus.HistogramOpts{
 		Namespace: "hgg",
 		Subsystem: "hgg_XiaoWeiShu",
 		Name:      "hgg_histogram",
-		// 按照这个分桶
-		Buckets: []float64{10, 50, 100, 500, 1000, 10000},
+		Buckets:   []float64{10, 50, 100, 500, 1000, 10000},
 	})
-	prometheus.MustRegister(histogram)
-	// 观测,12.4是观测的值
+	_ = safeRegister(histogram)
 	histogram.Observe(12.4)
 }
 
-// PrometheusSummary 概要、总结
+// PrometheusSummary 概要示例
 func PrometheusSummary() {
 	summary := prometheus.NewSummary(prometheus.SummaryOpts{
 		Namespace: "hgg",
 		Subsystem: "hgg_XiaoWeiShu",
 		Name:      "hgg_summary",
 		Objectives: map[float64]float64{
-			0.5:   0.01,   // 以响应时间为例：50%的观测值响应时间，在0.01的百分比内【误差在 %1】
-			0.75:  0.01,   // 以响应时间为例：75%的观测值响应时间，在0.01的百分比内【误差在 %1】
-			0.90:  0.005,  // 以响应时间为例：90%的观测值响应时间，在0.005的百分比内【误差在 %0.5】
-			0.98:  0.002,  // 以响应时间为例：98%的观测值响应时间，在0.002的百分比内【误差在 %0.2】
-			0.99:  0.001,  // 以响应时间为例：99%的观测值响应时间，在0.001的百分比内【误差在 %0.1】
-			0.999: 0.0001, // 以响应时间为例：99.9%的观测值响应时间，在0.0001的百分比内【误差在 %0.01】
+			0.5:   0.01,
+			0.75:  0.01,
+			0.90:  0.005,
+			0.98:  0.002,
+			0.99:  0.001,
+			0.999: 0.0001,
 		},
 	})
-	prometheus.MustRegister(summary)
-	// 观测
-	// Observe 12.3是观测的值，就是响应时间有多少在哪一个区间内
-	// eg: 百分之99的请求，在12.3毫秒内完成
+	_ = safeRegister(summary)
 	summary.Observe(12.3)
 }
 
