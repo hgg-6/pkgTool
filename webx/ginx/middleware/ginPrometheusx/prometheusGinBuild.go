@@ -1,6 +1,8 @@
 package ginPrometheusx
 
 import (
+	"errors"
+	"log"
 	"strconv"
 	"time"
 
@@ -52,12 +54,16 @@ func (b *Builder) BuildResponseTime() gin.HandlerFunc {
 	// prometheus.MustRegister() 会自动注册指标，如果重复注册会 panic
 	// 使用 Register 代替 MustRegister，并处理重复注册的情况
 	if err := prometheus.Register(vector); err != nil {
-		if are, ok := err.(prometheus.AlreadyRegisteredError); ok {
+		var alreadyReg prometheus.AlreadyRegisteredError
+		if errors.As(err, &alreadyReg) {
 			// 如果已经注册，使用已有的 collector
-			vector = are.ExistingCollector.(*prometheus.SummaryVec)
+			vector = alreadyReg.ExistingCollector.(*prometheus.SummaryVec)
 		} else {
-			// 其他错误，panic
-			panic(err)
+			// 其他错误，记录日志并降级（不采集指标）
+			log.Printf("[WARN] prometheus register resp_time failed, metrics disabled: %v", err)
+			return func(ctx *gin.Context) {
+				ctx.Next()
+			}
 		}
 	}
 
@@ -93,12 +99,16 @@ func (b *Builder) BuildActiveRequest() gin.HandlerFunc {
 	// prometheus.MustRegister() 会自动注册指标，如果重复注册会 panic
 	// 使用 Register 代替 MustRegister，并处理重复注册的情况
 	if err := prometheus.Register(gauge); err != nil {
-		if are, ok := err.(prometheus.AlreadyRegisteredError); ok {
+		var alreadyReg prometheus.AlreadyRegisteredError
+		if errors.As(err, &alreadyReg) {
 			// 如果已经注册，使用已有的 collector
-			gauge = are.ExistingCollector.(prometheus.Gauge)
+			gauge = alreadyReg.ExistingCollector.(prometheus.Gauge)
 		} else {
-			// 其他错误，panic
-			panic(err)
+			// 其他错误，记录日志并降级（不采集指标）
+			log.Printf("[WARN] prometheus register active_request failed, metrics disabled: %v", err)
+			return func(ctx *gin.Context) {
+				ctx.Next()
+			}
 		}
 	}
 

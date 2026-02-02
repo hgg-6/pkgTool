@@ -18,6 +18,10 @@ type BizRankingService struct {
 	parent   *RankingServiceZset
 	bizType  string // e.g., "article"
 	provider types.ScoreProvider
+
+	// 用于控制后台刷新 goroutine
+	refreshCtx    context.Context
+	refreshCancel context.CancelFunc
 }
 
 // RankingServiceZset 实时排行榜服务
@@ -25,13 +29,17 @@ type RankingServiceZset struct {
 	shardCount int                                                // 分片数，如 16，默认10【区间10-256】小型系统（< 10万数据)10 ~ 32, 中型系统（10万~100万)64 ~ 128, 大型系统（> 100万）128 ~ 256
 	redisCache redis.Cmdable                                      // Redis 客户端（或 Cluster）
 	localCache localCahceX.CacheLocalIn[string, []types.HotScore] // 本地缓存
-	//provider   types.ScoreProvider                                // 分数提供器
-	logger logx.Loggerx
+	logger     logx.Loggerx
 
 	// 用于控制后台 goroutine 生命周期
 	ctx    context.Context
 	cancel context.CancelFunc
 	once   sync.Once
+
+	// 后台刷新配置
+	bizServices   []*BizRankingService // 注册的业务服务列表
+	bizMu         sync.RWMutex
+	globalStarted bool // 全局刷新是否已启动
 }
 
 // NewRankingService 创建全局服务
@@ -42,29 +50,37 @@ func NewRankingService(
 	localCache localCahceX.CacheLocalIn[string, []types.HotScore],
 	logger logx.Loggerx,
 ) *RankingServiceZset {
+	ctx, cancel := context.WithCancel(context.Background())
 	return &RankingServiceZset{
 		shardCount: shardCount,
-		//keyPrefix:  "hot_",
 		redisCache: redisCache,
 		localCache: localCache,
-		//provider:   provider,
-		cancel: func() {},
-		logger: logger,
+		ctx:        ctx,
+		cancel:     cancel,
+		logger:     logger,
 	}
 }
 
 // WithBizType 获取具体业务榜单服务
 func (s *RankingServiceZset) WithBizType(bizType string, provider types.ScoreProvider) *BizRankingService {
-	return &BizRankingService{
+	biz := &BizRankingService{
 		parent:   s,
 		bizType:  bizType,
 		provider: provider,
 	}
+	// 注册到父服务，用于后台统一刷新
+	s.bizMu.Lock()
+	s.bizServices = append(s.bizServices, biz)
+	s.bizMu.Unlock()
+	return biz
 }
 
-// Start 启动后台缓存刷新（建议显式调用）
+// Start 启动后台缓存刷新（全局统一刷新，启动后业务级StartRefresh将被忽略）
 func (s *RankingServiceZset) Start(refreshInterval time.Duration) {
 	s.once.Do(func() {
+		s.bizMu.Lock()
+		s.globalStarted = true
+		s.bizMu.Unlock()
 		go s.backgroundRefresh(s.ctx, refreshInterval)
 	})
 }
@@ -85,9 +101,23 @@ func (s *RankingServiceZset) backgroundRefresh(ctx context.Context, interval tim
 			s.logger.Info("background refresh stopped")
 			return
 		case <-ticker.C:
-			// 注意：这里不应该递归调用自己，应该执行实际的刷新逻辑
-			// TODO: 需要实现具体的刷新逻辑，例如预加载热门数据到本地缓存
-			s.logger.Debug("background refresh triggered, but no specific refresh logic implemented yet")
+			// 遍历所有注册的业务服务，刷新各自的TopN缓存
+			s.bizMu.RLock()
+			services := make([]*BizRankingService, len(s.bizServices))
+			copy(services, s.bizServices)
+			s.bizMu.RUnlock()
+
+			for _, biz := range services {
+				items, err := biz.fetchTopNBizIDs(ctx, 100)
+				if err != nil {
+					s.logger.Warn("background refresh fetch failed",
+						logx.String("biz_type", biz.bizType), logx.Error(err))
+					continue
+				}
+				full, _ := biz.enrichHotScores(ctx, items)
+				_ = s.localCache.Set(biz.buildCacheKey(), full, 15*time.Second, 1)
+				s.logger.Debug("background refresh completed", logx.String("biz_type", biz.bizType))
+			}
 		}
 	}
 }
@@ -226,8 +256,33 @@ func (b *BizRankingService) getShard(bizID string) int {
 	return int(hash % uint32(b.parent.shardCount))
 }
 
+// StartRefresh 启动业务级后台刷新
+// 注意：如果已调用全局 Start()，此方法将被忽略以避免重复刷新
 func (b *BizRankingService) StartRefresh(interval time.Duration) {
-	go b.backgroundRefresh(context.Background(), interval)
+	// 检查全局刷新是否已启动
+	b.parent.bizMu.RLock()
+	globalStarted := b.parent.globalStarted
+	b.parent.bizMu.RUnlock()
+	if globalStarted {
+		b.parent.logger.Warn("global refresh already started, ignoring StartRefresh",
+			logx.String("biz_type", b.bizType))
+		return
+	}
+
+	// 如果已经启动，先停止
+	if b.refreshCancel != nil {
+		b.refreshCancel()
+	}
+	b.refreshCtx, b.refreshCancel = context.WithCancel(context.Background())
+	go b.backgroundRefresh(b.refreshCtx, interval)
+}
+
+// StopRefresh 停止后台刷新
+func (b *BizRankingService) StopRefresh() {
+	if b.refreshCancel != nil {
+		b.refreshCancel()
+		b.refreshCancel = nil
+	}
 }
 
 func (b *BizRankingService) backgroundRefresh(ctx context.Context, interval time.Duration) {
@@ -262,7 +317,7 @@ func (b *BizRankingService) IncrScore(ctx context.Context, bizID string, delta f
 		return err
 	}
 
-	// 2. 如果提供了 meta，更新 Hash（非覆盖，用 HMSET 或 HSET 多字段）
+	// 2. 如果提供了 meta，更新 Hash（非覆盖，用 HSet 多字段）
 	if len(meta) > 0 {
 		metaKey := b.buildMetaKey(bizID)
 		// 转换 map[string]string -> []interface{}
@@ -270,8 +325,8 @@ func (b *BizRankingService) IncrScore(ctx context.Context, bizID string, delta f
 		for k, v := range meta {
 			args = append(args, k, v)
 		}
-		if err := b.parent.redisCache.HMSet(ctx, metaKey, args).Err(); err != nil {
-			b.parent.logger.Warn("HMSet meta failed (non-fatal)", logx.String("meta_key", metaKey), logx.Error(err))
+		if err := b.parent.redisCache.HSet(ctx, metaKey, args...).Err(); err != nil {
+			b.parent.logger.Warn("HSet meta failed (non-fatal)", logx.String("meta_key", metaKey), logx.Error(err))
 			// 元数据失败不影响核心分数更新
 		}
 	}

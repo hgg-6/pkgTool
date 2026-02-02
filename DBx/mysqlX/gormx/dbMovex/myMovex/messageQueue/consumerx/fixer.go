@@ -2,6 +2,7 @@ package consumerx
 
 import (
 	"context"
+
 	"gitee.com/hgg_test/pkg_tool/v2/DBx/mysqlX/gormx/dbMovex/myMovex"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
@@ -19,8 +20,12 @@ func NewOverrideFixer[T myMovex.Entity](base *gorm.DB, target *gorm.DB) (*Overri
 	if err != nil {
 		return nil, err
 	}
+	defer rows.Close()
 	columns, err := rows.Columns()
-	return &OverrideFixer[T]{base: base, target: target, columns: columns}, err
+	if err != nil {
+		return nil, err
+	}
+	return &OverrideFixer[T]{base: base, target: target, columns: columns}, nil
 }
 func (f *OverrideFixer[T]) Fix(ctx context.Context, id int64) error {
 	// 最最粗暴的

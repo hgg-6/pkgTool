@@ -50,6 +50,14 @@ func (l *LimitPool[T]) Get() (T, bool) {
 // Put 放回去一个元素
 func (l *LimitPool[T]) Put(t T) {
 	l.pool.Put(t)
-	// 减少已使用计数，注意：如果用户放回未从此池借出的对象，计数可能变为负数
-	l.used.Add(-1)
+	// 减少已使用计数，确保不会变为负数
+	for {
+		used := l.used.Load()
+		if used <= 0 {
+			return // 已经是0或负数，不再减少
+		}
+		if l.used.CompareAndSwap(used, used-1) {
+			return
+		}
+	}
 }

@@ -3,6 +3,7 @@ package jwtX2
 
 import (
 	"crypto/sha256"
+	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -37,12 +38,12 @@ type JwtxMiddlewareGinx struct {
 	cfg   *JwtxMiddlewareGinxConfig
 }
 
-func NewJwtxMiddlewareGinx(cache redis.Cmdable, jwtConf *JwtxMiddlewareGinxConfig) JwtHandlerx {
+func NewJwtxMiddlewareGinx(cache redis.Cmdable, jwtConf *JwtxMiddlewareGinxConfig) (JwtHandlerx, error) {
 	if jwtConf == nil {
-		panic("jwtConf must not be nil")
+		return nil, errors.New("jwtConf must not be nil")
 	}
 	if len(jwtConf.JwtKey) == 0 || len(jwtConf.LongJwtKey) == 0 {
-		panic("JwtKey and LongJwtKey must not be empty")
+		return nil, errors.New("JwtKey and LongJwtKey must not be empty")
 	}
 	if jwtConf.SigningMethod == nil {
 		jwtConf.SigningMethod = jwt.SigningMethodHS512
@@ -63,7 +64,17 @@ func NewJwtxMiddlewareGinx(cache redis.Cmdable, jwtConf *JwtxMiddlewareGinxConfi
 	return &JwtxMiddlewareGinx{
 		cache: cache,
 		cfg:   jwtConf,
+	}, nil
+}
+
+// MustNewJwtxMiddlewareGinx 创建 JWT 中间件，配置错误时 panic
+// Deprecated: 推荐使用 NewJwtxMiddlewareGinx 并处理返回的 error
+func MustNewJwtxMiddlewareGinx(cache redis.Cmdable, jwtConf *JwtxMiddlewareGinxConfig) JwtHandlerx {
+	h, err := NewJwtxMiddlewareGinx(cache, jwtConf)
+	if err != nil {
+		panic(err)
 	}
+	return h
 }
 
 // deviceKey 返回用户-设备映射 key

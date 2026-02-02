@@ -3,10 +3,11 @@ package producerX
 import (
 	"context"
 	"fmt"
-	"gitee.com/hgg_test/pkg_tool/v2/channelx/mqX"
-	"github.com/IBM/sarama"
 	"sync"
 	"time"
+
+	"gitee.com/hgg_test/pkg_tool/v2/channelx/mqX"
+	"github.com/IBM/sarama"
 )
 
 // KafkaProducer saramaProducerx/kafka_producer.go
@@ -82,32 +83,18 @@ func (kp *KafkaProducer) SendBatch(ctx context.Context, msgs []*mqX.Message) err
 
 	if !kp.config.Async {
 		// === 同步模式：立即发送，不缓冲 ===
-		saramaMsgs := make([]*sarama.ProducerMessage, len(msgs))
-		for i, m := range msgs {
-			saramaMsgs[i] = &sarama.ProducerMessage{
+		var lastErr error
+		for _, m := range msgs {
+			_, _, err := kp.syncProducer.SendMessage(&sarama.ProducerMessage{
 				Topic: m.Topic,
 				Key:   sarama.ByteEncoder(m.Key),
 				Value: sarama.ByteEncoder(m.Value),
+			})
+			if err != nil {
+				lastErr = err
 			}
 		}
-		_, _, err := kp.syncProducer.SendMessage(saramaMsgs[0]) // 注意：SyncProducer 只支持单条
-		// 若需批量同步，需循环发送（Kafka 本身不支持 sync batch send）
-		// 这里为简化，只发第一条（实际应循环）
-		// 更合理做法：SendBatch 在 sync 模式下循环调用 Send
-		if len(msgs) > 1 {
-			// 实际建议：sync 模式下不推荐用 SendBatch，或内部循环
-			for _, m := range msgs {
-				_, _, err2 := kp.syncProducer.SendMessage(&sarama.ProducerMessage{
-					Topic: m.Topic,
-					Key:   sarama.ByteEncoder(m.Key),
-					Value: sarama.ByteEncoder(m.Value),
-				})
-				if err2 != nil {
-					err = err2 // 返回最后一个错误
-				}
-			}
-		}
-		return err
+		return lastErr
 	}
 
 	// === 异步模式：走缓冲 + 批量逻辑 ===
@@ -177,7 +164,7 @@ func (kp *KafkaProducer) flushLocked() error {
 	return nil
 }
 
-// handleAsyncResults 处理异步结果（可选监控）
+// handleAsyncResults 处理异步结果
 func (kp *KafkaProducer) handleAsyncResults() {
 	defer kp.wg.Done()
 	for {
@@ -185,8 +172,10 @@ func (kp *KafkaProducer) handleAsyncResults() {
 		case <-kp.asyncProducer.Successes():
 			// 可记录成功（如 metrics）
 		case err := <-kp.asyncProducer.Errors():
-			// 可记录错误（如日志、告警）
-			_ = err
+			// 调用错误处理回调
+			if kp.config.OnError != nil {
+				kp.config.OnError(err)
+			}
 		case <-kp.ctx.Done():
 			return
 		}

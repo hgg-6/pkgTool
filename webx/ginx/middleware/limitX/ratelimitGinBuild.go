@@ -6,7 +6,7 @@ import (
 	"log"
 	"net/http"
 
-	"gitee.com/hgg_test/pkg_tool/limiter"
+	"gitee.com/hgg_test/pkg_tool/v2/limiter"
 	"gitee.com/hgg_test/pkg_tool/v2/logx"
 	"github.com/gin-gonic/gin"
 )

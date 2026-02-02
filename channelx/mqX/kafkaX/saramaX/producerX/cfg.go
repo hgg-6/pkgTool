@@ -1,6 +1,13 @@
 package producerX
 
-import "time"
+import (
+	"time"
+
+	"github.com/IBM/sarama"
+)
+
+// ErrorHandler 异步生产者错误处理回调
+type ErrorHandler func(err *sarama.ProducerError)
 
 type ProducerConfig struct {
 	// BatchSize 最大批量大小（达到即发送）
@@ -12,6 +19,9 @@ type ProducerConfig struct {
 
 	// Async 是否使用异步生产者（推荐 true）
 	Async bool
+
+	// OnError 异步模式下的错误处理回调（可选）
+	OnError ErrorHandler
 }
 
 func DefaultProducerConfig() *ProducerConfig {

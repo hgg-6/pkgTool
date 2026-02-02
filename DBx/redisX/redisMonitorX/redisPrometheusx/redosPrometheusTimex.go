@@ -6,10 +6,12 @@ package redisPrometheusx
 
 import (
 	"context"
-	"github.com/prometheus/client_golang/prometheus"
-	"github.com/redis/go-redis/v9"
+	"errors"
 	"strings"
 	"time"
+
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/redis/go-redis/v9"
 )
 
 type PrometheusHookTime struct {
@@ -19,14 +21,20 @@ type PrometheusHookTime struct {
 // NewPrometheusRedisHookTime 监控命令耗时
 func NewPrometheusRedisHookTime(opts prometheus.HistogramOpts) *PrometheusHookTime {
 	// 标签：命令名、是否成功、错误类型、业务标识
-	h := &PrometheusHookTime{
-		histogram: prometheus.NewHistogramVec(
-			opts,
-			[]string{"cmd", "success", "error_type", "biz"},
-		),
+	vec := prometheus.NewHistogramVec(
+		opts,
+		[]string{"cmd", "success", "error_type", "biz"},
+	)
+	if err := prometheus.Register(vec); err != nil {
+		var alreadyReg prometheus.AlreadyRegisteredError
+		if errors.As(err, &alreadyReg) {
+			// 已注册，使用现有的 collector
+			vec = alreadyReg.ExistingCollector.(*prometheus.HistogramVec)
+		} else {
+			panic(err) // 其他注册错误仍然 panic
+		}
 	}
-	prometheus.MustRegister(h.histogram)
-	return h
+	return &PrometheusHookTime{histogram: vec}
 }
 
 func (p *PrometheusHookTime) DialHook(next redis.DialHook) redis.DialHook {

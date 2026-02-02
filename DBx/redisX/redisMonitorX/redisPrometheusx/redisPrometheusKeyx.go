@@ -6,10 +6,12 @@ package redisPrometheusx
 
 import (
 	"context"
-	"github.com/prometheus/client_golang/prometheus"
-	"github.com/redis/go-redis/v9"
+	"errors"
 	"strings"
 	"time"
+
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/redis/go-redis/v9"
 )
 
 type PrometheusHookKeyRate struct {
@@ -18,11 +20,17 @@ type PrometheusHookKeyRate struct {
 
 // NewPrometheusHookKeyRate 监控缓存get的命中率
 func NewPrometheusHookKeyRate(opts prometheus.SummaryOpts) *PrometheusHookKeyRate {
-	h := &PrometheusHookKeyRate{
-		vector: prometheus.NewSummaryVec(opts, []string{"cmd", "key_exist"}),
+	vec := prometheus.NewSummaryVec(opts, []string{"cmd", "key_exist"})
+	if err := prometheus.Register(vec); err != nil {
+		var alreadyReg prometheus.AlreadyRegisteredError
+		if errors.As(err, &alreadyReg) {
+			// 已注册，使用现有的 collector
+			vec = alreadyReg.ExistingCollector.(*prometheus.SummaryVec)
+		} else {
+			panic(err) // 其他注册错误仍然 panic
+		}
 	}
-	prometheus.MustRegister(h.vector)
-	return h
+	return &PrometheusHookKeyRate{vector: vec}
 }
 
 func (p *PrometheusHookKeyRate) DialHook(next redis.DialHook) redis.DialHook {
