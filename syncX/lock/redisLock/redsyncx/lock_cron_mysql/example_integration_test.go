@@ -33,8 +33,7 @@ func TestCronMysqlIntegration(t *testing.T) {
 	})
 
 	zerolog.TimeFieldFormat = zerolog.TimeFormatUnix
-	logger := zerolog.New(os.Stdout).Level(zerolog.DebugLevel).With().CallerWithSkipFrameCount(4).Timestamp().Logger()
-	l := zerologx.NewZeroLogger(&logger)
+	l := zerologx.NewZeroLogger(new(zerolog.New(os.Stdout).Level(zerolog.DebugLevel).With().CallerWithSkipFrameCount(4).Timestamp().Logger()))
 	redSync := redsyncx.NewLockRedsync([]*redis.Client{rdb}, l, redsyncx.Config{
 		LockName:         "cron-mysql-lock",
 		Expiry:           8 * time.Second,
@@ -78,8 +77,7 @@ func TestCronMysqlDependencyInjection(t *testing.T) {
 	})
 
 	zerolog.TimeFieldFormat = zerolog.TimeFormatUnix
-	logger := zerolog.New(os.Stdout).Level(zerolog.DebugLevel).With().CallerWithSkipFrameCount(4).Timestamp().Logger()
-	l := zerologx.NewZeroLogger(&logger)
+	l := zerologx.NewZeroLogger(new(zerolog.New(os.Stdout).Level(zerolog.DebugLevel).With().CallerWithSkipFrameCount(4).Timestamp().Logger()))
 	redSync := redsyncx.NewLockRedsync([]*redis.Client{rdb}, l, redsyncx.Config{
 		LockName:         "cron-mysql-lock",
 		Expiry:           8 * time.Second,
@@ -142,8 +140,7 @@ func TestCronMysqlLayerArchitecture(t *testing.T) {
 	})
 
 	zerolog.TimeFieldFormat = zerolog.TimeFormatUnix
-	logger := zerolog.New(os.Stdout).Level(zerolog.DebugLevel).With().CallerWithSkipFrameCount(4).Timestamp().Logger()
-	l := zerologx.NewZeroLogger(&logger)
+	l := zerologx.NewZeroLogger(new(zerolog.New(os.Stdout).Level(zerolog.DebugLevel).With().CallerWithSkipFrameCount(4).Timestamp().Logger()))
 	redSync := redsyncx.NewLockRedsync([]*redis.Client{rdb}, l, redsyncx.Config{
 		LockName:         "cron-mysql-lock",
 		Expiry:           8 * time.Second,
@@ -184,8 +181,7 @@ func TestCronMysqlFullWorkflow(t *testing.T) {
 	})
 
 	zerolog.TimeFieldFormat = zerolog.TimeFormatUnix
-	logger := zerolog.New(os.Stdout).Level(zerolog.DebugLevel).With().CallerWithSkipFrameCount(4).Timestamp().Logger()
-	l := zerologx.NewZeroLogger(&logger)
+	l := zerologx.NewZeroLogger(new(zerolog.New(os.Stdout).Level(zerolog.DebugLevel).With().CallerWithSkipFrameCount(4).Timestamp().Logger()))
 	redSync := redsyncx.NewLockRedsync([]*redis.Client{rdb}, l, redsyncx.Config{
 		LockName:         "cron-mysql-lock",
 		Expiry:           8 * time.Second,

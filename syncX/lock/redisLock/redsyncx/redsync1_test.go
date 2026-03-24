@@ -43,8 +43,7 @@ func TestNewResSyncStr1(t *testing.T) {
 	// =========================
 
 	// 创建日志器
-	logger := zerolog.New(os.Stdout).Level(zerolog.DebugLevel)
-	zlog := zerologx.NewZeroLogger(&logger)
+	zlog := zerologx.NewZeroLogger(new(zerolog.New(os.Stdout).Level(zerolog.DebugLevel)))
 
 	// 创建分布式锁配置
 	config := Config{

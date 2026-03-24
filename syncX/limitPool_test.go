@@ -414,8 +414,7 @@ func TestLimitPool_Integration(t *testing.T) {
 
 		pool := NewLimitPool(maxTokens, func() *[]byte {
 			creationCounter++
-			data := make([]byte, 0, 1024)
-			return &data
+			return new(make([]byte, 0, 1024))
 		})
 
 		// Phase 1: Initial allocation

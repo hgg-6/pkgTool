@@ -54,8 +54,7 @@ func (b *Builder) BuildResponseTime() gin.HandlerFunc {
 	// prometheus.MustRegister() 会自动注册指标，如果重复注册会 panic
 	// 使用 Register 代替 MustRegister，并处理重复注册的情况
 	if err := prometheus.Register(vector); err != nil {
-		var alreadyReg prometheus.AlreadyRegisteredError
-		if errors.As(err, &alreadyReg) {
+		if alreadyReg, ok := errors.AsType[prometheus.AlreadyRegisteredError](err); ok {
 			// 如果已经注册，使用已有的 collector
 			vector = alreadyReg.ExistingCollector.(*prometheus.SummaryVec)
 		} else {
@@ -99,8 +98,7 @@ func (b *Builder) BuildActiveRequest() gin.HandlerFunc {
 	// prometheus.MustRegister() 会自动注册指标，如果重复注册会 panic
 	// 使用 Register 代替 MustRegister，并处理重复注册的情况
 	if err := prometheus.Register(gauge); err != nil {
-		var alreadyReg prometheus.AlreadyRegisteredError
-		if errors.As(err, &alreadyReg) {
+		if alreadyReg, ok := errors.AsType[prometheus.AlreadyRegisteredError](err); ok {
 			// 如果已经注册，使用已有的 collector
 			gauge = alreadyReg.ExistingCollector.(prometheus.Gauge)
 		} else {

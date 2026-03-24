@@ -56,9 +56,7 @@ func newLogger() logx.Loggerx {
 	zerolog.TimeFieldFormat = zerolog.TimeFormatUnix
 	// Level日志级别【可以考虑作为参数传】，测试传zerolog.InfoLevel/NoLevel不打印
 	// 模块化: Str("module", "userService模块")
-	logger := zerolog.New(os.Stderr).Level(zerolog.DebugLevel).With().CallerWithSkipFrameCount(4).Timestamp().Logger()
-
-	return zerologx.NewZeroLogger(&logger)
+	return zerologx.NewZeroLogger(new(zerolog.New(os.Stderr).Level(zerolog.DebugLevel).With().CallerWithSkipFrameCount(4).Timestamp().Logger()))
 }
 
 func newRedisCli() redis.Cmdable {

@@ -92,8 +92,7 @@ func setupTestDstDB() *gorm.DB {
 func TestSchedulerPatterns(t *testing.T) {
 	// 初始化日志
 	zerolog.TimeFieldFormat = zerolog.TimeFormatUnix
-	logger := zerolog.New(os.Stderr).Level(zerolog.DebugLevel).With().CallerWithSkipFrameCount(4).Timestamp().Logger()
-	l := zerologx.NewZeroLogger(&logger)
+	l := zerologx.NewZeroLogger(new(zerolog.New(os.Stderr).Level(zerolog.DebugLevel).With().CallerWithSkipFrameCount(4).Timestamp().Logger()))
 
 	srcDB := setupTestSrcDB()
 	dstDB := setupTestDstDB()
@@ -129,8 +128,7 @@ func TestSchedulerValidation(t *testing.T) {
 	dstDB := setupTestDstDB()
 	// 初始化日志
 	zerolog.TimeFieldFormat = zerolog.TimeFormatUnix
-	logger := zerolog.New(os.Stderr).Level(zerolog.DebugLevel).With().CallerWithSkipFrameCount(4).Str("module", "userService模块").Timestamp().Logger()
-	l := zerologx.NewZeroLogger(&logger)
+	l := zerologx.NewZeroLogger(new(zerolog.New(os.Stderr).Level(zerolog.DebugLevel).With().CallerWithSkipFrameCount(4).Str("module", "userService模块").Timestamp().Logger()))
 	// 创建生产者
 	producer := newProducer()
 	defer producer.Close()
@@ -155,8 +153,7 @@ func TestSchedulerIncrementalValidation(t *testing.T) {
 	dstDB := setupTestDstDB()
 	// 初始化日志
 	zerolog.TimeFieldFormat = zerolog.TimeFormatUnix
-	logger := zerolog.New(os.Stderr).Level(zerolog.DebugLevel).With().CallerWithSkipFrameCount(4).Str("module", "userService模块").Timestamp().Logger()
-	l := zerologx.NewZeroLogger(&logger)
+	l := zerologx.NewZeroLogger(new(zerolog.New(os.Stderr).Level(zerolog.DebugLevel).With().CallerWithSkipFrameCount(4).Str("module", "userService模块").Timestamp().Logger()))
 	// 创建生产者
 	producer := newProducer()
 	defer producer.Close()
@@ -190,8 +187,7 @@ func TestSchedulerConcurrent(t *testing.T) {
 	dstDB := setupTestDstDB()
 	// 初始化日志
 	zerolog.TimeFieldFormat = zerolog.TimeFormatUnix
-	logger := zerolog.New(os.Stderr).Level(zerolog.DebugLevel).With().CallerWithSkipFrameCount(4).Str("module", "userService模块").Timestamp().Logger()
-	l := zerologx.NewZeroLogger(&logger)
+	l := zerologx.NewZeroLogger(new(zerolog.New(os.Stderr).Level(zerolog.DebugLevel).With().CallerWithSkipFrameCount(4).Str("module", "userService模块").Timestamp().Logger()))
 	// 创建生产者
 	producer := newProducer()
 	defer producer.Close()
@@ -228,8 +224,7 @@ func TestSchedulerAutoPromotion(t *testing.T) {
 	dstDB := setupTestDstDB()
 	// 初始化日志
 	zerolog.TimeFieldFormat = zerolog.TimeFormatUnix
-	logger := zerolog.New(os.Stderr).Level(zerolog.DebugLevel).With().CallerWithSkipFrameCount(4).Timestamp().Logger()
-	l := zerologx.NewZeroLogger(&logger)
+	l := zerologx.NewZeroLogger(new(zerolog.New(os.Stderr).Level(zerolog.DebugLevel).With().CallerWithSkipFrameCount(4).Timestamp().Logger()))
 	// 创建生产者
 	producer := newProducer()
 	defer producer.Close()
@@ -262,8 +257,7 @@ func TestSchedulerHealthCheck(t *testing.T) {
 	dstDB := setupTestDstDB()
 	// 初始化日志
 	zerolog.TimeFieldFormat = zerolog.TimeFormatUnix
-	logger := zerolog.New(os.Stderr).Level(zerolog.DebugLevel).With().CallerWithSkipFrameCount(4).Timestamp().Logger()
-	l := zerologx.NewZeroLogger(&logger)
+	l := zerologx.NewZeroLogger(new(zerolog.New(os.Stderr).Level(zerolog.DebugLevel).With().CallerWithSkipFrameCount(4).Timestamp().Logger()))
 	// 创建生产者
 	producer := newProducer()
 	defer producer.Close()
@@ -283,8 +277,7 @@ func TestNewValidator(t *testing.T) {
 	dstDB := setupTestDstDB()
 	// 初始化日志
 	zerolog.TimeFieldFormat = zerolog.TimeFormatUnix
-	logger := zerolog.New(os.Stderr).Level(zerolog.DebugLevel).With().CallerWithSkipFrameCount(4).Str("module", "userService模块").Timestamp().Logger()
-	l := zerologx.NewZeroLogger(&logger)
+	l := zerologx.NewZeroLogger(new(zerolog.New(os.Stderr).Level(zerolog.DebugLevel).With().CallerWithSkipFrameCount(4).Str("module", "userService模块").Timestamp().Logger()))
 	// 创建生产者
 	producer := newProducer()
 	defer producer.Close()
@@ -316,8 +309,7 @@ func BenchmarkSchedulerPatternSwitch(b *testing.B) {
 	dstDB := setupTestDstDB()
 	// 初始化日志
 	zerolog.TimeFieldFormat = zerolog.TimeFormatUnix
-	logger := zerolog.New(os.Stderr).Level(zerolog.DebugLevel).With().CallerWithSkipFrameCount(4).Timestamp().Logger()
-	l := zerologx.NewZeroLogger(&logger)
+	l := zerologx.NewZeroLogger(new(zerolog.New(os.Stderr).Level(zerolog.DebugLevel).With().CallerWithSkipFrameCount(4).Timestamp().Logger()))
 	// 创建生产者
 	producer := newProducer()
 	defer producer.Close()

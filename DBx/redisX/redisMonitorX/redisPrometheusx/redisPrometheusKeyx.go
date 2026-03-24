@@ -22,8 +22,7 @@ type PrometheusHookKeyRate struct {
 func NewPrometheusHookKeyRate(opts prometheus.SummaryOpts) *PrometheusHookKeyRate {
 	vec := prometheus.NewSummaryVec(opts, []string{"cmd", "key_exist"})
 	if err := prometheus.Register(vec); err != nil {
-		var alreadyReg prometheus.AlreadyRegisteredError
-		if errors.As(err, &alreadyReg) {
+		if alreadyReg, ok := errors.AsType[prometheus.AlreadyRegisteredError](err); ok {
 			// 已注册，使用现有的 collector
 			vec = alreadyReg.ExistingCollector.(*prometheus.SummaryVec)
 		} else {

@@ -47,8 +47,7 @@ func InitLog() logx.Loggerx {
 	}
 
 	//log.Logger = zerolog.New(os.Stderr).Level(zerolog.DebugLevel).With().Caller().Timestamp().Logger()
-	logger := zerolog.New(lumberjackLogger).With().Timestamp().Logger()
-	return zerologx.NewZeroLogger(&logger)
+	return zerologx.NewZeroLogger(new(zerolog.New(lumberjackLogger).With().Timestamp().Logger()))
 }
 func TestLog(t *testing.T) {
 	// #########################控制台彩色打印#########################

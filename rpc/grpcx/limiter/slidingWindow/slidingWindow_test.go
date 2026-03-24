@@ -241,6 +241,5 @@ func TestSlidingWindowEdgeCases(t *testing.T) {
 
 func initLog() logx.Loggerx {
 	zerolog.TimeFieldFormat = zerolog.TimeFormatUnix
-	logger := zerolog.New(os.Stderr).Level(zerolog.DebugLevel).With().CallerWithSkipFrameCount(4).Timestamp().Logger()
-	return zerologx.NewZeroLogger(&logger)
+	return zerologx.NewZeroLogger(new(zerolog.New(os.Stderr).Level(zerolog.DebugLevel).With().CallerWithSkipFrameCount(4).Timestamp().Logger()))
 }

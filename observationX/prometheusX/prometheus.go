@@ -25,8 +25,7 @@ func MustInitPrometheus(addr string) {
 // safeRegister 安全注册 collector，处理重复注册
 func safeRegister(c prometheus.Collector) error {
 	if err := prometheus.Register(c); err != nil {
-		var alreadyReg prometheus.AlreadyRegisteredError
-		if errors.As(err, &alreadyReg) {
+		if _, ok := errors.AsType[prometheus.AlreadyRegisteredError](err); ok {
 			return nil // 已注册，忽略
 		}
 		return err

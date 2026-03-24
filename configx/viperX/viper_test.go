@@ -100,8 +100,6 @@ func InitLog() logx.Loggerx {
 	zerolog.TimeFieldFormat = zerolog.TimeFormatUnix
 	// Level日志级别【可以考虑作为参数传】，测试传zerolog.InfoLevel/NoLevel不打印
 	// 模块化: Str("module", "userService模块")
-	logger := zerolog.New(os.Stderr).Level(zerolog.DebugLevel).With().Timestamp().Logger()
-
-	l := zerologx.NewZeroLogger(&logger)
+	l := zerologx.NewZeroLogger(new(zerolog.New(os.Stderr).Level(zerolog.DebugLevel).With().Timestamp().Logger()))
 	return l
 }

@@ -1,6 +1,6 @@
 module gitee.com/hgg_test/pkg_tool/v2
 
-go 1.24.3
+go 1.26.1
 
 require (
 	github.com/IBM/sarama v1.46.1
