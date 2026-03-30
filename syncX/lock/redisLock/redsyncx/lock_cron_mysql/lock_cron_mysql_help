@@ -58,6 +58,17 @@
 //	    engine := gin.Default()
 //	    cronSystem := lock_cron_mysql.NewCronMysql(engine, db, redSync, rdb, l, cfg)
 //
+//	    // 【重要】注册 function 类型任务的业务函数（必须在 Start 前注册）
+//	    cronSystem.RegisterFunction("cleanup_files", func(ctx context.Context, params map[string]interface{}) (interface{}, error) {
+//	        days := params["days"].(float64)
+//	        // 业务逻辑：清理 days 天前的文件
+//	        return nil, nil
+//	    })
+//	    cronSystem.RegisterFunction("sync_data", func(ctx context.Context, params map[string]interface{}) (interface{}, error) {
+//	        // 业务逻辑：同步数据
+//	        return nil, nil
+//	    })
+//
 //	    // 启动（自动迁移表、注册路由、启动调度器）
 //	    if err := cronSystem.Start(); err != nil {
 //	        panic(err)
@@ -97,3 +108,108 @@
 //	sched := cronSystem.GetScheduler()
 //	// sched 已在 Start() 时自动加载 MySQL 中的活跃任务
 //	// 直接操作数据库中的 cron_job 表即可，调度器会自动感知变更
+
+// ============================================================
+// 三种任务类型及创建方式
+// ============================================================
+
+// ---------- function 类型：调用系统内已注册的函数 ----------
+//
+// 前提：通过 cronSystem.RegisterFunction() 注册过对应函数
+// 创建任务：
+//   POST /cron/add
+//   {
+//     "name": "每日清理过期文件",
+//     "cronExpr": "0 0 2 * * *",
+//     "taskType": "function",
+//     "description": "{\"function_name\":\"cleanup_files\",\"parameters\":{\"days\":30}}",
+//     "maxRetry": 3,
+//     "timeout": 60
+//   }
+//
+// 校验机制：创建时自动检查 function_name 是否已注册，未注册则返回 400 拒绝
+
+// ---------- http 类型：定时调用外部 HTTP 接口 ----------
+//
+// 创建任务：
+//   POST /cron/add
+//   {
+//     "name": "定时调用报表服务",
+//     "cronExpr": "0 8 * * 1-5",
+//     "taskType": "http",
+//     "description": "{\"url\":\"http://report-service:8080/api/generate\",\"method\":\"POST\",\"headers\":{\"Content-Type\":\"application/json\"},\"body\":\"{\\\"type\\\":\\\"weekly\\\"}\"}",
+//     "maxRetry": 3,
+//     "timeout": 30
+//   }
+//
+// description 字段说明：
+//   url     - 目标接口地址
+//   method  - 请求方法（GET/POST/PUT/DELETE），默认 GET
+//   headers - 请求头
+//   body    - 请求体
+//
+// 校验机制：创建时自动探测目标 URL 是否可达，不可达则返回 400 拒绝
+
+// ---------- grpc 类型：定时调用外部 gRPC 服务 ----------
+//
+// 创建任务：
+//   POST /cron/add
+//   {
+//     "name": "定时同步用户数据",
+//     "cronExpr": "*/30 * * * *",
+//     "taskType": "grpc",
+//     "description": "{\"target\":\"user-service:50051\",\"service\":\"UserService\",\"method\":\"SyncData\",\"request_data\":\"{\\\"full_sync\\\":false}\"}",
+//     "maxRetry": 3,
+//     "timeout": 30
+//   }
+//
+// description 字段说明：
+//   target       - gRPC 服务地址
+//   service      - 服务名
+//   method       - 方法名
+//   request_data - 请求数据（JSON格式）
+//   metadata     - gRPC 元数据（可选）
+//
+// 校验机制：创建时自动探测 gRPC 服务是否可达，不可达则返回 400 拒绝
+
+// ============================================================
+// 任务创建校验机制
+// ============================================================
+//
+// 所有任务在写入数据库前都会经过校验，防止产生无法执行的僵尸任务：
+//
+//   1. task_type 校验 - 不支持的类型直接拒绝
+//   2. description 解析 - JSON 格式错误直接拒绝
+//   3. 类型特定校验：
+//      - function: 检查 function_name 是否在已注册列表中
+//      - http:     检查 URL 非空 + HEAD 探测连通性
+//      - grpc:     检查 target/service/method 非空 + dial 探测连通性
+//   4. 校验失败返回 400 + 具体错误原因
+//
+// 示例响应（校验失败）：
+//   {"error": "任务配置校验失败: 未找到注册的函数: not_exist，当前已注册: [cleanup_files sync_data]"}
+//   {"error": "任务配置校验失败: 目标服务不可达: dial tcp 127.0.0.1:9999: connect: connection refused"}
+
+// ============================================================
+// 完整操作流程
+// ============================================================
+//
+// 1. 登录获取 Token
+//    POST /user/login
+//    {"username": "admin", "password": "xxx"}
+//    → {"access_token": "eyJhbG...", "refresh_token": "eyJhbG..."}
+//
+// 2. 创建任务（三种类型选一种，见上方）
+//    POST /cron/add
+//    Authorization: Bearer eyJhbG...
+//
+// 3. 启动任务
+//    PUT /cron/start/{cron_id}
+//    Authorization: Bearer eyJhbG...
+//
+// 4. 可选操作：
+//    暂停任务 PUT /cron/pause/{cron_id}    （需 cron:manage 权限）
+//    恢复任务 PUT /cron/resume/{cron_id}    （需 cron:manage 权限）
+//    删除任务 DELETE /cron/delete/{cron_id} （需 cron:delete 权限）
+//    查看任务 GET /cron/find/{cron_id}      （需 cron:read 权限）
+//    查看所有 GET /cron/profile              （需 cron:read 权限）

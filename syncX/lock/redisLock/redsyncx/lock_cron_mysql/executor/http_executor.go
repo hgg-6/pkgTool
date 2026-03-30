@@ -172,3 +172,25 @@ func (h *HTTPExecutor) Execute(ctx context.Context, job domain.CronJob) (*Execut
 func (h *HTTPExecutor) Type() domain.TaskType {
 	return domain.TaskTypeHTTP
 }
+
+// Validate 校验HTTP任务配置
+func (h *HTTPExecutor) Validate(ctx context.Context, job domain.CronJob) error {
+	var config HTTPTaskConfig
+	if err := json.Unmarshal([]byte(job.Description), &config); err != nil {
+		return fmt.Errorf("解析HTTP任务配置失败: %v", err)
+	}
+	if config.URL == "" {
+		return fmt.Errorf("HTTP任务URL不能为空")
+	}
+	// 校验URL格式并探测连通性
+	req, err := http.NewRequestWithContext(ctx, "HEAD", config.URL, nil)
+	if err != nil {
+		return fmt.Errorf("URL格式无效: %v", err)
+	}
+	resp, err := h.client.Do(req)
+	if err != nil {
+		return fmt.Errorf("目标服务不可达: %v", err)
+	}
+	resp.Body.Close()
+	return nil
+}

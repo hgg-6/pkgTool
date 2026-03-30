@@ -102,6 +102,10 @@ func (c *CronWeb) Add(ctx *gin.Context) {
 		c.l.Error("数据已存在, 添加失败", logx.Int64("cronId", cronJob.ID), logx.String("cronName", cronJob.Name), logx.Error(err))
 		ctx.JSON(400, gin.H{"error": errors.New("添加失败")})
 		return
+	case service.ErrTaskValidateFailed:
+		c.l.Error("任务配置校验失败", logx.Int64("cronId", cronJob.ID), logx.String("cronName", cronJob.Name), logx.Error(err))
+		ctx.JSON(400, gin.H{"error": err.Error()})
+		return
 	case nil:
 		c.l.Info("添加成功", logx.Any("data", cronJob))
 		ctx.JSON(200, gin.H{
@@ -130,6 +134,10 @@ func (c *CronWeb) Adds(ctx *gin.Context) {
 	case service.ErrDuplicateData:
 		c.l.Error("数据已存在, 添加失败", logx.Error(err))
 		ctx.JSON(400, gin.H{"error": errors.New("添加失败")})
+		return
+	case service.ErrTaskValidateFailed:
+		c.l.Error("任务配置校验失败", logx.Error(err))
+		ctx.JSON(400, gin.H{"error": err.Error()})
 		return
 	case nil:
 		c.l.Info("添加成功", logx.Any("data", cronJobs))

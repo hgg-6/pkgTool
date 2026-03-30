@@ -45,6 +45,11 @@ func (h *HistoryRecordingExecutor) Type() domain.TaskType {
 	return h.executor.Type()
 }
 
+// Validate 代理到内部执行器的校验
+func (h *HistoryRecordingExecutor) Validate(ctx context.Context, job domain.CronJob) error {
+	return h.executor.Validate(ctx, job)
+}
+
 // recordHistory 记录执行历史
 func (h *HistoryRecordingExecutor) recordHistory(ctx context.Context, job domain.CronJob, result *ExecutionResult, execErr error, startTime time.Time) {
 	endTime := time.Now()
@@ -222,6 +227,11 @@ func (r *RetryableHistoryExecutor) Execute(ctx context.Context, job domain.CronJ
 // Type 返回执行器类型
 func (r *RetryableHistoryExecutor) Type() domain.TaskType {
 	return r.executor.Type()
+}
+
+// Validate 代理到内部执行器的校验
+func (r *RetryableHistoryExecutor) Validate(ctx context.Context, job domain.CronJob) error {
+	return r.executor.Validate(ctx, job)
 }
 
 // recordSuccessHistory 记录成功的历史

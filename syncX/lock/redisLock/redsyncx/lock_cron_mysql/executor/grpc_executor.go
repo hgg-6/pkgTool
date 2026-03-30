@@ -197,6 +197,30 @@ func (g *GRPCExecutor) Type() domain.TaskType {
 	return domain.TaskTypeGRPC
 }
 
+// Validate 校验gRPC任务配置
+func (g *GRPCExecutor) Validate(ctx context.Context, job domain.CronJob) error {
+	var config GRPCTaskConfig
+	if err := json.Unmarshal([]byte(job.Description), &config); err != nil {
+		return fmt.Errorf("解析gRPC任务配置失败: %v", err)
+	}
+	if config.Target == "" {
+		return fmt.Errorf("gRPC任务Target不能为空")
+	}
+	if config.Service == "" || config.Method == "" {
+		return fmt.Errorf("gRPC任务Service和Method不能为空")
+	}
+	// 探测gRPC服务连通性
+	conn, err := grpc.DialContext(ctx, config.Target,
+		grpc.WithTransportCredentials(insecure.NewCredentials()),
+		grpc.WithBlock(),
+	)
+	if err != nil {
+		return fmt.Errorf("gRPC服务不可达: %v", err)
+	}
+	conn.Close()
+	return nil
+}
+
 // getFileDescriptors 获取服务对应的文件描述符
 func getFileDescriptors(ctx context.Context, client grpc_reflection_v1alpha.ServerReflectionClient, serviceName string) ([]*descriptorpb.FileDescriptorProto, error) {
 	// 查询服务的文件描述符

@@ -1,6 +1,8 @@
 package lock_cron_mysql
 
 import (
+	"context"
+
 	"gitee.com/hgg_test/pkg_tool/v2/logx"
 	"gitee.com/hgg_test/pkg_tool/v2/syncX/lock/redisLock/redsyncx"
 	"gitee.com/hgg_test/pkg_tool/v2/syncX/lock/redisLock/redsyncx/lock_cron_mysql/config"
@@ -41,6 +43,7 @@ type CronMysql struct {
 	// 任务执行引擎
 	scheduler       *scheduler.CronScheduler
 	executorFactory executor.ExecutorFactory
+	funcExecutor    *executor.FunctionExecutor
 }
 
 // NewCronMysql 创建CronMysql实例（带完整依赖注入）
@@ -105,6 +108,9 @@ func NewCronMysql(engine *gin.Engine, db *gorm.DB, redSync redsyncx.RedSyncIn, r
 	executorFactory.RegisterExecutor(funcExec)
 	executorFactory.RegisterExecutor(httpExec)
 	executorFactory.RegisterExecutor(grpcExec)
+	// 注入执行器工厂到Service（用于创建任务时校验）
+	cronSvc.SetTaskValidator(executorFactory)
+
 
 	// 创建调度器
 	sched := scheduler.NewCronScheduler(cronSvc, executorFactory, redSync, l)
@@ -128,6 +134,7 @@ func NewCronMysql(engine *gin.Engine, db *gorm.DB, redSync redsyncx.RedSyncIn, r
 		jwtHandler:      jwtHandler,
 		scheduler:       sched,
 		executorFactory: executorFactory,
+		funcExecutor:    funcExec,
 	}
 }
 
@@ -279,4 +286,11 @@ func (c *CronMysql) Stop() {
 // GetScheduler 获取调度器（用于动态管理任务）
 func (c *CronMysql) GetScheduler() *scheduler.CronScheduler {
 	return c.scheduler
+}
+
+// RegisterFunction 注册业务函数（供外部调用，在 Start 前注册）
+// name: 函数名，与创建任务时 description 中的 function_name 对应
+// fn: 函数实现，接收参数 map，返回结果和错误
+func (c *CronMysql) RegisterFunction(name string, fn func(context.Context, map[string]interface{}) (interface{}, error)) {
+	c.funcExecutor.RegisterFunction(name, fn)
 }

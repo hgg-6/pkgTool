@@ -21,6 +21,9 @@ type Executor interface {
 	// Execute 执行任务
 	Execute(ctx context.Context, job domain.CronJob) (*ExecutionResult, error)
 
+	// Validate 校验任务配置是否有效（创建任务时调用）
+	Validate(ctx context.Context, job domain.CronJob) error
+
 	// Type 返回执行器类型
 	Type() domain.TaskType
 }
@@ -29,4 +32,6 @@ type Executor interface {
 type ExecutorFactory interface {
 	// GetExecutor 根据任务类型获取执行器
 	GetExecutor(taskType domain.TaskType) (Executor, error)
+	// ValidateTask 校验任务配置是否有效
+	ValidateTask(ctx context.Context, job domain.CronJob) error
 }

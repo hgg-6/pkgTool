@@ -64,6 +64,15 @@ func (f *DefaultExecutorFactory) GetExecutor(taskType domain.TaskType) (Executor
 	return executor, nil
 }
 
+// ValidateTask 校验任务配置
+func (f *DefaultExecutorFactory) ValidateTask(ctx context.Context, job domain.CronJob) error {
+	exec, err := f.GetExecutor(job.TaskType)
+	if err != nil {
+		return fmt.Errorf("不支持的任务类型: %s", job.TaskType)
+	}
+	return exec.Validate(ctx, job)
+}
+
 // RetryableExecutor 带重试机制的执行器包装器
 type RetryableExecutor struct {
 	executor Executor
@@ -158,6 +167,11 @@ func (r *RetryableExecutor) Type() domain.TaskType {
 	return r.executor.Type()
 }
 
+// Validate 代理到内部执行器的校验
+func (r *RetryableExecutor) Validate(ctx context.Context, job domain.CronJob) error {
+	return r.executor.Validate(ctx, job)
+}
+
 // FunctionExecutor Function类型任务执行器
 type FunctionExecutor struct {
 	l         logx.Loggerx
@@ -176,6 +190,39 @@ func NewFunctionExecutor(l logx.Loggerx) *FunctionExecutor {
 func (f *FunctionExecutor) RegisterFunction(name string, fn func(context.Context, map[string]interface{}) (interface{}, error)) {
 	f.functions[name] = fn
 	f.l.Info("注册Function任务函数", logx.String("name", name))
+}
+
+// HasFunction 检查函数是否已注册
+func (f *FunctionExecutor) HasFunction(name string) bool {
+	_, exists := f.functions[name]
+	return exists
+}
+
+// ListFunctions 列出所有已注册的函数名
+func (f *FunctionExecutor) ListFunctions() []string {
+	names := make([]string, 0, len(f.functions))
+	for name := range f.functions {
+		names = append(names, name)
+	}
+	return names
+}
+
+// Validate 校验Function任务配置
+func (f *FunctionExecutor) Validate(ctx context.Context, job domain.CronJob) error {
+	var config struct {
+		FunctionName string                 `json:"function_name"`
+		Parameters   map[string]interface{} `json:"parameters"`
+	}
+	if err := json.Unmarshal([]byte(job.Description), &config); err != nil {
+		return fmt.Errorf("解析Function任务配置失败: %v", err)
+	}
+	if config.FunctionName == "" {
+		return fmt.Errorf("function_name 不能为空")
+	}
+	if !f.HasFunction(config.FunctionName) {
+		return fmt.Errorf("未找到注册的函数: %s，当前已注册: %v", config.FunctionName, f.ListFunctions())
+	}
+	return nil
 }
 
 // Execute 执行Function任务

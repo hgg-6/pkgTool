@@ -3,15 +3,22 @@ package service
 import (
 	"context"
 	"errors"
+	"fmt"
 
 	"gitee.com/hgg_test/pkg_tool/v2/syncX/lock/redisLock/redsyncx/lock_cron_mysql/domain"
 	"gitee.com/hgg_test/pkg_tool/v2/syncX/lock/redisLock/redsyncx/lock_cron_mysql/repository"
 )
 
+// TaskValidator 任务校验接口（由 executor.ExecutorFactory 实现）
+type TaskValidator interface {
+	ValidateTask(ctx context.Context, job domain.CronJob) error
+}
+
 var (
 	ErrDataRecordNotFound  error = repository.ErrDataRecordNotFound
 	ErrDuplicateData       error = repository.ErrDuplicateData
 	ErrInvalidStatusChange error = errors.New("无效的状态变更")
+	ErrTaskValidateFailed  error = errors.New("任务配置校验失败")
 )
 
 type CronService interface {
@@ -28,6 +35,8 @@ type CronService interface {
 	UpdateJobStatus(ctx context.Context, id int64, status domain.JobStatus) error
 	// 设置调度器
 	SetScheduler(scheduler Scheduler)
+	// 设置任务校验器
+	SetTaskValidator(validator TaskValidator)
 }
 
 // Scheduler 调度器接口
@@ -36,13 +45,19 @@ type Scheduler interface {
 }
 
 type cronService struct {
-	cronRepo  repository.CronRepository
-	scheduler Scheduler
+	cronRepo      repository.CronRepository
+	scheduler     Scheduler
+	taskValidator TaskValidator
 }
 
 // NewCronService 创建CronService实例
 func NewCronService(cronRepo repository.CronRepository, scheduler Scheduler) CronService {
 	return &cronService{cronRepo: cronRepo, scheduler: scheduler}
+}
+
+// SetTaskValidator 设置任务校验器（用于创建任务时校验）
+func (c *cronService) SetTaskValidator(validator TaskValidator) {
+	c.taskValidator = validator
 }
 
 // SetScheduler 设置调度器
@@ -59,9 +74,21 @@ func (c *cronService) GetCronJobs(ctx context.Context) ([]domain.CronJob, error)
 }
 
 func (c *cronService) AddCronJob(ctx context.Context, job domain.CronJob) error {
+	if c.taskValidator != nil {
+		if err := c.taskValidator.ValidateTask(ctx, job); err != nil {
+			return fmt.Errorf("%w: %v", ErrTaskValidateFailed, err)
+		}
+	}
 	return c.cronRepo.CreateCron(ctx, job)
 }
 func (c *cronService) AddCronJobs(ctx context.Context, jobs []domain.CronJob) error {
+	if c.taskValidator != nil {
+		for _, job := range jobs {
+			if err := c.taskValidator.ValidateTask(ctx, job); err != nil {
+				return fmt.Errorf("%w: 任务[%s] %v", ErrTaskValidateFailed, job.Name, err)
+			}
+		}
+	}
 	return c.cronRepo.CreateCrons(ctx, jobs)
 }
 
