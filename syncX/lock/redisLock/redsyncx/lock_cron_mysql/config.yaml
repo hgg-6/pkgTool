@@ -27,6 +27,12 @@ cron:
   default_max_retry: 3
   retry_backoff: 1s
 
+jwt:
+  secret: "Z8R4UuuF10aYmz6W44ryoENWRgTAEQS89UBwc2NoNv4"
+  long_secret: "Z8R4UuuF10aYmz6W44ryoENWRgTAEQS89UBwc2NoNv5"
+  access_ttl: 30m
+  refresh_ttl: 168h
+
 alert:
   enabled: true
   webhook_url: ""

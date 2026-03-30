@@ -21,7 +21,7 @@ var (
 // DefaultExecutorFactory 默认执行器工厂
 type DefaultExecutorFactory struct {
 	executors      map[domain.TaskType]Executor
-	historyService service.JobHistoryService // 添加历史服务
+	historyService service.JobHistoryService
 	l              logx.Loggerx
 }
 
@@ -46,11 +46,9 @@ func NewExecutorFactoryWithHistory(historyService service.JobHistoryService, l l
 
 // RegisterExecutor 注册执行器
 func (f *DefaultExecutorFactory) RegisterExecutor(executor Executor) {
-	// 如果有历史服务，包装执行器以同时支持重试和历史记录
 	if f.historyService != nil {
 		executor = NewRetryableHistoryExecutor(executor, f.historyService, f.l)
 	} else {
-		// 没有历史服务时，至少包装重试逻辑
 		executor = NewRetryableExecutor(executor, f.l)
 	}
 	f.executors[executor.Type()] = executor
@@ -111,7 +109,7 @@ func (r *RetryableExecutor) Execute(ctx context.Context, job domain.CronJob) (*E
 		// 创建带超时的context
 		timeout := time.Duration(job.Timeout) * time.Second
 		if timeout <= 0 {
-			timeout = 30 * time.Second // 默认30秒
+			timeout = 30 * time.Second
 		}
 
 		executeCtx, cancel := context.WithTimeout(ctx, timeout)
@@ -131,6 +129,13 @@ func (r *RetryableExecutor) Execute(ctx context.Context, job domain.CronJob) (*E
 				logx.String("job_name", job.Name),
 				logx.Int("attempt", attempt+1),
 				logx.Error(err),
+			)
+		} else if result != nil && !result.Success {
+			r.l.Warn("任务返回失败结果",
+				logx.Int64("job_id", job.CronId),
+				logx.String("job_name", job.Name),
+				logx.Int("attempt", attempt+1),
+				logx.String("message", result.Message),
 			)
 		}
 	}
@@ -155,8 +160,7 @@ func (r *RetryableExecutor) Type() domain.TaskType {
 
 // FunctionExecutor Function类型任务执行器
 type FunctionExecutor struct {
-	l logx.Loggerx
-	// 函数注册表：函数名 -> 函数实现
+	l         logx.Loggerx
 	functions map[string]func(context.Context, map[string]interface{}) (interface{}, error)
 }
 
@@ -178,7 +182,6 @@ func (f *FunctionExecutor) RegisterFunction(name string, fn func(context.Context
 func (f *FunctionExecutor) Execute(ctx context.Context, job domain.CronJob) (*ExecutionResult, error) {
 	startTime := time.Now()
 
-	// 解析任务配置
 	var config struct {
 		FunctionName string                 `json:"function_name"`
 		Parameters   map[string]interface{} `json:"parameters"`
@@ -193,7 +196,6 @@ func (f *FunctionExecutor) Execute(ctx context.Context, job domain.CronJob) (*Ex
 		}, err
 	}
 
-	// 验证配置
 	if config.FunctionName == "" {
 		return &ExecutionResult{
 			Success:   false,
@@ -203,7 +205,6 @@ func (f *FunctionExecutor) Execute(ctx context.Context, job domain.CronJob) (*Ex
 		}, fmt.Errorf("function_name is required")
 	}
 
-	// 查找函数
 	fn, exists := f.functions[config.FunctionName]
 	if !exists {
 		return &ExecutionResult{
@@ -220,7 +221,6 @@ func (f *FunctionExecutor) Execute(ctx context.Context, job domain.CronJob) (*Ex
 		logx.String("function_name", config.FunctionName),
 	)
 
-	// 执行函数
 	result, err := fn(ctx, config.Parameters)
 	endTime := time.Now()
 	duration := endTime.Sub(startTime).Milliseconds()
@@ -235,7 +235,6 @@ func (f *FunctionExecutor) Execute(ctx context.Context, job domain.CronJob) (*Ex
 		}, err
 	}
 
-	// 构造执行结果
 	resultMsg := fmt.Sprintf("Function执行成功: %v", result)
 	return &ExecutionResult{
 		Success: true,

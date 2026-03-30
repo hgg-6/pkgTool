@@ -22,7 +22,7 @@ import (
 // 3. 所有组件的协同工作
 func TestCronMysqlIntegration(t *testing.T) {
 	// 1. 初始化基础依赖
-	db, err := gorm.Open(mysql.Open("root:password@tcp(127.0.0.1:3306)/cron_db?charset=utf8mb4&parseTime=True&loc=Local"))
+	db, err := gorm.Open(mysql.Open("root:root@tcp(127.0.0.1:13306)/cron_db?charset=utf8mb4&parseTime=True&loc=Local"))
 	if err != nil {
 		t.Skipf("跳过测试：无法连接数据库 %v", err)
 		return
@@ -45,7 +45,14 @@ func TestCronMysqlIntegration(t *testing.T) {
 	engine := gin.Default()
 
 	// 2. 使用集成层创建完整的系统（一行代码完成所有依赖注入）
-	cronSystem := NewCronMysql(engine, db, redSync, l, &config.Config{})
+	cronSystem := NewCronMysql(engine, db, redSync, rdb, l, &config.Config{
+		JWT: config.JWTConfig{
+			Secret:     "test-secret-key",
+			LongSecret: "test-long-secret-key",
+			AccessTTL:  30 * time.Minute,
+			RefreshTTL: 7 * 24 * time.Hour,
+		},
+	})
 
 	// 3. 启动系统（自动完成数据库迁移、路由注册、调度器启动）
 	err = cronSystem.Start()
@@ -66,7 +73,7 @@ func TestCronMysqlIntegration(t *testing.T) {
 
 // TestCronMysqlDependencyInjection 验证依赖注入的完整性
 func TestCronMysqlDependencyInjection(t *testing.T) {
-	db, err := gorm.Open(mysql.Open("root:password@tcp(127.0.0.1:3306)/cron_db?charset=utf8mb4&parseTime=True&loc=Local"))
+	db, err := gorm.Open(mysql.Open("root:root@tcp(127.0.0.1:13306)/cron_db?charset=utf8mb4&parseTime=True&loc=Local"))
 	if err != nil {
 		t.Skipf("跳过测试：无法连接数据库 %v", err)
 		return
@@ -89,7 +96,14 @@ func TestCronMysqlDependencyInjection(t *testing.T) {
 	engine := gin.Default()
 
 	// 创建系统实例
-	cronSystem := NewCronMysql(engine, db, redSync, l, &config.Config{})
+	cronSystem := NewCronMysql(engine, db, redSync, rdb, l, &config.Config{
+		JWT: config.JWTConfig{
+			Secret:     "test-secret-key",
+			LongSecret: "test-long-secret-key",
+			AccessTTL:  30 * time.Minute,
+			RefreshTTL: 7 * 24 * time.Hour,
+		},
+	})
 
 	// 验证所有组件都已正确注入
 	tests := []struct {
@@ -129,7 +143,7 @@ func TestCronMysqlLayerArchitecture(t *testing.T) {
 	// DAO层 -> Repository层 -> Service层 -> Web层
 	// 所有层都在 NewCronMysql 中自动实例化和组装
 
-	db, err := gorm.Open(mysql.Open("root:password@tcp(127.0.0.1:3306)/cron_db?charset=utf8mb4&parseTime=True&loc=Local"))
+	db, err := gorm.Open(mysql.Open("root:root@tcp(127.0.0.1:13306)/cron_db?charset=utf8mb4&parseTime=True&loc=Local"))
 	if err != nil {
 		t.Skipf("跳过测试：无法连接数据库 %v", err)
 		return
@@ -151,7 +165,14 @@ func TestCronMysqlLayerArchitecture(t *testing.T) {
 	})
 	engine := gin.Default()
 
-	cronSystem := NewCronMysql(engine, db, redSync, l, &config.Config{})
+	cronSystem := NewCronMysql(engine, db, redSync, rdb, l, &config.Config{
+		JWT: config.JWTConfig{
+			Secret:     "test-secret-key",
+			LongSecret: "test-long-secret-key",
+			AccessTTL:  30 * time.Minute,
+			RefreshTTL: 7 * 24 * time.Hour,
+		},
+	})
 
 	// 验证调度器已正确获取Service依赖
 	scheduler := cronSystem.GetScheduler()
@@ -170,7 +191,7 @@ func TestCronMysqlLayerArchitecture(t *testing.T) {
 
 // TestCronMysqlFullWorkflow 测试完整工作流程
 func TestCronMysqlFullWorkflow(t *testing.T) {
-	db, err := gorm.Open(mysql.Open("root:password@tcp(127.0.0.1:3306)/cron_db?charset=utf8mb4&parseTime=True&loc=Local"))
+	db, err := gorm.Open(mysql.Open("root:root@tcp(127.0.0.1:13306)/cron_db?charset=utf8mb4&parseTime=True&loc=Local"))
 	if err != nil {
 		t.Skipf("跳过测试：无法连接数据库 %v", err)
 		return
@@ -193,7 +214,14 @@ func TestCronMysqlFullWorkflow(t *testing.T) {
 	engine := gin.Default()
 
 	// 步骤1: 创建系统（自动完成所有依赖注入）
-	cronSystem := NewCronMysql(engine, db, redSync, l, &config.Config{})
+	cronSystem := NewCronMysql(engine, db, redSync, rdb, l, &config.Config{
+		JWT: config.JWTConfig{
+			Secret:     "test-secret-key",
+			LongSecret: "test-long-secret-key",
+			AccessTTL:  30 * time.Minute,
+			RefreshTTL: 7 * 24 * time.Hour,
+		},
+	})
 	t.Log("✅ 步骤1: 系统创建完成，所有依赖已注入")
 
 	// 步骤2: 启动系统

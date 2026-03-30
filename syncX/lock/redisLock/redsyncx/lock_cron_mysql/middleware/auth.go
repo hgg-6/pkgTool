@@ -1,35 +1,61 @@
 package middleware
 
 import (
+	"net/http"
 	"strconv"
 
 	"gitee.com/hgg_test/pkg_tool/v2/logx"
 	"gitee.com/hgg_test/pkg_tool/v2/syncX/lock/redisLock/redsyncx/lock_cron_mysql/service"
+
 	"github.com/gin-gonic/gin"
+
+	jwtX2 "gitee.com/hgg_test/pkg_tool/v2/webx/ginx/middleware/jwtX2"
 )
 
 // AuthMiddleware 权限验证中间件
 type AuthMiddleware struct {
-	authSvc service.AuthService
-	l       logx.Loggerx
+	authSvc    service.AuthService
+	jwtHandler jwtX2.JwtHandlerx
+	l          logx.Loggerx
 }
 
 // NewAuthMiddleware 创建AuthMiddleware实例
-func NewAuthMiddleware(authSvc service.AuthService, l logx.Loggerx) *AuthMiddleware {
+func NewAuthMiddleware(authSvc service.AuthService, jwtHandler jwtX2.JwtHandlerx, l logx.Loggerx) *AuthMiddleware {
 	return &AuthMiddleware{
-		authSvc: authSvc,
-		l:       l,
+		authSvc:    authSvc,
+		jwtHandler: jwtHandler,
+		l:          l,
+	}
+}
+
+// RequireLogin 要求用户已登录（验证JWT Token）
+func (a *AuthMiddleware) RequireLogin() gin.HandlerFunc {
+	return func(ctx *gin.Context) {
+		// 通过JWT验证Token
+		claims, err := a.jwtHandler.VerifyToken(ctx)
+		if err != nil {
+			a.l.Warn("用户未登录或Token无效", logx.Error(err))
+			ctx.JSON(http.StatusUnauthorized, gin.H{"error": "请先登录"})
+			ctx.Abort()
+			return
+		}
+
+		// 将用户信息写入context
+		ctx.Set("user_id", claims.Uid)
+		ctx.Set("username", claims.Name)
+		ctx.Set("ssid", claims.Ssid)
+		ctx.Next()
 	}
 }
 
 // RequirePermission 要求用户拥有指定权限
 func (a *AuthMiddleware) RequirePermission(permissionCode string) gin.HandlerFunc {
 	return func(ctx *gin.Context) {
-		// 从上下文中获取用户ID（假设前面有JWT中间件设置了user_id）
+		// 从上下文中获取用户ID（由RequireLogin中间件设置）
 		userIdValue, exists := ctx.Get("user_id")
 		if !exists {
 			a.l.Warn("未找到用户ID")
-			ctx.JSON(401, gin.H{"error": "未授权"})
+			ctx.JSON(http.StatusUnauthorized, gin.H{"error": "未授权"})
 			ctx.Abort()
 			return
 		}
@@ -37,7 +63,7 @@ func (a *AuthMiddleware) RequirePermission(permissionCode string) gin.HandlerFun
 		userId, ok := userIdValue.(int64)
 		if !ok {
 			a.l.Error("用户ID类型错误")
-			ctx.JSON(401, gin.H{"error": "未授权"})
+			ctx.JSON(http.StatusUnauthorized, gin.H{"error": "未授权"})
 			ctx.Abort()
 			return
 		}
@@ -46,14 +72,14 @@ func (a *AuthMiddleware) RequirePermission(permissionCode string) gin.HandlerFun
 		hasPermission, err := a.authSvc.CheckUserPermission(ctx.Request.Context(), userId, permissionCode)
 		if err != nil {
 			a.l.Error("检查权限失败", logx.Error(err))
-			ctx.JSON(500, gin.H{"error": "内部错误"})
+			ctx.JSON(http.StatusInternalServerError, gin.H{"error": "内部错误"})
 			ctx.Abort()
 			return
 		}
 
 		if !hasPermission {
 			a.l.Warn("用户权限不足", logx.Int64("user_id", userId), logx.String("permission", permissionCode))
-			ctx.JSON(403, gin.H{"error": "权限不足"})
+			ctx.JSON(http.StatusForbidden, gin.H{"error": "权限不足"})
 			ctx.Abort()
 			return
 		}
@@ -69,7 +95,7 @@ func (a *AuthMiddleware) RequireCronPermission() gin.HandlerFunc {
 		userIdValue, exists := ctx.Get("user_id")
 		if !exists {
 			a.l.Warn("未找到用户ID")
-			ctx.JSON(401, gin.H{"error": "未授权"})
+			ctx.JSON(http.StatusUnauthorized, gin.H{"error": "未授权"})
 			ctx.Abort()
 			return
 		}
@@ -77,7 +103,7 @@ func (a *AuthMiddleware) RequireCronPermission() gin.HandlerFunc {
 		userId, ok := userIdValue.(int64)
 		if !ok {
 			a.l.Error("用户ID类型错误")
-			ctx.JSON(401, gin.H{"error": "未授权"})
+			ctx.JSON(http.StatusUnauthorized, gin.H{"error": "未授权"})
 			ctx.Abort()
 			return
 		}
@@ -91,19 +117,17 @@ func (a *AuthMiddleware) RequireCronPermission() gin.HandlerFunc {
 			}
 			if err := ctx.ShouldBindJSON(&req); err != nil {
 				a.l.Error("获取任务ID失败", logx.Error(err))
-				ctx.JSON(400, gin.H{"error": "参数错误"})
+				ctx.JSON(http.StatusBadRequest, gin.H{"error": "参数错误"})
 				ctx.Abort()
 				return
 			}
-			// 将请求体回写到context，以便后续handler使用
-			ctx.Set("cron_id", req.CronId)
 			cronIdStr = strconv.FormatInt(req.CronId, 10)
 		}
 
 		cronId, err := strconv.ParseInt(cronIdStr, 10, 64)
 		if err != nil {
 			a.l.Error("任务ID格式错误", logx.Error(err))
-			ctx.JSON(400, gin.H{"error": "参数错误"})
+			ctx.JSON(http.StatusBadRequest, gin.H{"error": "参数错误"})
 			ctx.Abort()
 			return
 		}
@@ -112,30 +136,14 @@ func (a *AuthMiddleware) RequireCronPermission() gin.HandlerFunc {
 		hasPermission, err := a.authSvc.CheckCronPermission(ctx.Request.Context(), userId, cronId)
 		if err != nil {
 			a.l.Error("检查任务权限失败", logx.Error(err))
-			ctx.JSON(500, gin.H{"error": "内部错误"})
+			ctx.JSON(http.StatusInternalServerError, gin.H{"error": "内部错误"})
 			ctx.Abort()
 			return
 		}
 
 		if !hasPermission {
 			a.l.Warn("用户无权操作此任务", logx.Int64("user_id", userId), logx.Int64("cron_id", cronId))
-			ctx.JSON(403, gin.H{"error": "无权操作此任务"})
-			ctx.Abort()
-			return
-		}
-
-		ctx.Next()
-	}
-}
-
-// RequireLogin 要求用户已登录
-func (a *AuthMiddleware) RequireLogin() gin.HandlerFunc {
-	return func(ctx *gin.Context) {
-		// 检查是否存在user_id（假设JWT中间件已设置）
-		_, exists := ctx.Get("user_id")
-		if !exists {
-			a.l.Warn("用户未登录")
-			ctx.JSON(401, gin.H{"error": "请先登录"})
+			ctx.JSON(http.StatusForbidden, gin.H{"error": "无权操作此任务"})
 			ctx.Abort()
 			return
 		}
@@ -150,7 +158,7 @@ func (a *AuthMiddleware) RequireAnyPermission(permissionCodes ...string) gin.Han
 		userIdValue, exists := ctx.Get("user_id")
 		if !exists {
 			a.l.Warn("未找到用户ID")
-			ctx.JSON(401, gin.H{"error": "未授权"})
+			ctx.JSON(http.StatusUnauthorized, gin.H{"error": "未授权"})
 			ctx.Abort()
 			return
 		}
@@ -158,7 +166,7 @@ func (a *AuthMiddleware) RequireAnyPermission(permissionCodes ...string) gin.Han
 		userId, ok := userIdValue.(int64)
 		if !ok {
 			a.l.Error("用户ID类型错误")
-			ctx.JSON(401, gin.H{"error": "未授权"})
+			ctx.JSON(http.StatusUnauthorized, gin.H{"error": "未授权"})
 			ctx.Abort()
 			return
 		}
@@ -177,7 +185,7 @@ func (a *AuthMiddleware) RequireAnyPermission(permissionCodes ...string) gin.Han
 		}
 
 		a.l.Warn("用户权限不足", logx.Int64("user_id", userId))
-		ctx.JSON(403, gin.H{"error": "权限不足"})
+		ctx.JSON(http.StatusForbidden, gin.H{"error": "权限不足"})
 		ctx.Abort()
 	}
 }
@@ -188,7 +196,7 @@ func (a *AuthMiddleware) RequireAllPermissions(permissionCodes ...string) gin.Ha
 		userIdValue, exists := ctx.Get("user_id")
 		if !exists {
 			a.l.Warn("未找到用户ID")
-			ctx.JSON(401, gin.H{"error": "未授权"})
+			ctx.JSON(http.StatusUnauthorized, gin.H{"error": "未授权"})
 			ctx.Abort()
 			return
 		}
@@ -196,7 +204,7 @@ func (a *AuthMiddleware) RequireAllPermissions(permissionCodes ...string) gin.Ha
 		userId, ok := userIdValue.(int64)
 		if !ok {
 			a.l.Error("用户ID类型错误")
-			ctx.JSON(401, gin.H{"error": "未授权"})
+			ctx.JSON(http.StatusUnauthorized, gin.H{"error": "未授权"})
 			ctx.Abort()
 			return
 		}
@@ -206,13 +214,13 @@ func (a *AuthMiddleware) RequireAllPermissions(permissionCodes ...string) gin.Ha
 			hasPermission, err := a.authSvc.CheckUserPermission(ctx.Request.Context(), userId, permCode)
 			if err != nil {
 				a.l.Error("检查权限失败", logx.Error(err))
-				ctx.JSON(500, gin.H{"error": "内部错误"})
+				ctx.JSON(http.StatusInternalServerError, gin.H{"error": "内部错误"})
 				ctx.Abort()
 				return
 			}
 			if !hasPermission {
 				a.l.Warn("用户缺少必要权限", logx.Int64("user_id", userId), logx.String("permission", permCode))
-				ctx.JSON(403, gin.H{"error": "权限不足"})
+				ctx.JSON(http.StatusForbidden, gin.H{"error": "权限不足"})
 				ctx.Abort()
 				return
 			}

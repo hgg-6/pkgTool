@@ -49,6 +49,10 @@ type CronJob struct {
 	Utime float64
 }
 
+func (CronJob) TableName() string {
+	return "cron_jobs"
+}
+
 // ExecutionStatus 任务执行状态
 type ExecutionStatus string
 
@@ -86,4 +90,8 @@ type JobHistory struct {
 	Result sql.NullString `gorm:"column:result;type:text"`
 	// 创建时间
 	Ctime float64 `gorm:"column:ctime"`
+}
+
+func (JobHistory) TableName() string {
+	return "job_histories"
 }

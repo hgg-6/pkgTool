@@ -2,3 +2,98 @@
     基于mysql定时任务、redis分布式锁，分布式任务调度平台
     加入部门管理和权限控制功能、接入http任务和grpc任务（调用一个http或者grpc接口）、加入任务执行历史功能（有记录历史任务执行情况）
 */
+
+// ============================================================
+// 实际调用方式示例
+// ============================================================
+
+// ---------- 1. 最简方式：使用 LoadConfig 从配置文件加载 ----------
+//
+//	import (
+//	    "gitee.com/hgg_test/pkg_tool/v2/logx/zerologx"
+//	    "gitee.com/hgg_test/pkg_tool/v2/syncX/lock/redisLock/redsyncx"
+//	    "gitee.com/hgg_test/pkg_tool/v2/syncX/lock/redisLock/redsyncx/lock_cron_mysql"
+//	    "gitee.com/hgg_test/pkg_tool/v2/syncX/lock/redisLock/redsyncx/lock_cron_mysql/config"
+//	    "github.com/gin-gonic/gin"
+//	    "github.com/redis/go-redis/v9"
+//	    "gorm.io/driver/mysql"
+//	    "gorm.io/gorm"
+//	)
+//
+//	func main() {
+//	    // 初始化日志
+//	    l := zerologx.NewZeroLogger(...)
+//
+//	    // 加载配置（自动搜索 config.yaml / config/config.yaml / ../config/config.yaml）
+//	    cfg, err := config.LoadConfig("", l)
+//	    if err != nil {
+//	        panic(err)
+//	    }
+//
+//	    // 初始化 MySQL
+//	    db, err := gorm.Open(mysql.Open(cfg.Mysql.DSN), &gorm.Config{})
+//	    if err != nil {
+//	        panic(err)
+//	    }
+//
+//	    // 初始化 Redis
+//	    rdb := redis.NewClient(&redis.Options{
+//	        Addr:     cfg.Redis.Addr,
+//	        Password: cfg.Redis.Password,
+//	        DB:       cfg.Redis.DB,
+//	        PoolSize: cfg.Redis.PoolSize,
+//	    })
+//
+//	    // 初始化分布式锁
+//	    redSync := redsyncx.NewLockRedsync([]*redis.Client{rdb}, l, redsyncx.Config{
+//	        LockName:         "cron-mysql-lock",
+//	        Expiry:           8 * time.Second,
+//	        RenewalInterval:  512 * time.Millisecond,
+//	        RetryDelay:       1 * time.Second,
+//	        MaxRetries:       3,
+//	        StatusChanBuffer: 32,
+//	    })
+//
+//	    // 一行创建完整系统（自动完成所有依赖注入）
+//	    engine := gin.Default()
+//	    cronSystem := lock_cron_mysql.NewCronMysql(engine, db, redSync, rdb, l, cfg)
+//
+//	    // 启动（自动迁移表、注册路由、启动调度器）
+//	    if err := cronSystem.Start(); err != nil {
+//	        panic(err)
+//	    }
+//	    defer cronSystem.Stop()
+//
+//	    // 启动 HTTP 服务
+//	    engine.Run(fmt.Sprintf(":%d", cfg.Server.Port))
+//	}
+
+// ---------- 2. 手动构造 Config（不依赖配置文件） ----------
+//
+//	cfg := &config.Config{
+//	    Server: config.ServerConfig{Port: 8080},
+//	    Mysql:  config.MysqlConfig{DSN: "root:password@tcp(127.0.0.1:3306)/cron_db?charset=utf8mb4&parseTime=True&loc=Local"},
+//	    Redis:  config.RedisConfig{Addr: "localhost:6379"},
+//	    JWT: config.JWTConfig{
+//	        Secret:     "your-jwt-secret",
+//	        LongSecret: "your-jwt-long-secret",
+//	        AccessTTL:  30 * time.Minute,
+//	        RefreshTTL: 7 * 24 * time.Hour,
+//	    },
+//	}
+//
+//	// 然后同上创建 db、rdb、redSync、engine，传入 cfg 即可
+//	cronSystem := lock_cron_mysql.NewCronMysql(engine, db, redSync, rdb, l, cfg)
+
+// ---------- 3. 配置热更新（监听配置文件变更） ----------
+//
+//	err := config.WatchConfig("config.yaml", l, func(newCfg *config.Config) {
+//	    log.Println("配置已热更新")
+//	    // 可在此处按需更新运行时组件
+//	})
+
+// ---------- 4. 运行时通过调度器动态管理任务 ----------
+//
+//	sched := cronSystem.GetScheduler()
+//	// sched 已在 Start() 时自动加载 MySQL 中的活跃任务
+//	// 直接操作数据库中的 cron_job 表即可，调度器会自动感知变更

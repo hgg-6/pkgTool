@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"sync"
-	"time"
 
 	"gitee.com/hgg_test/pkg_tool/v2/logx"
 	"gitee.com/hgg_test/pkg_tool/v2/syncX/lock/redisLock/redsyncx"
@@ -239,11 +238,8 @@ func (s *CronScheduler) executeJob(job domain.CronJob) error {
 		return fmt.Errorf("获取执行器失败: %w", err)
 	}
 
-	// 执行任务
-	ctx, cancel := context.WithTimeout(s.ctx, time.Duration(job.Timeout)*time.Second)
-	defer cancel()
-
-	result, err := exec.Execute(ctx, job)
+	// 执行任务（不设置额外超时，由执行器内部管理重试和每次尝试的超时）
+	result, err := exec.Execute(s.ctx, job)
 	if err != nil {
 		s.l.Error("任务执行错误",
 			logx.Int64("job_id", job.CronId),

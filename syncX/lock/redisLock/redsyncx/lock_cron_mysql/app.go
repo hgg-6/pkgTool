@@ -12,7 +12,10 @@ import (
 	"gitee.com/hgg_test/pkg_tool/v2/syncX/lock/redisLock/redsyncx/lock_cron_mysql/service"
 	"gitee.com/hgg_test/pkg_tool/v2/syncX/lock/redisLock/redsyncx/lock_cron_mysql/web"
 	"github.com/gin-gonic/gin"
+	"github.com/redis/go-redis/v9"
 	"gorm.io/gorm"
+
+	jwtX2 "gitee.com/hgg_test/pkg_tool/v2/webx/ginx/middleware/jwtX2"
 )
 
 // CronMysql 定时任务系统主类
@@ -21,7 +24,8 @@ type CronMysql struct {
 	db      *gorm.DB
 	redSync redsyncx.RedSyncIn
 	l       logx.Loggerx
-	cfg     *config.Config // 配置信息
+	cfg     *config.Config
+	rdb     redis.Cmdable
 
 	// 各层组件
 	cronWeb        *web.CronWeb
@@ -31,7 +35,8 @@ type CronMysql struct {
 	permissionWeb  *web.PermissionWeb
 	authWeb        *web.AuthWeb
 	authMiddleware *middleware.AuthMiddleware
-	jobHistoryWeb  *web.JobHistoryWeb // 添加任务历史Web处理器
+	jobHistoryWeb  *web.JobHistoryWeb
+	jwtHandler     jwtX2.JwtHandlerx
 
 	// 任务执行引擎
 	scheduler       *scheduler.CronScheduler
@@ -39,10 +44,21 @@ type CronMysql struct {
 }
 
 // NewCronMysql 创建CronMysql实例（带完整依赖注入）
-func NewCronMysql(engine *gin.Engine, db *gorm.DB, redSync redsyncx.RedSyncIn, l logx.Loggerx, cfg *config.Config) *CronMysql {
+func NewCronMysql(engine *gin.Engine, db *gorm.DB, redSync redsyncx.RedSyncIn, rdb redis.Cmdable, l logx.Loggerx, cfg *config.Config) *CronMysql {
+	// JWT handler
+	jwtHandler, err := jwtX2.NewJwtxMiddlewareGinx(rdb, &jwtX2.JwtxMiddlewareGinxConfig{
+		JwtKey:                []byte(cfg.JWT.Secret),
+		LongJwtKey:            []byte(cfg.JWT.LongSecret),
+		DurationExpiresIn:     cfg.JWT.AccessTTL,
+		LongDurationExpiresIn: cfg.JWT.RefreshTTL,
+	})
+	if err != nil {
+		panic("初始化JWT失败: " + err.Error())
+	}
+
 	// DAO层
 	cronDb := dao.NewCronDb(db)
-	jobHistoryDao := dao.NewJobHistoryDAO(db) // 添加任务历史DAO
+	jobHistoryDao := dao.NewJobHistoryDAO(db)
 	deptDb := dao.NewDepartmentDb(db)
 	userDb := dao.NewUserDb(db)
 	roleDb := dao.NewRoleDb(db)
@@ -53,7 +69,7 @@ func NewCronMysql(engine *gin.Engine, db *gorm.DB, redSync redsyncx.RedSyncIn, l
 
 	// Repository层
 	cronRepo := repository.NewCronRepository(cronDb)
-	jobHistoryRepo := repository.NewJobHistoryRepository(jobHistoryDao) // 添加任务历史Repository
+	jobHistoryRepo := repository.NewJobHistoryRepository(jobHistoryDao)
 	deptRepo := repository.NewDepartmentRepository(deptDb)
 	userRepo := repository.NewUserRepository(userDb, userRoleDb, permDb)
 	roleRepo := repository.NewRoleRepository(roleDb, rolePermDb)
@@ -61,9 +77,8 @@ func NewCronMysql(engine *gin.Engine, db *gorm.DB, redSync redsyncx.RedSyncIn, l
 	authRepo := repository.NewAuthRepository(userRoleDb, cronPermDb)
 
 	// Service层
-	// 注意：这里需要先创建调度器，但调度器依赖cronSvc，所以需要先创建cronSvc，然后再创建调度器，最后更新cronSvc的调度器
 	cronSvc := service.NewCronService(cronRepo, nil)
-	jobHistorySvc := service.NewJobHistoryService(jobHistoryRepo) // 添加任务历史Service
+	jobHistorySvc := service.NewJobHistoryService(jobHistoryRepo)
 	deptSvc := service.NewDepartmentService(deptRepo)
 	userSvc := service.NewUserService(userRepo)
 	roleSvc := service.NewRoleService(roleRepo)
@@ -72,19 +87,18 @@ func NewCronMysql(engine *gin.Engine, db *gorm.DB, redSync redsyncx.RedSyncIn, l
 
 	// Web层
 	cronWeb := web.NewCronWeb(cronSvc, l)
-	jobHistoryWeb := web.NewJobHistoryWeb(jobHistorySvc, l) // 添加任务历史Web
+	jobHistoryWeb := web.NewJobHistoryWeb(jobHistorySvc, l)
 	deptWeb := web.NewDepartmentWeb(deptSvc, l)
-	userWeb := web.NewUserWeb(userSvc, l)
+	userWeb := web.NewUserWeb(userSvc, jwtHandler, l)
 	roleWeb := web.NewRoleWeb(roleSvc, l)
 	permWeb := web.NewPermissionWeb(permSvc, l)
 	authWebInst := web.NewAuthWeb(authSvc, l)
 
 	// 中间件
-	authMiddleware := middleware.NewAuthMiddleware(authSvc, l)
+	authMiddleware := middleware.NewAuthMiddleware(authSvc, jwtHandler, l)
 
 	// 任务执行引擎
-	executorFactory := executor.NewExecutorFactoryWithHistory(jobHistorySvc, l).(*executor.DefaultExecutorFactory) // 使用带历史记录的工厂
-	// 注册各类执行器
+	executorFactory := executor.NewExecutorFactoryWithHistory(jobHistorySvc, l).(*executor.DefaultExecutorFactory)
 	funcExec := executor.NewFunctionExecutor(l)
 	httpExec := executor.NewHTTPExecutor(l)
 	grpcExec := executor.NewGRPCExecutor(l)
@@ -93,15 +107,16 @@ func NewCronMysql(engine *gin.Engine, db *gorm.DB, redSync redsyncx.RedSyncIn, l
 	executorFactory.RegisterExecutor(grpcExec)
 
 	// 创建调度器
-	scheduler := scheduler.NewCronScheduler(cronSvc, executorFactory, redSync, l)
-	// 更新cronSvc的调度器
-	cronSvc.SetScheduler(scheduler)
+	sched := scheduler.NewCronScheduler(cronSvc, executorFactory, redSync, l)
+	cronSvc.SetScheduler(sched)
 
 	return &CronMysql{
 		web:             engine,
 		db:              db,
 		redSync:         redSync,
+		rdb:             rdb,
 		l:               l,
+		cfg:             cfg,
 		cronWeb:         cronWeb,
 		departmentWeb:   deptWeb,
 		userWeb:         userWeb,
@@ -109,27 +124,31 @@ func NewCronMysql(engine *gin.Engine, db *gorm.DB, redSync redsyncx.RedSyncIn, l
 		permissionWeb:   permWeb,
 		authWeb:         authWebInst,
 		authMiddleware:  authMiddleware,
-		jobHistoryWeb:   jobHistoryWeb, // 添加任务历史Web
-		scheduler:       scheduler,
+		jobHistoryWeb:   jobHistoryWeb,
+		jwtHandler:      jwtHandler,
+		scheduler:       sched,
 		executorFactory: executorFactory,
 	}
 }
 
 // RegisterRoutes 注册所有路由
 func (c *CronMysql) RegisterRoutes() {
-	// 注册公开路由（不需要认证）
-	c.userWeb.Register(c.web) // 包含登录接口
+	// 公开路由（不需要认证）—— 仅限登录接口
+	publicGroup := c.web.Group("/user")
+	{
+		publicGroup.POST("/login", c.userWeb.Login)
+	}
 
 	// 需要登录的路由
 	authorized := c.web.Group("")
 	authorized.Use(c.authMiddleware.RequireLogin())
 	{
-		// 任务管理（需要cron权限）
-		cronGroup := authorized.Group("/cron")
-		cronGroup.Use(c.authMiddleware.RequirePermission("cron:read"))
+		// 任务管理（需要cron:read权限）
+		cronReadGroup := authorized.Group("/cron")
+		cronReadGroup.Use(c.authMiddleware.RequirePermission("cron:read"))
 		{
-			cronGroup.GET("/find/:cron_id", c.cronWeb.FindId)
-			cronGroup.GET("/profile", c.cronWeb.FindAll)
+			cronReadGroup.GET("/find/:cron_id", c.cronWeb.FindId)
+			cronReadGroup.GET("/profile", c.cronWeb.FindAll)
 		}
 
 		cronCreateGroup := authorized.Group("/cron")
@@ -146,14 +165,23 @@ func (c *CronMysql) RegisterRoutes() {
 			cronDeleteGroup.DELETE("/deletes/", c.cronWeb.Deletes)
 		}
 
-		// 任务执行历史（需要cron权限）
+		// 任务状态管理（需要cron:manage权限）
+		cronManageGroup := authorized.Group("/cron")
+		cronManageGroup.Use(c.authMiddleware.RequirePermission("cron:manage"))
+		{
+			cronManageGroup.PUT("/start/:cron_id", c.cronWeb.StartJob)
+			cronManageGroup.PUT("/pause/:cron_id", c.cronWeb.PauseJob)
+			cronManageGroup.PUT("/resume/:cron_id", c.cronWeb.ResumeJob)
+		}
+
+		// 任务执行历史（需要cron:read权限）
 		historyGroup := authorized.Group("/job-history")
 		historyGroup.Use(c.authMiddleware.RequirePermission("cron:read"))
 		{
 			c.jobHistoryWeb.Register(historyGroup)
 		}
 
-		// 部门管理（需要dept权限）
+		// 部门管理（需要dept:read权限）
 		deptGroup := authorized.Group("/department")
 		deptGroup.Use(c.authMiddleware.RequirePermission("dept:read"))
 		{
@@ -170,13 +198,35 @@ func (c *CronMysql) RegisterRoutes() {
 			deptManageGroup.DELETE("/delete/:dept_id", c.departmentWeb.DeleteDepartment)
 		}
 
-		// 角色和权限管理（需要admin权限）
+		// 角色和权限管理（需要admin权限）—— 注册到adminGroup，而非root engine
 		adminGroup := authorized.Group("")
 		adminGroup.Use(c.authMiddleware.RequirePermission("admin"))
 		{
-			c.roleWeb.Register(c.web)
-			c.permissionWeb.Register(c.web)
-			c.authWeb.Register(c.web)
+			c.roleWeb.Register(adminGroup)
+			c.permissionWeb.Register(adminGroup)
+			c.authWeb.Register(adminGroup)
+		}
+
+		// 用户自身操作（仅需登录）
+		userGroup := authorized.Group("/user")
+		{
+			userGroup.POST("/change-password", c.userWeb.ChangePassword)
+			userGroup.POST("/logout", c.userWeb.Logout)
+			userGroup.GET("/profile", c.userWeb.GetProfile)
+		}
+
+		// 用户管理操作（需要user:manage权限）
+		userManageGroup := authorized.Group("/user")
+		userManageGroup.Use(c.authMiddleware.RequirePermission("user:manage"))
+		{
+			userManageGroup.POST("/create", c.userWeb.CreateUser)
+			userManageGroup.GET("/get/:user_id", c.userWeb.GetUser)
+			userManageGroup.GET("/list", c.userWeb.GetAllUsers)
+			userManageGroup.GET("/dept/:dept_id", c.userWeb.GetUsersByDepartment)
+			userManageGroup.PUT("/update", c.userWeb.UpdateUser)
+			userManageGroup.DELETE("/delete/:user_id", c.userWeb.DeleteUser)
+			userManageGroup.GET("/roles/:user_id", c.userWeb.GetUserRoles)
+			userManageGroup.GET("/permissions/:user_id", c.userWeb.GetUserPermissions)
 		}
 	}
 }
@@ -185,7 +235,7 @@ func (c *CronMysql) RegisterRoutes() {
 func (c *CronMysql) AutoMigrate() error {
 	return c.db.AutoMigrate(
 		&dao.CronJob{},
-		&dao.JobHistory{}, // 添加任务执行历史表
+		&dao.JobHistory{},
 		&dao.Department{},
 		&dao.User{},
 		&dao.Role{},

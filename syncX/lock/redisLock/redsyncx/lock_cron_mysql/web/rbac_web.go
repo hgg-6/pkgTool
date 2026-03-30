@@ -1,6 +1,7 @@
 package web
 
 import (
+	"net/http"
 	"strconv"
 
 	"gitee.com/hgg_test/pkg_tool/v2/logx"
@@ -8,6 +9,8 @@ import (
 	"gitee.com/hgg_test/pkg_tool/v2/syncX/lock/redisLock/redsyncx/lock_cron_mysql/service"
 
 	"github.com/gin-gonic/gin"
+
+	jwtX2 "gitee.com/hgg_test/pkg_tool/v2/webx/ginx/middleware/jwtX2"
 )
 
 // DepartmentWeb 部门Web接口
@@ -21,7 +24,7 @@ func NewDepartmentWeb(deptSvc service.DepartmentService, l logx.Loggerx) *Depart
 	return &DepartmentWeb{deptSvc: deptSvc, l: l}
 }
 
-func (d *DepartmentWeb) Register(server *gin.Engine) {
+func (d *DepartmentWeb) Register(server gin.IRouter) {
 	g := server.Group("/department")
 	{
 		g.POST("/create", d.CreateDepartment)
@@ -133,16 +136,17 @@ func (d *DepartmentWeb) DeleteDepartment(ctx *gin.Context) {
 
 // UserWeb 用户Web接口
 type UserWeb struct {
-	userSvc service.UserService
-	l       logx.Loggerx
+	userSvc    service.UserService
+	jwtHandler jwtX2.JwtHandlerx
+	l          logx.Loggerx
 }
 
 // NewUserWeb 创建UserWeb实例
-func NewUserWeb(userSvc service.UserService, l logx.Loggerx) *UserWeb {
-	return &UserWeb{userSvc: userSvc, l: l}
+func NewUserWeb(userSvc service.UserService, jwtHandler jwtX2.JwtHandlerx, l logx.Loggerx) *UserWeb {
+	return &UserWeb{userSvc: userSvc, jwtHandler: jwtHandler, l: l}
 }
 
-func (u *UserWeb) Register(server *gin.Engine) {
+func (u *UserWeb) Register(server gin.IRouter) {
 	g := server.Group("/user")
 	{
 		g.POST("/create", u.CreateUser)
@@ -182,20 +186,69 @@ func (u *UserWeb) Login(ctx *gin.Context) {
 	}
 	if err := ctx.ShouldBindJSON(&req); err != nil {
 		u.l.Error("参数错误", logx.Error(err))
-		ctx.JSON(400, gin.H{"error": "参数错误"})
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "参数错误"})
 		return
 	}
 
 	user, err := u.userSvc.Login(ctx.Request.Context(), req.Username, req.Password)
 	if err != nil {
 		u.l.Error("登录失败", logx.Error(err))
-		ctx.JSON(401, gin.H{"error": "用户名或密码错误"})
+		ctx.JSON(http.StatusUnauthorized, gin.H{"error": "用户名或密码错误"})
+		return
+	}
+
+	// 生成JWT Token
+	_, err = u.jwtHandler.SetToken(ctx, user.UserId, user.Username, "")
+	if err != nil {
+		u.l.Error("生成Token失败", logx.Error(err))
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "登录失败"})
 		return
 	}
 
 	// 不返回密码
 	user.Password = ""
-	ctx.JSON(200, user)
+	ctx.JSON(http.StatusOK, gin.H{
+		"code": 200,
+		"msg":  "success",
+		"data": user,
+	})
+}
+
+// GetProfile 获取当前登录用户信息
+func (u *UserWeb) GetProfile(ctx *gin.Context) {
+	userIdValue, _ := ctx.Get("user_id")
+	userId, ok := userIdValue.(int64)
+	if !ok {
+		ctx.JSON(http.StatusUnauthorized, gin.H{"error": "未授权"})
+		return
+	}
+
+	user, err := u.userSvc.GetUser(ctx.Request.Context(), userId)
+	if err != nil {
+		u.l.Error("查询用户信息失败", logx.Error(err))
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "查询用户信息失败"})
+		return
+	}
+
+	user.Password = ""
+	ctx.JSON(http.StatusOK, gin.H{
+		"code": 200,
+		"msg":  "success",
+		"data": user,
+	})
+}
+
+// Logout 退出登录
+func (u *UserWeb) Logout(ctx *gin.Context) {
+	_, err := u.jwtHandler.DeleteToken(ctx)
+	if err != nil {
+		u.l.Warn("退出登录删除Token失败", logx.Error(err))
+	}
+	ctx.JSON(http.StatusOK, gin.H{
+		"code":    200,
+		"msg":     "success",
+		"message": "已退出登录",
+	})
 }
 
 func (u *UserWeb) GetUser(ctx *gin.Context) {
@@ -357,7 +410,7 @@ func NewRoleWeb(roleSvc service.RoleService, l logx.Loggerx) *RoleWeb {
 	return &RoleWeb{roleSvc: roleSvc, l: l}
 }
 
-func (r *RoleWeb) Register(server *gin.Engine) {
+func (r *RoleWeb) Register(server gin.IRouter) {
 	g := server.Group("/role")
 	{
 		g.POST("/create", r.CreateRole)
@@ -520,7 +573,7 @@ func NewPermissionWeb(permSvc service.PermissionService, l logx.Loggerx) *Permis
 	return &PermissionWeb{permSvc: permSvc, l: l}
 }
 
-func (p *PermissionWeb) Register(server *gin.Engine) {
+func (p *PermissionWeb) Register(server gin.IRouter) {
 	g := server.Group("/permission")
 	{
 		g.POST("/create", p.CreatePermission)
@@ -622,7 +675,7 @@ func NewAuthWeb(authSvc service.AuthService, l logx.Loggerx) *AuthWeb {
 	return &AuthWeb{authSvc: authSvc, l: l}
 }
 
-func (a *AuthWeb) Register(server *gin.Engine) {
+func (a *AuthWeb) Register(server gin.IRouter) {
 	g := server.Group("/auth")
 	{
 		g.POST("/assign-role", a.AssignRoleToUser)

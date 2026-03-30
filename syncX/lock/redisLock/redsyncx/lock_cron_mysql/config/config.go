@@ -17,6 +17,7 @@ type Config struct {
 	Log    LogConfig    `mapstructure:"log"`
 	Cron   CronConfig   `mapstructure:"cron"`
 	Alert  AlertConfig  `mapstructure:"alert"`
+	JWT    JWTConfig    `mapstructure:"jwt"`
 }
 
 // ServerConfig 服务器配置
@@ -57,6 +58,14 @@ type CronConfig struct {
 	RetryBackoff    time.Duration `mapstructure:"retry_backoff"`
 }
 
+// JWTConfig JWT认证配置
+type JWTConfig struct {
+	Secret     string        `mapstructure:"secret"`
+	LongSecret string        `mapstructure:"long_secret"`
+	AccessTTL  time.Duration `mapstructure:"access_ttl"`
+	RefreshTTL time.Duration `mapstructure:"refresh_ttl"`
+}
+
 // AlertConfig 告警配置
 type AlertConfig struct {
 	Enabled    bool       `mapstructure:"enabled"`
@@ -86,19 +95,17 @@ func LoadConfig(filePath string, l logx.Loggerx) (*Config, error) {
 		// 使用指定路径
 		err = viperConfig.InitViperLocal(filePath)
 	} else {
-		// 自动搜索默认路径
-		err = viperConfig.InitViperLocal("config.yaml")
-		if err != nil {
-			// 尝试当前目录
-			err = viperConfig.InitViperLocal("./config.yaml")
+		// 自动搜索默认路径（移除重复的等效路径）
+		searchPaths := []string{
+			"config.yaml",
+			"config/config.yaml",
+			"../config/config.yaml",
 		}
-		if err != nil {
-			// 尝试config目录
-			err = viperConfig.InitViperLocal("config/config.yaml")
-		}
-		if err != nil {
-			// 尝试../config目录
-			err = viperConfig.InitViperLocal("../config/config.yaml")
+		for _, p := range searchPaths {
+			err = viperConfig.InitViperLocal(p)
+			if err == nil {
+				break
+			}
 		}
 	}
 
@@ -108,7 +115,6 @@ func LoadConfig(filePath string, l logx.Loggerx) (*Config, error) {
 
 	// 解析配置到结构体（使用configx接口）
 	var cfg Config
-	//err = viperConfig.GetUnmarshalKey("", &cfg, "")
 	err = viperX.GetUnmarshalStruct(viperConfig, "", &cfg)
 	if err != nil {
 		return nil, err
@@ -145,7 +151,6 @@ func WatchConfig(filePath string, l logx.Loggerx, onChange func(*Config)) error 
 
 		// 重新加载配置（使用configx接口）
 		var cfg Config
-		//if err := viperConfig.GetUnmarshalKey("", &cfg, ""); err != nil {
 		if err := viperX.GetUnmarshalStruct(viperConfig, "", &cfg); err != nil {
 			l.Error("重新加载配置失败", logx.Error(err))
 			return
@@ -192,9 +197,6 @@ func SetDefaults(cfg *Config) {
 	}
 
 	// Redis默认值
-	if cfg.Redis.DB == 0 {
-		cfg.Redis.DB = 0
-	}
 	if cfg.Redis.PoolSize == 0 {
 		cfg.Redis.PoolSize = 100
 	}
@@ -223,6 +225,14 @@ func SetDefaults(cfg *Config) {
 	if cfg.Cron.RetryBackoff == 0 {
 		cfg.Cron.RetryBackoff = 1 * time.Second
 	}
+
+	// JWT默认值
+	if cfg.JWT.AccessTTL == 0 {
+		cfg.JWT.AccessTTL = 30 * time.Minute
+	}
+	if cfg.JWT.RefreshTTL == 0 {
+		cfg.JWT.RefreshTTL = 7 * 24 * time.Hour
+	}
 }
 
 // ValidateConfig 验证配置有效性
@@ -235,6 +245,14 @@ func ValidateConfig(cfg Config) error {
 	// 验证Redis配置
 	if cfg.Redis.Addr == "" {
 		return fmt.Errorf("redis addr is required")
+	}
+
+	// 验证JWT配置
+	if cfg.JWT.Secret == "" {
+		return fmt.Errorf("jwt secret is required")
+	}
+	if cfg.JWT.LongSecret == "" {
+		return fmt.Errorf("jwt long_secret is required")
 	}
 
 	// 验证告警配置

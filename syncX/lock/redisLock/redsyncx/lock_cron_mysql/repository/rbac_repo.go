@@ -3,6 +3,7 @@ package repository
 import (
 	"context"
 	"database/sql"
+	"fmt"
 
 	"gitee.com/hgg_test/pkg_tool/v2/syncX/lock/redisLock/redsyncx/lock_cron_mysql/domain"
 	"gitee.com/hgg_test/pkg_tool/v2/syncX/lock/redisLock/redsyncx/lock_cron_mysql/repository/dao"
@@ -205,7 +206,7 @@ func (u *userRepository) FindUserPermissions(ctx context.Context, userId int64) 
 	for _, role := range roles {
 		perms, err := u.permDb.FindByRoleId(ctx, role.RoleId)
 		if err != nil {
-			continue
+			return nil, fmt.Errorf("查询角色%d的权限失败: %w", role.RoleId, err)
 		}
 		for _, p := range perms {
 			permMap[p.PermId] = dao.ToPermissionDomain(p)
