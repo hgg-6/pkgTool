@@ -18,7 +18,7 @@
 
 ## 安装
 
-确保你已经安装了 Go 环境，然后使用以下命令获取项目：
+确保你已经安装了 Go 环境且版本1.26+，然后使用以下命令获取项目：
 
 ```bash
 go get gitee.com/hgg_test/pkg_tool/v2@latest
