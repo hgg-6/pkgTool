@@ -4,13 +4,13 @@ import (
 	"net/http"
 	"strconv"
 
-	"gitee.com/hgg_test/pkg_tool/v2/logx"
-	"gitee.com/hgg_test/pkg_tool/v2/syncX/lock/redisLock/redsyncx/lock_cron_mysql/domain"
-	"gitee.com/hgg_test/pkg_tool/v2/syncX/lock/redisLock/redsyncx/lock_cron_mysql/service"
+	"github.com/hgg-6/pkgTool/v2/logx"
+	"github.com/hgg-6/pkgTool/v2/syncX/lock/redisLock/redsyncx/lock_cron_mysql/domain"
+	"github.com/hgg-6/pkgTool/v2/syncX/lock/redisLock/redsyncx/lock_cron_mysql/service"
 
 	"github.com/gin-gonic/gin"
 
-	jwtX2 "gitee.com/hgg_test/pkg_tool/v2/webx/ginx/middleware/jwtX2"
+	jwtX2 "github.com/hgg-6/pkgTool/v2/webx/ginx/middleware/jwtX2"
 )
 
 // DepartmentWeb 部门Web接口

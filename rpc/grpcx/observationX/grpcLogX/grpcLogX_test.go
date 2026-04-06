@@ -2,9 +2,9 @@ package grpcLogX
 
 import (
 	"context"
-	"gitee.com/hgg_test/pkg_tool/v2/logx"
-	"gitee.com/hgg_test/pkg_tool/v2/logx/zerologx"
-	"gitee.com/hgg_test/pkg_tool/v2/rpc/grpcx/limiter/slidingWindow/testPkg"
+	"github.com/hgg-6/pkgTool/v2/logx"
+	"github.com/hgg-6/pkgTool/v2/logx/zerologx"
+	"github.com/hgg-6/pkgTool/v2/rpc/grpcx/limiter/slidingWindow/testPkg"
 	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/sync/errgroup"

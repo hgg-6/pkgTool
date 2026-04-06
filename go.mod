@@ -1,4 +1,4 @@
-module gitee.com/hgg_test/pkg_tool/v2
+module github.com/hgg-6/pkgTool/v2
 
 go 1.26.1
 

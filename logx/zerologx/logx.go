@@ -3,7 +3,7 @@ package zerologx
 import (
 	"encoding"
 	"fmt"
-	"gitee.com/hgg_test/pkg_tool/v2/logx"
+	"github.com/hgg-6/pkgTool/v2/logx"
 	"github.com/rs/zerolog"
 	"time"
 )
@@ -128,7 +128,7 @@ func toIfType(f logx.Field, event *zerolog.Event) *zerolog.Event {
 // eg:
 
 //import (
-//"gitee.com/hgg_test/pkg_tool/logx/zerologx"
+//"github.com/hgg-6/pkgTool/logx/zerologx"
 //"github.com/rs/zerolog"
 //"os"
 //)

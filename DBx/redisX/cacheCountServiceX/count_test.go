@@ -2,7 +2,7 @@ package cacheCountServiceX
 
 import (
 	"context"
-	"gitee.com/hgg_test/pkg_tool/v2/DBx/localCahceX/cacheLocalRistrettox"
+	"github.com/hgg-6/pkgTool/v2/DBx/localCahceX/cacheLocalRistrettox"
 	"github.com/dgraph-io/ristretto/v2"
 	"github.com/redis/go-redis/v9"
 	"github.com/stretchr/testify/assert"

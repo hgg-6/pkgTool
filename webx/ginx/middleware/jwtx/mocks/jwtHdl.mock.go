@@ -12,7 +12,7 @@ package jwtxmocks
 import (
 	reflect "reflect"
 
-	jwtx "gitee.com/hgg_test/pkg_tool/v2/webx/ginx/middleware/jwtx"
+	jwtx "github.com/hgg-6/pkgTool/v2/webx/ginx/middleware/jwtx"
 	gin "github.com/gin-gonic/gin"
 	gomock "go.uber.org/mock/gomock"
 )

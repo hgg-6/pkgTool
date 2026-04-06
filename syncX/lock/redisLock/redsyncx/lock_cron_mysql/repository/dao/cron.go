@@ -4,7 +4,7 @@ import (
 	"context"
 	"errors"
 
-	"gitee.com/hgg_test/pkg_tool/v2/syncX/lock/redisLock/redsyncx/lock_cron_mysql/domain"
+	"github.com/hgg-6/pkgTool/v2/syncX/lock/redisLock/redsyncx/lock_cron_mysql/domain"
 	"github.com/go-sql-driver/mysql"
 	"gorm.io/gorm"
 )

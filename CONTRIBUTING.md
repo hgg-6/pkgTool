@@ -18,7 +18,7 @@
 ### 克隆与依赖安装
 
 ```bash
-git clone https://gitee.com/hgg_test/pkg_tool.git
+git clone https://github.com/hgg-6/pkgTool.git
 cd pkg_tool
 go mod tidy
 ```

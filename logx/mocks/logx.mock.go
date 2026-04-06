@@ -12,7 +12,7 @@ package logxmocks
 import (
 	reflect "reflect"
 
-	logx "gitee.com/hgg_test/pkg_tool/v2/logx"
+	logx "github.com/hgg-6/pkgTool/v2/logx"
 	gomock "go.uber.org/mock/gomock"
 )
 

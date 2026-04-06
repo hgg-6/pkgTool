@@ -3,8 +3,8 @@ package grpcLogX
 import (
 	"context"
 	"fmt"
-	"gitee.com/hgg_test/pkg_tool/v2/logx"
-	"gitee.com/hgg_test/pkg_tool/v2/rpc/grpcx/observationX"
+	"github.com/hgg-6/pkgTool/v2/logx"
+	"github.com/hgg-6/pkgTool/v2/rpc/grpcx/observationX"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"

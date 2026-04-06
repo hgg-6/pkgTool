@@ -2,7 +2,7 @@ package etcdx
 
 import (
 	"context"
-	_ "gitee.com/hgg_test/pkg_tool/v2/rpc/grpcx/balancer/wrr"
+	_ "github.com/hgg-6/pkgTool/v2/rpc/grpcx/balancer/wrr"
 	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
 	etcdv3 "go.etcd.io/etcd/client/v3"

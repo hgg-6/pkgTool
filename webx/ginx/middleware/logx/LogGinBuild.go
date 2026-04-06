@@ -7,7 +7,7 @@ import (
 	"net/http"
 	"time"
 
-	"gitee.com/hgg_test/pkg_tool/v2/logx"
+	"github.com/hgg-6/pkgTool/v2/logx"
 	"github.com/gin-gonic/gin"
 )
 

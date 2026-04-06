@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"gitee.com/hgg_test/pkg_tool/v2/channelx/messageQueuex"
+	"github.com/hgg-6/pkgTool/v2/channelx/messageQueuex"
 	"github.com/IBM/sarama"
 	"github.com/stretchr/testify/assert"
 	"golang.org/x/sync/errgroup"

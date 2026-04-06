@@ -2,7 +2,7 @@ package otleTraceX
 
 import (
 	"context"
-	"gitee.com/hgg_test/pkg_tool/v2/rpc/grpcx/observationX"
+	"github.com/hgg-6/pkgTool/v2/rpc/grpcx/observationX"
 	"github.com/go-kratos/kratos/v2/errors"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"

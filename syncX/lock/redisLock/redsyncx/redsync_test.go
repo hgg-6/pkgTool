@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"gitee.com/hgg_test/pkg_tool/v2/logx/zerologx"
+	"github.com/hgg-6/pkgTool/v2/logx/zerologx"
 	"github.com/redis/go-redis/v9"
 	"github.com/robfig/cron/v3"
 	"github.com/rs/zerolog"

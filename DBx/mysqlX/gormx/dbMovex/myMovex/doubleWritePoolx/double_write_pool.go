@@ -14,8 +14,8 @@ import (
 	"sync"
 	"time"
 
-	"gitee.com/hgg_test/pkg_tool/v2/logx"
-	"gitee.com/hgg_test/pkg_tool/v2/syncX/atomicx"
+	"github.com/hgg-6/pkgTool/v2/logx"
+	"github.com/hgg-6/pkgTool/v2/syncX/atomicx"
 
 	"gorm.io/gorm"
 )

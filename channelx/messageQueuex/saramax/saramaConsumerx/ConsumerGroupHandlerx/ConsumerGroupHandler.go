@@ -4,8 +4,8 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"gitee.com/hgg_test/pkg_tool/v2/channelx/messageQueuex/saramax/saramaConsumerx/serviceLogic"
-	"gitee.com/hgg_test/pkg_tool/v2/logx"
+	"github.com/hgg-6/pkgTool/v2/channelx/messageQueuex/saramax/saramaConsumerx/serviceLogic"
+	"github.com/hgg-6/pkgTool/v2/logx"
 	"github.com/IBM/sarama"
 	"time"
 )

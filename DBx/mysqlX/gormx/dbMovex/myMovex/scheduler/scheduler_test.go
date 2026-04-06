@@ -1,11 +1,11 @@
 package scheduler
 
 import (
-	"gitee.com/hgg_test/pkg_tool/v2/DBx/mysqlX/gormx/dbMovex/myMovex/doubleWritePoolx"
-	"gitee.com/hgg_test/pkg_tool/v2/DBx/mysqlX/gormx/dbMovex/myMovex/events"
-	"gitee.com/hgg_test/pkg_tool/v2/channelx/mqX"
-	"gitee.com/hgg_test/pkg_tool/v2/channelx/mqX/kafkaX/saramaX/producerX"
-	"gitee.com/hgg_test/pkg_tool/v2/logx/zerologx"
+	"github.com/hgg-6/pkgTool/v2/DBx/mysqlX/gormx/dbMovex/myMovex/doubleWritePoolx"
+	"github.com/hgg-6/pkgTool/v2/DBx/mysqlX/gormx/dbMovex/myMovex/events"
+	"github.com/hgg-6/pkgTool/v2/channelx/mqX"
+	"github.com/hgg-6/pkgTool/v2/channelx/mqX/kafkaX/saramaX/producerX"
+	"github.com/hgg-6/pkgTool/v2/logx/zerologx"
 	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"

@@ -2,7 +2,7 @@ package cacheCountServiceX
 
 import (
 	"context"
-	"gitee.com/hgg_test/pkg_tool/v2/DBx/localCahceX"
+	"github.com/hgg-6/pkgTool/v2/DBx/localCahceX"
 )
 
 // CntServiceIn 抽象计数服务接口【只用计数服务的话，此方法即可】

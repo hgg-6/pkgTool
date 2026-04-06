@@ -13,7 +13,7 @@ import (
 	context "context"
 	reflect "reflect"
 
-	mqX "gitee.com/hgg_test/pkg_tool/v2/channelx/mqX"
+	mqX "github.com/hgg-6/pkgTool/v2/channelx/mqX"
 	gomock "go.uber.org/mock/gomock"
 )
 

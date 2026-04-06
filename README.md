@@ -21,7 +21,7 @@
 确保你已经安装了 Go 环境且版本1.26+，然后使用以下命令获取项目：
 
 ```bash
-go get gitee.com/hgg_test/pkg_tool/v2@latest
+go get github.com/hgg-6/pkgTool/v2@latest
 ```
 
 ## 使用示例

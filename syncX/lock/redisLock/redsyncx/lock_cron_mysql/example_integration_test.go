@@ -5,9 +5,9 @@ import (
 	"testing"
 	"time"
 
-	"gitee.com/hgg_test/pkg_tool/v2/logx/zerologx"
-	"gitee.com/hgg_test/pkg_tool/v2/syncX/lock/redisLock/redsyncx"
-	"gitee.com/hgg_test/pkg_tool/v2/syncX/lock/redisLock/redsyncx/lock_cron_mysql/config"
+	"github.com/hgg-6/pkgTool/v2/logx/zerologx"
+	"github.com/hgg-6/pkgTool/v2/syncX/lock/redisLock/redsyncx"
+	"github.com/hgg-6/pkgTool/v2/syncX/lock/redisLock/redsyncx/lock_cron_mysql/config"
 	"github.com/gin-gonic/gin"
 	"github.com/redis/go-redis/v9"
 	"github.com/rs/zerolog"

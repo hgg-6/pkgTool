@@ -3,7 +3,7 @@ package executor
 import (
 	"context"
 
-	"gitee.com/hgg_test/pkg_tool/v2/syncX/lock/redisLock/redsyncx/lock_cron_mysql/domain"
+	"github.com/hgg-6/pkgTool/v2/syncX/lock/redisLock/redsyncx/lock_cron_mysql/domain"
 )
 
 // ExecutionResult 任务执行结果

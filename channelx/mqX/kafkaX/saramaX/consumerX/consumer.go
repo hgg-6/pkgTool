@@ -5,7 +5,7 @@ package consumerX
 import (
 	"context"
 	"fmt"
-	"gitee.com/hgg_test/pkg_tool/v2/channelx/mqX"
+	"github.com/hgg-6/pkgTool/v2/channelx/mqX"
 	"github.com/IBM/sarama"
 	"time"
 )

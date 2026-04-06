@@ -9,8 +9,8 @@ import (
 	"net/http"
 	"time"
 
-	"gitee.com/hgg_test/pkg_tool/v2/logx"
-	"gitee.com/hgg_test/pkg_tool/v2/syncX/lock/redisLock/redsyncx/lock_cron_mysql/domain"
+	"github.com/hgg-6/pkgTool/v2/logx"
+	"github.com/hgg-6/pkgTool/v2/syncX/lock/redisLock/redsyncx/lock_cron_mysql/domain"
 )
 
 // HTTPTaskConfig HTTP任务配置（存储在CronJob的额外字段中）

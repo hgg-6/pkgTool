@@ -5,8 +5,8 @@ import (
 	"testing"
 	"time"
 
-	"gitee.com/hgg_test/pkg_tool/v2/logx"
-	"gitee.com/hgg_test/pkg_tool/v2/logx/zerologx"
+	"github.com/hgg-6/pkgTool/v2/logx"
+	"github.com/hgg-6/pkgTool/v2/logx/zerologx"
 	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/assert"
 )

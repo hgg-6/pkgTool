@@ -7,9 +7,9 @@ import (
 	"strings"
 	"testing"
 
-	"gitee.com/hgg_test/pkg_tool/v2/DBx/mysqlX/gormx/dbMovex/myMovex/events"
-	"gitee.com/hgg_test/pkg_tool/v2/logx"
-	"gitee.com/hgg_test/pkg_tool/v2/logx/zerologx"
+	"github.com/hgg-6/pkgTool/v2/DBx/mysqlX/gormx/dbMovex/myMovex/events"
+	"github.com/hgg-6/pkgTool/v2/logx"
+	"github.com/hgg-6/pkgTool/v2/logx/zerologx"
 	"github.com/IBM/sarama"
 	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/assert"
