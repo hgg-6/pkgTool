@@ -1,5 +1,3 @@
-.idea/
-.qoder/
-CLAUDE.md
+.*
 README.md
-LICENSE
+!.gitignore
