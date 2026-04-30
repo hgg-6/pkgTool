@@ -8,107 +8,151 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
-// InitPrometheus 启动 Prometheus metrics 服务
-func InitPrometheus(addr string) error {
-	http.Handle("/metrics", promhttp.Handler())
-	return http.ListenAndServe(addr, nil)
-}
+// ErrAlreadyRegistered 重复注册时返回的 sentinel error
+var ErrAlreadyRegistered = errors.New("prometheus: collector already registered")
 
-// MustInitPrometheus 启动 Prometheus metrics 服务，失败时 panic
-// Deprecated: 推荐使用 InitPrometheus 并处理返回的 error
-func MustInitPrometheus(addr string) {
-	if err := InitPrometheus(addr); err != nil {
-		panic(err)
+// New 创建 PrometheusX 实例
+func New(opts ...Option) *PrometheusStr {
+	p := &PrometheusStr{}
+	for _, opt := range opts {
+		opt(p)
 	}
+	return p
 }
 
-// safeRegister 安全注册 collector，处理重复注册
-func safeRegister(c prometheus.Collector) error {
-	if err := prometheus.Register(c); err != nil {
-		if _, ok := errors.AsType[prometheus.AlreadyRegisteredError](err); ok {
-			return nil // 已注册，忽略
+// WithNamespace 设置全局 namespace
+func WithNamespace(ns string) Option {
+	return func(p *PrometheusStr) { p.namespace = ns }
+}
+
+// WithSubsystem 设置全局 subsystem
+func WithSubsystem(sub string) Option {
+	return func(p *PrometheusStr) { p.subsystem = sub }
+}
+
+// WithConstLabels 设置全局常量标签
+func WithConstLabels(labels map[string]string) Option {
+	return func(p *PrometheusStr) { p.constLabels = labels }
+}
+
+// WithRegisterer 设置自定义 Registerer（默认 prometheus.DefaultRegisterer）
+func WithRegisterer(reg prometheus.Registerer) Option {
+	return func(p *PrometheusStr) { p.reg = reg }
+}
+
+// WithGatherer 设置自定义 Gatherer（默认 prometheus.DefaultGatherer），影响 Handler() 输出
+func WithGatherer(g prometheus.Gatherer) Option {
+	return func(p *PrometheusStr) { p.gatherer = g }
+}
+
+// Register 注册 collector；重复注册时返回 ErrAlreadyRegistered
+func (p *PrometheusStr) Register(c prometheus.Collector) error {
+	reg := p.reg
+	if reg == nil {
+		reg = prometheus.DefaultRegisterer
+	}
+	if err := reg.Register(c); err != nil {
+		var alreadyErr prometheus.AlreadyRegisteredError
+		if errors.As(err, &alreadyErr) {
+			return ErrAlreadyRegistered
 		}
 		return err
 	}
 	return nil
 }
 
-// PrometheusCounter 计数器示例
-func PrometheusCounter() {
-	counter := prometheus.NewCounter(prometheus.CounterOpts{
-		Namespace: "hgg",
-		Subsystem: "hgg_XiaoWeiShu",
-		Name:      "hgg_counter",
-	})
-	_ = safeRegister(counter)
-	counter.Inc()
-	counter.Add(10.2)
-}
-
-// PrometheusGauge 仪表示例
-func PrometheusGauge() {
-	gauge := prometheus.NewGauge(prometheus.GaugeOpts{
-		Namespace: "hgg",
-		Subsystem: "hgg_XiaoWeiShu",
-		Name:      "hgg_gauge",
-	})
-	_ = safeRegister(gauge)
-	gauge.Set(12)
-	gauge.Add(10.2)
-	gauge.Add(-3)
-	gauge.Sub(3)
-}
-
-// PrometheusHistogram 直方图示例
-func PrometheusHistogram() {
-	histogram := prometheus.NewHistogram(prometheus.HistogramOpts{
-		Namespace: "hgg",
-		Subsystem: "hgg_XiaoWeiShu",
-		Name:      "hgg_histogram",
-		Buckets:   []float64{10, 50, 100, 500, 1000, 10000},
-	})
-	_ = safeRegister(histogram)
-	histogram.Observe(12.4)
-}
-
-// PrometheusSummary 概要示例
-func PrometheusSummary() {
-	summary := prometheus.NewSummary(prometheus.SummaryOpts{
-		Namespace: "hgg",
-		Subsystem: "hgg_XiaoWeiShu",
-		Name:      "hgg_summary",
-		Objectives: map[float64]float64{
-			0.5:   0.01,
-			0.75:  0.01,
-			0.90:  0.005,
-			0.98:  0.002,
-			0.99:  0.001,
-			0.999: 0.0001,
-		},
-	})
-	_ = safeRegister(summary)
-	summary.Observe(12.3)
-}
-
-// PrometheusVector 向量
-//   - 实践中，我们采集的指标很有可能是根据一些业务特征来统计的，比如说分开统计HTTP响应码是2XX的以及非2XX的。
-//   - 在这种情况下，可以考虑使用 Prometheus 中的Vector 用法。
-func PrometheusVector() {
-	labelNames := []string{"pattern", "method", "status"}
-	opts := prometheus.SummaryOpts{
-		Namespace: "hgg",
-		Subsystem: "hgg_XiaoWeiShu",
-		Name:      "hgg_summaryVector",
-		ConstLabels: map[string]string{
-			"server":  "localhost:9091",
-			"evn":     "test",
-			"appName": "hgg_XiaoWeiShu",
-		},
-		Help: "The statics info for http request",
+// MustRegister 注册 collector，重复注册被忽略，其他错误 panic
+func (p *PrometheusStr) MustRegister(c prometheus.Collector) {
+	if err := p.Register(c); err != nil {
+		if errors.Is(err, ErrAlreadyRegistered) {
+			return
+		}
+		panic(err)
 	}
+}
 
-	// labelNames设置观测哪些值, summaryVector.WithLabelValues()就是观测的值
-	summaryVector := prometheus.NewSummaryVec(opts, labelNames)
-	// 所以最后一个 Observe 方法，可以看成是当次请求 pattern = /profile, method = get 和 status = 200 的时候，响应时间是128单位是毫秒的都是被统计的+1。
-	summaryVector.WithLabelValues("/profile", "GET", "200").Observe(128)
+// Handler 返回 /metrics 端点对应的 http.Handler
+// 若使用了自定义 Registerer/Gatherer，应使用此方法而非默认 promhttp.Handler
+func (p *PrometheusStr) Handler(opts ...promhttp.HandlerOpts) http.Handler {
+	g := p.gatherer
+	if g == nil {
+		g = prometheus.DefaultGatherer
+	}
+	if len(opts) > 0 {
+		return promhttp.HandlerFor(g, opts[0])
+	}
+	return promhttp.HandlerFor(g, promhttp.HandlerOpts{})
+}
+
+// StartServer 在指定地址启动 /metrics HTTP 端点，使用独立 Mux，不影响全局
+func (p *PrometheusStr) StartServer(addr string) error {
+	mux := http.NewServeMux()
+	mux.Handle("/metrics", p.Handler())
+	return http.ListenAndServe(addr, mux)
+}
+
+// MustStartServer 同 StartServer，失败时 panic
+func (p *PrometheusStr) MustStartServer(addr string) {
+	if err := p.StartServer(addr); err != nil {
+		panic(err)
+	}
+}
+
+// Deprecated: 使用 PrometheusStr.StartServer 替代，此函数使用全局 DefaultGatherer，自定义 Registry 的指标不可见
+func InitPrometheusServer(addr string) error {
+	http.Handle("/metrics", promhttp.Handler())
+	return http.ListenAndServe(addr, nil)
+}
+
+// Deprecated: 使用 PrometheusStr.MustStartServer 替代
+func MustInitPrometheusServer(addr string) {
+	if err := InitPrometheusServer(addr); err != nil {
+		panic(err)
+	}
+}
+
+// counterOpts 构建 CounterOpts，自动填充 namespace/subsystem/constLabels
+func (p *PrometheusStr) counterOpts(name, help string) prometheus.CounterOpts {
+	return prometheus.CounterOpts{
+		Namespace:   p.namespace,
+		Subsystem:   p.subsystem,
+		Name:        name,
+		Help:        help,
+		ConstLabels: p.constLabels,
+	}
+}
+
+// gaugeOpts 构建 GaugeOpts
+func (p *PrometheusStr) gaugeOpts(name, help string) prometheus.GaugeOpts {
+	return prometheus.GaugeOpts{
+		Namespace:   p.namespace,
+		Subsystem:   p.subsystem,
+		Name:        name,
+		Help:        help,
+		ConstLabels: p.constLabels,
+	}
+}
+
+// histogramOpts 构建 HistogramOpts
+func (p *PrometheusStr) histogramOpts(name, help string, buckets []float64) prometheus.HistogramOpts {
+	return prometheus.HistogramOpts{
+		Namespace:   p.namespace,
+		Subsystem:   p.subsystem,
+		Name:        name,
+		Help:        help,
+		Buckets:     buckets,
+		ConstLabels: p.constLabels,
+	}
+}
+
+// summaryOpts 构建 SummaryOpts
+func (p *PrometheusStr) summaryOpts(name, help string, objectives map[float64]float64) prometheus.SummaryOpts {
+	return prometheus.SummaryOpts{
+		Namespace:   p.namespace,
+		Subsystem:   p.subsystem,
+		Name:        name,
+		Help:        help,
+		Objectives:  objectives,
+		ConstLabels: p.constLabels,
+	}
 }

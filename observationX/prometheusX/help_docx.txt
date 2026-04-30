@@ -1,0 +1,131 @@
+PrometheusX 统一封装使用指南
+
+========== 1. IOC 中初始化 ==========
+
+package ioc
+
+import (
+    "github.com/hgg-6/pkgTool/v2/observationX/prometheusX"
+)
+
+func InitPrometheus() *prometheusX.PrometheusStr {
+    px := prometheusX.New(
+        prometheusX.WithNamespace("hgg"),
+        prometheusX.WithSubsystem("myService"),
+        prometheusX.WithConstLabels(map[string]string{
+            "env": "production",
+        }),
+    )
+    return px
+}
+
+
+========== 2. main 中启动 HTTP Server ==========
+
+package main
+
+func main() {
+    px := ioc.InitPrometheus()
+
+    go func() {
+        if err := px.StartServer(":9091"); err != nil {
+            panic(err)
+        }
+    }()
+
+    // ... 启动业务服务
+}
+
+
+========== 3. 业务中 DI 注入指标 ==========
+
+type userSvc struct {
+    repo       repository.UserRepo
+    reqCounter prometheus.Counter    // 注入 Counter
+    reqLatency prometheus.Histogram  // 注入 Histogram
+}
+
+func NewUserSvc(
+    repo repository.UserRepo,
+    reqCounter prometheus.Counter,
+    reqLatency prometheus.Histogram,
+) UserSvc {
+    return &userSvc{
+        repo:       repo,
+        reqCounter: reqCounter,
+        reqLatency: reqLatency,
+    }
+}
+
+func (u *userSvc) Profile(ctx context.Context, uid int64) error {
+    u.reqCounter.Inc()
+    start := time.Now()
+    defer func() {
+        u.reqLatency.Observe(float64(time.Since(start).Milliseconds()))
+    }()
+    // ... 业务逻辑
+}
+
+// IOC 中创建指标并注入
+func InitUserSvc(repo repository.UserRepo, px *prometheusX.PrometheusStr) UserSvc {
+    reqCounter := px.NewCounter(
+        "requests_total",
+        "Total number of requests",
+    )
+    reqLatency := px.NewHistogram(
+        "request_latency_ms",
+        "Request latency in ms",
+        []float64{10, 50, 100, 500, 1000, 5000},
+    )
+    return NewUserSvc(repo, reqCounter, reqLatency)
+}
+
+
+========== 4. Vec 变体（带标签） ==========
+
+func InitHTTPMetrics(px *prometheusX.PrometheusStr) *prometheus.CounterVec {
+    return px.NewCounterVec(
+        "http_requests_total",
+        "HTTP requests total",
+        []string{"method", "path", "status"},
+    )
+}
+
+// 业务中使用
+counterVec.WithLabelValues("GET", "/profile", "200").Inc()
+
+
+========== 5. 自定义 Registry ==========
+
+reg := prometheus.NewRegistry()
+px := prometheusX.New(
+    prometheusX.WithRegisterer(reg),
+    prometheusX.WithGatherer(reg),
+)
+http.Handle("/metrics", px.Handler())
+
+
+========== 6. Gin 中暴露 /metrics ==========
+
+// prometheusX 不依赖 gin，直接用标准库暴露即可：
+go func() {
+    http.ListenAndServe(":9091", promhttp.Handler())
+}()
+
+// 或在 gin router 上挂载：
+router.GET("/metrics", gin.WrapH(promhttp.Handler()))
+
+
+========== 7. Gorm 中接入（使用 gorm/opentelemetry 插件） ==========
+
+// Gorm 目前没有官方 Prometheus 插件，推荐做法：
+//   1. 在 DAO 层注入 prometheus.Histogram，记录 DB 操作耗时
+//   2. 或者使用 gorm 的 Plugin 机制自定义接入
+
+func (d *userDAO) FindById(ctx context.Context, uid int64) (User, error) {
+    start := time.Now()
+    defer func() {
+        d.dbLatencyHistogram.Observe(float64(time.Since(start).Milliseconds()))
+    }()
+    // ... Gorm 操作
+}

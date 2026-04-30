@@ -2,18 +2,26 @@ package opentelemetryX
 
 import (
 	"context"
+	"testing"
+	"time"
+
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
 	"go.opentelemetry.io/otel/attribute"
-	"go.opentelemetry.io/otel/exporters/zipkin"
+	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc"
 	"go.opentelemetry.io/otel/trace"
-	"testing"
-	"time"
 )
 
 func TestNewOtelStr(t *testing.T) {
 	// 使用zipkin的实现trace.SpanExporter
-	exporter, err := zipkin.New("http://localhost:9411/api/v2/spans") // zipkin exporter
+	//exporter, err := zipkin.New("http://localhost:9411/api/v2/spans") // zipkin exporter
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*10)
+	defer cancel()
+	// tempo exporter，此种方便grafana直接添加tempo数据源观察
+	exporter, err := otlptracegrpc.New(ctx,
+		otlptracegrpc.WithEndpoint("localhost:4317"), // grpc默认
+		otlptracegrpc.WithInsecure(),
+	)
 	assert.NoError(t, err)
 	// 初始化全局链路追踪
 	ct, err := NewOtelStr(SvcInfo{ServiceName: "hgg", ServiceVersion: "v0.0.1"}, exporter)
