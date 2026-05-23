@@ -19,7 +19,8 @@ func Deref[T any](t *T) T {
 	if t != nil {
 		return *t
 	}
-	return *new(T)
+	var zero T
+	return zero
 }
 
 // DerefOr 安全解引用指针，如果为nil时返回指定默认值or

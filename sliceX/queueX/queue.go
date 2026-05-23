@@ -197,11 +197,4 @@ func (pq *PriorityQueue[T]) IsEmpty() bool {
 	return len(pq.items) == 0
 }
 
-// ---------- 辅助函数 ----------
 
-func maxx(a, b int) int {
-	if a > b {
-		return a
-	}
-	return b
-}

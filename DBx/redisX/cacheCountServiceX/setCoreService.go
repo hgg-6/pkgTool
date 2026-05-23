@@ -127,17 +127,16 @@ func (i *Count[K, V]) tryEvalLua(ctx context.Context, key, rankKey string, delta
 
 // ===============================
 // 每分钟调用一次，滑动窗口
-var sliCtx = context.Background()
 
-func (i *Count[K, V]) slideWindow(key string, newValue []RankItem) error {
+func (i *Count[K, V]) slideWindow(ctx context.Context, key string, newValue []RankItem) error {
 	// 1. 左侧插入新值
-	err := i.RedisCache.LPush(sliCtx, key, newValue).Err()
+	err := i.RedisCache.LPush(ctx, key, newValue).Err()
 	if err != nil {
 		return err
 	}
 
 	// 2. 保留最新的5个元素（0~4），其余截断
-	err = i.RedisCache.LTrim(sliCtx, key, 0, 4).Err()
+	err = i.RedisCache.LTrim(ctx, key, 0, 4).Err()
 	if err != nil {
 		return err
 	}

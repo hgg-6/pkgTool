@@ -120,6 +120,7 @@ type AsyncProducer struct {
 	stoppedChan chan struct{}
 	wg          sync.WaitGroup
 	handler     AsyncResultHandler
+	closeOnce   sync.Once
 }
 
 // NewAsyncProducer 创建异步生产者
@@ -213,7 +214,9 @@ func (p *AsyncProducer) handleResults() {
 
 // Close 关闭异步生产者，等待所有goroutine退出
 func (p *AsyncProducer) Close() error {
-	close(p.stopChan)
+	p.closeOnce.Do(func() {
+		close(p.stopChan)
+	})
 
 	// 等待结果处理goroutine退出
 	p.wg.Wait()

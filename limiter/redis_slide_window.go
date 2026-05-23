@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"strconv"
+	"sync"
 	"sync/atomic"
 	"time"
 
@@ -20,6 +21,7 @@ var luaScript string
 type RedisSlideWindowKLimiter struct {
 	cmd redis.Cmdable
 
+	mu       sync.RWMutex
 	prefix   string        // Redis key前缀，用于区分不同业务
 	interval time.Duration // 窗口大小
 	rate     int           // 阈值，窗口内允许的最大请求数
@@ -87,15 +89,21 @@ func (b *RedisSlideWindowKLimiter) LimitWithRequestID(ctx context.Context, key, 
 		requestID = b.generateRequestID()
 	}
 
+	b.mu.RLock()
+	prefix := b.prefix
+	interval := b.interval
+	rate := b.rate
+	b.mu.RUnlock()
+
 	// 构建完整的Redis key
-	fullKey := b.prefix + key
+	fullKey := prefix + key
 
 	// 准备Lua脚本参数
 	args := []interface{}{
-		b.interval.Milliseconds(), // ARGV[1]: 窗口大小（毫秒）
-		b.rate,                    // ARGV[2]: 阈值
-		time.Now().UnixMilli(),    // ARGV[3]: 当前时间戳（毫秒）
-		requestID,                 // ARGV[4]: 唯一请求ID
+		interval.Milliseconds(), // ARGV[1]: 窗口大小（毫秒）
+		rate,                    // ARGV[2]: 阈值
+		time.Now().UnixMilli(),  // ARGV[3]: 当前时间戳（毫秒）
+		requestID,               // ARGV[4]: 唯一请求ID
 	}
 
 	// 执行Lua脚本
@@ -129,9 +137,14 @@ func (b *RedisSlideWindowKLimiter) LimitWithCustomKeyAndRequestID(ctx context.Co
 		requestID = b.generateRequestID()
 	}
 
+	b.mu.RLock()
+	interval := b.interval
+	rate := b.rate
+	b.mu.RUnlock()
+
 	args := []interface{}{
-		b.interval.Milliseconds(),
-		b.rate,
+		interval.Milliseconds(),
+		rate,
 		time.Now().UnixMilli(),
 		requestID,
 	}
@@ -175,11 +188,15 @@ func (b *RedisSlideWindowKLimiter) parseLuaResult(result interface{}) (bool, err
 
 // GetConfig 获取限流器配置
 func (b *RedisSlideWindowKLimiter) GetConfig() (time.Duration, int) {
+	b.mu.RLock()
+	defer b.mu.RUnlock()
 	return b.interval, b.rate
 }
 
 // GetPrefix 获取Redis key前缀
 func (b *RedisSlideWindowKLimiter) GetPrefix() string {
+	b.mu.RLock()
+	defer b.mu.RUnlock()
 	return b.prefix
 }
 
@@ -188,5 +205,7 @@ func (b *RedisSlideWindowKLimiter) SetPrefix(prefix string) {
 	if prefix == "" {
 		prefix = "limiter:slide_window:"
 	}
+	b.mu.Lock()
+	defer b.mu.Unlock()
 	b.prefix = prefix
 }

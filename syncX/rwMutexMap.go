@@ -74,6 +74,8 @@ func (m *RWMutexMap[K, V]) Len() int {
 
 // CapMax 返回容量限制
 func (m *RWMutexMap[K, V]) CapMax() int {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
 	return m.maxCap
 }
 

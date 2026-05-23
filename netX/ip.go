@@ -1,6 +1,9 @@
 package netX
 
-import "net"
+import (
+	"fmt"
+	"net"
+)
 
 // GetOutboundIP 获得对外发送消息的 IP 地址
 // 如果获取失败，返回空字符串
@@ -17,6 +20,9 @@ func GetOutboundIPWithError() (string, error) {
 	}
 	defer conn.Close()
 
-	localAddr := conn.LocalAddr().(*net.UDPAddr) // *net.UDPAddr is a struct
+	localAddr, ok := conn.LocalAddr().(*net.UDPAddr)
+	if !ok {
+		return "", fmt.Errorf("unexpected LocalAddr type: %T", conn.LocalAddr())
+	}
 	return localAddr.IP.String(), nil
 }

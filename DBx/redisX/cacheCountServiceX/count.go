@@ -107,14 +107,6 @@ func (i *Count[K, V]) initLuaCntScripts(ctx context.Context) error {
 
 // initLuaGetRankScripts 在初始化时预加载脚本并获取 SHA
 func (i *Count[K, V]) initLuaGetRankScripts(ctx context.Context) error {
-	if i.RankCount == false {
-		sha, err := i.RedisCache.ScriptLoad(ctx, i.LuaCnt).Result()
-		if err != nil {
-			return err
-		}
-		i.LuaGetRank = sha
-		return nil
-	}
 	sha, err := i.RedisCache.ScriptLoad(ctx, i.LuaGetRank).Result()
 	if err != nil {
 		return err

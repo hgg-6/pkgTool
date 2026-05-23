@@ -3,6 +3,7 @@ package viperX
 import (
 	"context"
 	"fmt"
+	"sync"
 	"time"
 
 	"github.com/hgg-6/pkgTool/v2/configx"
@@ -15,7 +16,9 @@ import (
 type ViperConfigStr struct {
 	Config   *viper.Viper
 	Configs  *syncX.Map[string, *viper.Viper] // 使用并发安全的Map，无需额外锁
-	interval time.Duration                    // 远程配置中心监听文件变更的间隔时间,默认5秒
+
+	mu       sync.RWMutex
+	interval time.Duration // 远程配置中心监听文件变更的间隔时间,默认5秒
 
 	l                 logx.Loggerx
 	remoteWatchCtx    context.Context
@@ -190,8 +193,11 @@ func (v *ViperConfigStr) InitViperRemoteWatch(provider, endpoint, path string) e
 	v.remoteWatchCtx, v.remoteWatchCancel = context.WithCancel(context.Background())
 
 	// 启动监听远程配置变更
+	v.mu.RLock()
+	interval := v.interval
+	v.mu.RUnlock()
 	go func() {
-		ticker := time.NewTicker(v.interval)
+		ticker := time.NewTicker(interval)
 		defer ticker.Stop()
 		for {
 			select {
@@ -215,6 +221,8 @@ func (v *ViperConfigStr) InitViperRemoteWatch(provider, endpoint, path string) e
 // SetInterval 设置远程配置的监听间隔频率【几秒监听一次...】
 //   - t 是远程配置的监听间隔频率【几秒监听一次...】
 func (v *ViperConfigStr) SetInterval(t time.Duration) {
+	v.mu.Lock()
+	defer v.mu.Unlock()
 	v.interval = t
 }
 

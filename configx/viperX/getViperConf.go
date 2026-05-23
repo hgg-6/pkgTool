@@ -200,8 +200,10 @@ func convertToType[T configValue](raw any, key string) T {
 	// ========== 浮点数类型 ==========
 	case float32:
 		switch val := raw.(type) {
-		case int, int64:
-			return any(float32(val.(int64))).(T)
+		case int:
+			return any(float32(val)).(T)
+		case int64:
+			return any(float32(val)).(T)
 		case float64:
 			return any(float32(val)).(T)
 		case string:
@@ -211,8 +213,10 @@ func convertToType[T configValue](raw any, key string) T {
 		}
 	case float64:
 		switch val := raw.(type) {
-		case int, int64:
-			return any(float64(val.(int64))).(T)
+		case int:
+			return any(float64(val)).(T)
+		case int64:
+			return any(float64(val)).(T)
 		case float32:
 			return any(float64(val)).(T)
 		case string:
@@ -233,11 +237,15 @@ func convertToType[T configValue](raw any, key string) T {
 			case "false", "0", "off", "no":
 				return any(false).(T)
 			}
-		case int, int64:
+		case int:
+			return any(val != 0).(T)
+		case int64:
 			return any(val != 0).(T)
 		case float64:
 			return any(val != 0).(T)
-		case uint, uint64:
+		case uint:
+			return any(val != 0).(T)
+		case uint64:
 			return any(val != 0).(T)
 		}
 
@@ -333,8 +341,10 @@ func convertToType[T configValue](raw any, key string) T {
 			result = make([]float64, len(val))
 			for i, item := range val {
 				switch v := item.(type) {
-				case int, int64:
-					result[i] = float64(v.(int64))
+				case int:
+					result[i] = float64(v)
+				case int64:
+					result[i] = float64(v)
 				case float32:
 					result[i] = float64(v)
 				case string:
