@@ -38,7 +38,10 @@ func InitCounter(opt prometheus.CounterOpts) {
 func WrapBodyAndClaims[Req any, Claims jwt.Claims](bizFn func(ctx *gin.Context, req Req, uc Claims) (Result, error)) gin.HandlerFunc {
 	return func(ctx *gin.Context) {
 		var req Req
-		if err := ctx.Bind(&req); err != nil {
+		// 注意：必须用 ShouldBind 而非 Bind。Bind（= MustBindWith）在校验失败时
+		// 会自动调用 AbortWithError 并写入 400 响应，此处再 ctx.JSON 会导致双重响应
+		// （superfluous WriteHeader 警告、响应体可能损坏）。
+		if err := ctx.ShouldBind(&req); err != nil {
 			if L != nil {
 				L.Error("输入错误", logx.Error(err))
 			}
@@ -72,7 +75,8 @@ func WrapBodyAndClaims[Req any, Claims jwt.Claims](bizFn func(ctx *gin.Context, 
 func WrapBody[Req any](bizFn func(ctx *gin.Context, req Req) (Result, error)) gin.HandlerFunc {
 	return func(ctx *gin.Context) {
 		var req Req
-		if err := ctx.Bind(&req); err != nil {
+		// 同 WrapBodyAndClaims，用 ShouldBind 避免 Bind 自动写 400 导致双重响应。
+		if err := ctx.ShouldBind(&req); err != nil {
 			if L != nil {
 				L.Error("输入错误", logx.Error(err))
 			}
