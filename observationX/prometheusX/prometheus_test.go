@@ -10,6 +10,7 @@ import (
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"github.com/prometheus/client_golang/prometheus/testutil"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -175,6 +176,20 @@ func TestErrAlreadyRegistered_SentinelType(t *testing.T) {
 	err := p.Register(c2)
 	assert.True(t, errors.Is(err, ErrAlreadyRegistered))
 	assert.Equal(t, "prometheus: collector already registered", err.Error())
+}
+
+// TestNewCounter_DuplicateReturnsRegisteredCollector 验证重复注册返回真正生效的 collector。
+func TestNewCounter_DuplicateReturnsRegisteredCollector(t *testing.T) {
+	p := newTestPrometheusStr(t)
+
+	c1 := p.NewCounter("reuse_counter", "help")
+	c2 := p.NewCounter("reuse_counter", "help")
+
+	c1.Inc()
+	c2.Add(2)
+
+	val := testutil.ToFloat64(c1)
+	assert.Equal(t, 3.0, val, "重复注册返回的应是同一已注册 counter，c1+c2 应为 3")
 }
 
 // ============================== Handler ==============================

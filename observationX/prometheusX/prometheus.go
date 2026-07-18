@@ -45,8 +45,16 @@ func WithGatherer(g prometheus.Gatherer) Option {
 	return func(p *PrometheusStr) { p.gatherer = g }
 }
 
-// Register 注册 collector；重复注册时返回 ErrAlreadyRegistered
+// Register 注册 collector；重复注册时返回 ErrAlreadyRegistered。
 func (p *PrometheusStr) Register(c prometheus.Collector) error {
+	_, err := p.registerOrGet(c)
+	return err
+}
+
+// registerOrGet 注册 collector，重复注册时返回已存在的 collector 和 ErrAlreadyRegistered。
+// 旧 Register 丢弃了 AlreadyRegisteredError.ExistingCollector，导致工厂方法返回
+// 未注册的新实例，Inc 等操作不会出现在 /metrics（指标静默丢失）。
+func (p *PrometheusStr) registerOrGet(c prometheus.Collector) (prometheus.Collector, error) {
 	reg := p.reg
 	if reg == nil {
 		reg = prometheus.DefaultRegisterer
@@ -54,16 +62,29 @@ func (p *PrometheusStr) Register(c prometheus.Collector) error {
 	if err := reg.Register(c); err != nil {
 		var alreadyErr prometheus.AlreadyRegisteredError
 		if errors.As(err, &alreadyErr) {
-			return ErrAlreadyRegistered
+			return alreadyErr.ExistingCollector, ErrAlreadyRegistered
 		}
-		return err
+		return nil, err
 	}
-	return nil
+	return c, nil
+}
+
+// registerOrReuse 供工厂方法使用：重复注册时返回已存在的 collector 且不报错，
+// 其它注册错误才返回 error（工厂方法对其它错误 panic）。
+func (p *PrometheusStr) registerOrReuse(c prometheus.Collector) (prometheus.Collector, error) {
+	registered, err := p.registerOrGet(c)
+	if err != nil {
+		if errors.Is(err, ErrAlreadyRegistered) {
+			return registered, nil
+		}
+		return nil, err
+	}
+	return registered, nil
 }
 
 // MustRegister 注册 collector，重复注册被忽略，其他错误 panic
 func (p *PrometheusStr) MustRegister(c prometheus.Collector) {
-	if err := p.Register(c); err != nil {
+	if _, err := p.registerOrGet(c); err != nil {
 		if errors.Is(err, ErrAlreadyRegistered) {
 			return
 		}
