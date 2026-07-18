@@ -200,39 +200,21 @@ func (w *responseWriter) WriteHeader(statusCode int) {
 }
 
 // ReqLogPrint 请求日志打印
+//
+// 请求阶段调用（在 c.Next() 之前），此时响应尚未产生、Status 必为 0。
+// 因此请求日志不按状态码分级（旧实现按 Status 分级，但 Status 永远为 0，
+// Warn/Error 分支是死代码、分级完全失效），统一以 Info 级别记录请求到达。
+// 状态码分级在 RespLogPrint 中按真实响应状态完成。
 func (a *AccessLog) ReqLogPrint(log logx.Loggerx) {
-	// 创建日志事件
-	if a.Status >= http.StatusBadRequest && a.Status < http.StatusInternalServerError {
-		log.Warn("HTTP request", logx.String("log_id", a.LogId),
-			logx.String("client_ip", a.ClientIP),
-			logx.String("proto", a.Proto),
-			logx.String("method", a.Method),
-			logx.String("path", a.Path),
-			logx.Any("headers", a.Headers),
-			logx.String("req_body", a.ReqBody),
-			logx.Int64("start_time", a.StartTime),
-		)
-	} else if a.Status >= http.StatusInternalServerError {
-		log.Error("HTTP request", logx.String("log_id", a.LogId),
-			logx.String("client_ip", a.ClientIP),
-			logx.String("proto", a.Proto),
-			logx.String("method", a.Method),
-			logx.String("path", a.Path),
-			logx.Any("headers", a.Headers),
-			logx.String("req_body", a.ReqBody),
-			logx.Int64("start_time", a.StartTime),
-		)
-	} else {
-		log.Info("HTTP request", logx.String("log_id", a.LogId),
-			logx.String("client_ip", a.ClientIP),
-			logx.String("proto", a.Proto),
-			logx.String("method", a.Method),
-			logx.String("path", a.Path),
-			logx.Any("headers", a.Headers),
-			logx.String("req_body", a.ReqBody),
-			logx.Int64("start_time", a.StartTime),
-		)
-	}
+	log.Info("HTTP request", logx.String("log_id", a.LogId),
+		logx.String("client_ip", a.ClientIP),
+		logx.String("proto", a.Proto),
+		logx.String("method", a.Method),
+		logx.String("path", a.Path),
+		logx.Any("headers", a.Headers),
+		logx.String("req_body", a.ReqBody),
+		logx.Int64("start_time", a.StartTime),
+	)
 }
 
 // RespLogPrint 响应日志打印
