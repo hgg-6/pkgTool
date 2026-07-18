@@ -96,4 +96,66 @@ func TestToAny(t *testing.T) {
 		_, ok := ToAny[int](nil)
 		assert.False(t, ok)
 	})
+
+	// int -> int8 边界（P0-4 修复后会校验，200 超过 int8 范围应失败）
+	t.Run("IntToInt8 overflow", func(t *testing.T) {
+		_, ok := ToAny[int8](int(200))
+		assert.False(t, ok, "200 超出 int8 范围应失败")
+	})
+
+	// int -> int8 正常（P0-4 修复后）
+	t.Run("IntToInt8 ok", func(t *testing.T) {
+		v, ok := ToAny[int8](int(100))
+		assert.True(t, ok)
+		assert.Equal(t, int8(100), v)
+	})
+
+	// int -> int8 负溢出应失败
+	t.Run("IntToInt8 negative overflow", func(t *testing.T) {
+		_, ok := ToAny[int8](int(-200))
+		assert.False(t, ok, "-200 超出 int8 范围应失败")
+	})
+
+	// int64 边界值 -> int8
+	t.Run("Int64ToInt8 boundary ok", func(t *testing.T) {
+		v, ok := ToAny[int8](int64(127))
+		assert.True(t, ok)
+		assert.Equal(t, int8(127), v)
+	})
+
+	// int64 超边界 -> int8 失败
+	t.Run("Int64ToInt8 boundary fail", func(t *testing.T) {
+		_, ok := ToAny[int8](int64(128))
+		assert.False(t, ok, "128 超出 int8 范围应失败")
+	})
+
+	// string -> int8 边界检查
+	t.Run("StringToInt8 overflow fail", func(t *testing.T) {
+		_, ok := ToAny[int8]("200")
+		assert.False(t, ok, "200 超出 int8 范围应失败")
+	})
+
+	// uint8 -> int8 跨窄类型边界
+	t.Run("Uint8ToInt8 overflow fail", func(t *testing.T) {
+		_, ok := ToAny[int8](uint8(200))
+		assert.False(t, ok, "uint8(200) 超出 int8 范围应失败")
+	})
+	t.Run("Uint8ToInt8 ok", func(t *testing.T) {
+		v, ok := ToAny[int8](uint8(100))
+		assert.True(t, ok)
+		assert.Equal(t, int8(100), v)
+	})
+
+	// int16 -> int8 跨窄类型边界
+	t.Run("Int16ToInt8 overflow fail", func(t *testing.T) {
+		_, ok := ToAny[int8](int16(300))
+		assert.False(t, ok, "int16(300) 超出 int8 范围应失败")
+	})
+
+	// 窄源 -> 宽目标应成功
+	t.Run("Int8ToInt ok", func(t *testing.T) {
+		v, ok := ToAny[int](int8(-5))
+		assert.True(t, ok)
+		assert.Equal(t, -5, v)
+	})
 }

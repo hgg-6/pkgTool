@@ -3,6 +3,7 @@ package toanyx
 import (
 	"encoding/json"
 	"fmt"
+	"math"
 	"strconv"
 	"strings"
 	"time"
@@ -97,44 +98,93 @@ func init() {
 // ========== 通用转换函数 ==========
 
 // 整数通用转换
+//
+// 与旧实现相比，增加了目标类型边界检查，避免静默截断/溢出。
+// 例如 ToAny[int8](int(200)) 旧实现会返回 -56 且 ok=true（静默溢出），
+// 现在会返回 ok=false。
 func convertInt[T ~int | ~int8 | ~int16 | ~int32 | ~int64](src any) (T, bool) {
+	minT, maxT := int64Range[T]()
+	inRange := func(i int64) bool { return i >= minT && i <= maxT }
+	// uInRange 用于无符号源：maxT>=0 时（有符号目标）用 uint64 比较。
+	uInRange := func(u uint64) bool { return maxT >= 0 && u <= uint64(maxT) }
 	switch v := src.(type) {
 	case T:
 		return v, true
 	case int:
-		return T(v), true
+		if inRange(int64(v)) {
+			return T(v), true
+		}
 	case int8:
-		return T(v), true
+		if inRange(int64(v)) {
+			return T(v), true
+		}
 	case int16:
-		return T(v), true
+		if inRange(int64(v)) {
+			return T(v), true
+		}
 	case int32:
-		return T(v), true
+		if inRange(int64(v)) {
+			return T(v), true
+		}
 	case int64:
-		return T(v), true
+		if inRange(v) {
+			return T(v), true
+		}
 	case uint:
-		return T(v), true
+		if uInRange(uint64(v)) {
+			return T(v), true
+		}
 	case uint8:
-		return T(v), true
+		if uInRange(uint64(v)) {
+			return T(v), true
+		}
 	case uint16:
-		return T(v), true
+		if uInRange(uint64(v)) {
+			return T(v), true
+		}
 	case uint32:
-		return T(v), true
+		if uInRange(uint64(v)) {
+			return T(v), true
+		}
 	case uint64:
-		return T(v), true
+		if uInRange(v) {
+			return T(v), true
+		}
 	case float32:
-		return T(v), true
+		// 截断转 int64（与旧实现 T(v) 的截断语义一致），仅做边界检查。
+		if fv := int64(v); inRange(fv) {
+			return T(fv), true
+		}
 	case float64:
-		return T(v), true
+		if fv := int64(v); inRange(fv) {
+			return T(fv), true
+		}
 	case string:
-		if i, err := strconv.ParseInt(v, 10, 64); err == nil {
+		if i, err := strconv.ParseInt(v, 10, 64); err == nil && inRange(i) {
 			return T(i), true
 		}
 	case json.Number:
-		if i, err := v.Int64(); err == nil {
+		if i, err := v.Int64(); err == nil && inRange(i) {
 			return T(i), true
 		}
 	}
 	return *new(T), false
+}
+
+// int64Range 返回 T 能表示的最小/最大 int64 值。
+// 用 any(zero).(type) 做类型分发，避免 ^T(0) 在大位宽无符号类型上的转换陷阱。
+func int64Range[T ~int | ~int8 | ~int16 | ~int32 | ~int64]() (min, max int64) {
+	var zero T
+	switch any(zero).(type) {
+	case int8:
+		return math.MinInt8, math.MaxInt8
+	case int16:
+		return math.MinInt16, math.MaxInt16
+	case int32:
+		return math.MinInt32, math.MaxInt32
+	default: // int / int64
+		return math.MinInt64, math.MaxInt64
+	}
 }
 
 // 无符号整数通用转换
