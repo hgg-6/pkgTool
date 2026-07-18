@@ -136,25 +136,21 @@ func (kp *KafkaProducer) SendBatch(ctx context.Context, msgs []*mqX.Message) err
 	return nil
 }
 
-// flushLocked 异步模式下 flush 缓冲区（必须持有锁）
+// flushLocked 异步模式下 flush 缓冲区（必须持有锁）。
+// 不响应 kp.ctx.Done()：Close 流程需先 flush 剩余消息再 cancel/关闭 producer，
+// 若 flush 响应 ctx，会在 Close 时被自己刚触发的 cancel 打断（P0-19）。
 func (kp *KafkaProducer) flushLocked() error {
 	if len(kp.saramaBuffer) == 0 {
 		return nil
 	}
 
 	for _, msg := range kp.saramaBuffer {
-		select {
-		case kp.asyncProducer.Input() <- msg:
-		case <-kp.ctx.Done():
-			return fmt.Errorf("producer closed during flush")
-		}
+		kp.asyncProducer.Input() <- msg
 	}
 
-	// 重置缓冲区（保留容量）
 	kp.msgBuffer = kp.msgBuffer[:0]
 	kp.saramaBuffer = kp.saramaBuffer[:0]
 
-	// 重置 timer
 	if kp.timer != nil {
 		kp.timer.Stop()
 		kp.timer = nil
@@ -213,7 +209,9 @@ func (kp *KafkaProducer) handleAsyncResults() {
 	}
 }
 
-// Close 关闭生产者
+// Close 关闭生产者。
+// P0-19: 先 flush 剩余消息再 cancel ctx。旧实现先 cancel 再 flush，flushLocked 里
+// select ctx.Done 立即触发，剩余缓冲消息被丢弃。
 func (kp *KafkaProducer) Close() error {
 	kp.mu.Lock()
 	if kp.closed {
@@ -221,18 +219,16 @@ func (kp *KafkaProducer) Close() error {
 		return nil
 	}
 	kp.closed = true
+	// 异步模式：cancel 前 flush 剩余消息，避免被自己的 cancel 打断。
+	if kp.config.Async {
+		_ = kp.flushLocked()
+	}
 	kp.cancel()
 	kp.mu.Unlock()
 
 	if kp.config.Async {
-		// 异步：flush 剩余 + 等待 goroutine
-		kp.mu.Lock()
-		_ = kp.flushLocked()
-		kp.mu.Unlock()
 		kp.wg.Wait()
 		return kp.asyncProducer.Close()
-	} else {
-		// 同步：直接关闭
-		return kp.syncProducer.Close()
 	}
+	return kp.syncProducer.Close()
 }
