@@ -305,14 +305,15 @@ func (d *DoubleWritePool) ExecContext(ctx context.Context, query string, args ..
 		if d.Dst != nil {
 			_, err1 := d.execWithRetry(ctx, d.Dst, query, args...)
 			if err1 != nil {
-				d.L.Error("双写写入目标库失败",
+				// P0-21: src 已写、dst 写失败导致双写不一致。
+				// 旧实现在非严格模式下只 log 不返回 error，调用方感知不到。
+				// 现在无论严格与否都返回 error，让调用方能感知并补偿。
+				d.L.Error("双写写入目标库失败，存在双写不一致风险",
 					logx.Error(err1),
 					logx.String("sql", query),
 					logx.Any("args", args))
-				if d.Config.StrictMode {
-					execErr = fmt.Errorf("strict mode: dst exec failed: %w", err1)
-					return res, execErr
-				}
+				execErr = fmt.Errorf("dst exec failed (src already written, inconsistency risk): %w", err1)
+				return res, execErr
 			}
 		}
 		return res, nil
@@ -343,14 +344,13 @@ func (d *DoubleWritePool) ExecContext(ctx context.Context, query string, args ..
 		if d.Src != nil {
 			_, err1 := d.execWithRetry(ctx, d.Src, query, args...)
 			if err1 != nil {
-				d.L.Error("双写写入源库失败",
+				// 同 PatternSrcFirst，避免静默分歧。
+				d.L.Error("双写写入源库失败，存在双写不一致风险",
 					logx.Error(err1),
 					logx.String("sql", query),
 					logx.Any("args", args))
-				if d.Config.StrictMode {
-					execErr = fmt.Errorf("strict mode: src exec failed: %w", err1)
-					return res, execErr
-				}
+				execErr = fmt.Errorf("src exec failed (dst already written, inconsistency risk): %w", err1)
+				return res, execErr
 			}
 		}
 		return res, nil
@@ -519,10 +519,10 @@ func (d *DoubleWriteTx) Commit() error {
 
 		if d.dst != nil {
 			if err := d.dst.Commit(); err != nil {
-				d.l.Error("目标库提交事务失败", logx.Error(err))
-				if d.config.StrictMode {
-					return fmt.Errorf("strict mode: dst commit failed: %w", err)
-				}
+				// P0-21: src 已提交、dst 提交失败导致双写不一致。
+				// 旧实现在非严格模式下只 log 不返回 error，调用方感知不到。
+				d.l.Error("目标库提交事务失败，存在双写不一致风险", logx.Error(err))
+				return fmt.Errorf("dst commit failed (src already committed, inconsistency risk): %w", err)
 			}
 		}
 		return nil
@@ -542,10 +542,9 @@ func (d *DoubleWriteTx) Commit() error {
 
 		if d.src != nil {
 			if err := d.src.Commit(); err != nil {
-				d.l.Error("源库提交事务失败", logx.Error(err))
-				if d.config.StrictMode {
-					return fmt.Errorf("strict mode: src commit failed: %w", err)
-				}
+				// 同 PatternSrcFirst，避免静默分歧。
+				d.l.Error("源库提交事务失败，存在双写不一致风险", logx.Error(err))
+				return fmt.Errorf("src commit failed (dst already committed, inconsistency risk): %w", err)
 			}
 		}
 		return nil
@@ -639,12 +638,11 @@ func (d *DoubleWriteTx) ExecContext(ctx context.Context, query string, args ...i
 		if d.dst != nil {
 			_, err1 := d.dst.ExecContext(ctx, query, args...)
 			if err1 != nil {
-				d.l.Error("事务中双写写入目标库失败",
+				// P0-21: 同非事务路径，避免静默分歧。
+				d.l.Error("事务中双写写入目标库失败，存在双写不一致风险",
 					logx.Error(err1),
 					logx.String("sql", query))
-				if d.config.StrictMode {
-					return res, fmt.Errorf("strict mode: dst exec in tx failed: %w", err1)
-				}
+				return res, fmt.Errorf("dst exec in tx failed (src already written, inconsistency risk): %w", err1)
 			}
 		}
 		return res, err
@@ -668,12 +666,10 @@ func (d *DoubleWriteTx) ExecContext(ctx context.Context, query string, args ...i
 		if d.src != nil {
 			_, err1 := d.src.ExecContext(ctx, query, args...)
 			if err1 != nil {
-				d.l.Error("事务中双写写入源库失败",
+				d.l.Error("事务中双写写入源库失败，存在双写不一致风险",
 					logx.Error(err1),
 					logx.String("sql", query))
-				if d.config.StrictMode {
-					return res, fmt.Errorf("strict mode: src exec in tx failed: %w", err1)
-				}
+				return res, fmt.Errorf("src exec in tx failed (dst already written, inconsistency risk): %w", err1)
 			}
 		}
 		return res, err
