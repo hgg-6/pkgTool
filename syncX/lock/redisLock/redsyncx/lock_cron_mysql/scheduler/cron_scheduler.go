@@ -297,16 +297,20 @@ func (s *CronScheduler) executeJob(job domain.CronJob) error {
 			logx.Int64("duration_ms", result.Duration),
 			logx.String("message", result.Message),
 		)
-	} else {
-		s.l.Warn("任务执行失败",
-			logx.Int64("job_id", job.CronId),
-			logx.String("job_name", job.Name),
-			logx.String("message", result.Message),
-		)
-		s.sendExecutionAlert(job, fmt.Errorf("任务执行失败: %s", result.Message))
+		return nil
 	}
 
-	return nil
+	// P0-12 修复：旧实现在 result.Success==false 时只 Warn + 告警，最后 return nil，
+	// 导致上层 createJobFunc 的"执行失败"分支永远进不去，MaxRetry/失败计数等
+	// 对外可见的失败语义全部失效。改为返回 error，让上层正确感知失败。
+	s.l.Warn("任务执行失败",
+		logx.Int64("job_id", job.CronId),
+		logx.String("job_name", job.Name),
+		logx.String("message", result.Message),
+	)
+	failErr := fmt.Errorf("任务执行失败: %s", result.Message)
+	s.sendExecutionAlert(job, failErr)
+	return failErr
 }
 
 // sendExecutionAlert 发送执行告警
