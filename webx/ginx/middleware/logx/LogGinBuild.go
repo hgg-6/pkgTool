@@ -59,28 +59,26 @@ func (g *GinLogx) BuildGinHandlerLog() gin.HandlerFunc {
 		//	允许打印请求体
 		if g.allowReqBody {
 			al.ReqBody = ""
-			// 读取请求体，限制大小为1MB防止内存消耗过大
 			if c.Request.Body != nil {
-				// 使用LimitReader限制读取大小
-				limitedReader := io.LimitReader(c.Request.Body, 1024*1024) // 1MB限制
-				bodyBytes, _ := io.ReadAll(limitedReader)
-				al.ReqBody = string(bodyBytes)
-				// 恢复请求体，以便后续处理
-				// 注意：由于使用了LimitReader，需要重新读取原始请求体
-				// 这里我们创建一个新的读取器，包含已读取的部分和剩余部分
-				if int64(len(bodyBytes)) < 1024*1024 {
-					// 如果读取的字节数小于限制，说明请求体已经全部读取
-					c.Request.Body = io.NopCloser(bytes.NewBuffer(bodyBytes))
-				} else {
-					// 如果达到限制，记录警告并丢弃剩余部分
-					if g.logx != nil {
-						g.logx.Warn("请求体超过1MB限制，已截断",
-							logx.String("path", c.Request.URL.Path),
-							logx.String("method", c.Request.Method))
-					}
-					// 创建一个空的读取器，因为请求体已经被部分消费
-					c.Request.Body = io.NopCloser(bytes.NewReader(nil))
+				// 使用 LimitReader 限制用于日志展示的读取大小，防止内存消耗过大。
+				// 注意：使用 g.maxBodySize（而非硬编码 1MB），与配置项保持一致。
+				maxSize := g.maxBodySize
+				if maxSize <= 0 {
+					maxSize = 1024 * 1024
 				}
+				limitedReader := io.LimitReader(c.Request.Body, maxSize)
+				bodyBytes, readErr := io.ReadAll(limitedReader)
+				if readErr != nil && g.logx != nil {
+					g.logx.Warn("读取请求体失败",
+						logx.String("path", c.Request.URL.Path),
+						logx.String("method", c.Request.Method),
+						logx.Error(readErr))
+				}
+				al.ReqBody = string(bodyBytes)
+				// 关键修复：把已读部分与原始 Body 的剩余部分拼接回去，
+				// 保证下游 handler 能读到完整请求体（旧实现达到上限时把 Body 置空，
+				// 导致大文件上传/大 JSON 接口被破坏）。
+				c.Request.Body = io.NopCloser(io.MultiReader(bytes.NewReader(bodyBytes), c.Request.Body))
 			}
 		}
 		// 允许打印响应体
