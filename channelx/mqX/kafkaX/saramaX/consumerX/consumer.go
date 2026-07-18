@@ -126,42 +126,38 @@ func (a *consumerGroupHandlerAdapter) ConsumeClaim(sess sarama.ConsumerGroupSess
 			}
 		}()
 
-		for msg := range claim.Messages() {
-			genericMsg := &mqX.Message{
-				Topic: msg.Topic,
-				Key:   msg.Key,
-				Value: msg.Value,
-			}
-
-			// 首条消息：启动 timer
-			if len(msgBuffer) == 0 && batchTimeout > 0 {
-				timer = time.NewTimer(batchTimeout)
-				timerC = timer.C
-			}
-
-			msgBuffer = append(msgBuffer, genericMsg)
-			saramaMsgBuffer = append(saramaMsgBuffer, msg)
-
-			// 触发条件1：达到批大小
-			if len(msgBuffer) >= batchSize {
-				if err := flushBatch(); err != nil {
-					return err
-				}
-				continue
-			}
-
-			// 触发条件2：超时（非阻塞检查）
+		// 用三路阻塞 select，确保 batchTimeout 到期能立即 flush，
+		// 不依赖'恰好又收到一条消息'才顺带检查 timer（旧实现的缺陷）。
+		msgCh := claim.Messages()
+		for {
 			select {
+			case msg, ok := <-msgCh:
+				if !ok {
+					return errs
+				}
+				genericMsg := &mqX.Message{
+					Topic: msg.Topic,
+					Key:   msg.Key,
+					Value: msg.Value,
+				}
+				if len(msgBuffer) == 0 && batchTimeout > 0 {
+					timer = time.NewTimer(batchTimeout)
+					timerC = timer.C
+				}
+				msgBuffer = append(msgBuffer, genericMsg)
+				saramaMsgBuffer = append(saramaMsgBuffer, msg)
+				if len(msgBuffer) >= batchSize {
+					if err := flushBatch(); err != nil {
+						return err
+					}
+					continue
+				}
 			case <-timerC:
-				// 超时触发 flush
 				if err := flushBatch(); err != nil {
 					return err
 				}
-			default:
-				// 未超时，继续收消息
 			}
 		}
-		return errs
 	}
 	return fmt.Errorf("unknown batch mode, 未知的批量模式/单条模式， 未实现IsBatch()接口")
 }
