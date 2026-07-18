@@ -1,7 +1,10 @@
 // Package syncX 提供并发安全的数据结构，是对标准库 sync 的扩展。
 package syncX
 
-import "sync"
+import (
+	"fmt"
+	"sync"
+)
 
 // convertAny 安全地将 any 转换为 T 类型
 // 如果 anyVal 是 nil 接口值，则返回 T 的零值
@@ -20,9 +23,21 @@ type future[V any] struct {
 	err  error
 }
 
-// do 执行初始化函数 fn，确保只调用一次
-func (f *future[V]) do(fn func() (V, error)) (V, error) {
+// do 执行初始化函数 fn，确保只调用一次。
+// P0-27: 旧实现 fn panic 时 sync.Once.Do 会传播 panic，调用方 LoadOrStoreFunc
+// 的清理（Delete future）不会执行，future 永久残留；后续同 key 调用拿到同 future，
+// once 已 done 直接返回零值。这里 recover panic 转 error，保证调用方能正常返回并清理。
+func (f *future[V]) do(fn func() (V, error)) (val V, err error) {
 	f.once.Do(func() {
+		defer func() {
+			if r := recover(); r != nil {
+				if e, ok := r.(error); ok {
+					f.err = e
+				} else {
+					f.err = fmt.Errorf("LoadOrStoreFunc init panic: %v", r)
+				}
+			}
+		}()
 		f.val, f.err = fn()
 	})
 	return f.val, f.err
