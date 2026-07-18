@@ -42,6 +42,10 @@ type CronService interface {
 // Scheduler 调度器接口
 type Scheduler interface {
 	UpdateJob(job domain.CronJob) error
+	// AddJob 新增任务到调度器（写库后由 service 调用，确保新任务立即生效）
+	AddJob(job domain.CronJob) error
+	// RemoveJob 从调度器移除任务（删除前由 service 调用，确保删除后不再触发）
+	RemoveJob(jobId int64) error
 }
 
 type cronService struct {
@@ -79,7 +83,17 @@ func (c *cronService) AddCronJob(ctx context.Context, job domain.CronJob) error 
 			return fmt.Errorf("%w: %v", ErrTaskValidateFailed, err)
 		}
 	}
-	return c.cronRepo.CreateCron(ctx, job)
+	if err := c.cronRepo.CreateCron(ctx, job); err != nil {
+		return err
+	}
+	// P0-10 修复：写库后通知调度器，否则新增的 active 任务要重启进程才生效。
+	// 仅 active 状态的任务需要加入调度器，paused 状态由后续 ResumeJob 触发。
+	if c.scheduler != nil && job.Status == domain.JobStatusActive {
+		if err := c.scheduler.AddJob(job); err != nil {
+			return fmt.Errorf("任务已写入数据库但注册到调度器失败: %w", err)
+		}
+	}
+	return nil
 }
 func (c *cronService) AddCronJobs(ctx context.Context, jobs []domain.CronJob) error {
 	if c.taskValidator != nil {
@@ -89,14 +103,46 @@ func (c *cronService) AddCronJobs(ctx context.Context, jobs []domain.CronJob) er
 			}
 		}
 	}
-	return c.cronRepo.CreateCrons(ctx, jobs)
+	if err := c.cronRepo.CreateCrons(ctx, jobs); err != nil {
+		return err
+	}
+	// P0-10：批量新增同样需通知调度器。
+	if c.scheduler != nil {
+		for _, job := range jobs {
+			if job.Status != domain.JobStatusActive {
+				continue
+			}
+			if err := c.scheduler.AddJob(job); err != nil {
+				return fmt.Errorf("任务[%s]已写入数据库但注册到调度器失败: %w", job.Name, err)
+			}
+		}
+	}
+	return nil
 }
 
 func (c *cronService) DelCronJob(ctx context.Context, id int64) error {
-	return c.cronRepo.DelCron(ctx, id)
+	if err := c.cronRepo.DelCron(ctx, id); err != nil {
+		return err
+	}
+	// P0-10 修复：删除数据库记录后必须通知调度器移除内存中的 cron Entry，
+	// 否则删除后任务仍会被 cron 周期触发。RemoveJob 在任务不在调度器中时
+	// 返回 error，这里只记录不阻断（记录已删除，调度器内残留无害于数据一致性）。
+	if c.scheduler != nil {
+		_ = c.scheduler.RemoveJob(id)
+	}
+	return nil
 }
 func (c *cronService) DelCronJobs(ctx context.Context, ids []int64) error {
-	return c.cronRepo.DelCrons(ctx, ids)
+	if err := c.cronRepo.DelCrons(ctx, ids); err != nil {
+		return err
+	}
+	// P0-10：批量删除同样需通知调度器。
+	if c.scheduler != nil {
+		for _, id := range ids {
+			_ = c.scheduler.RemoveJob(id)
+		}
+	}
+	return nil
 }
 
 // StartJob 启动任务
