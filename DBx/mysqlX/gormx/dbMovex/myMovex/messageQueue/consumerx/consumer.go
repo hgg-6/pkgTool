@@ -80,7 +80,6 @@ func (f *fn) Handle(ctx context.Context, msg *mqX.Message) error {
 	f.l.Info("receive message", logx.Any("msg: ", msg))
 	ov, err := NewOverrideFixer[events2.TestUser](f.db.SrcDb, f.db.DstDb)
 	if err != nil {
-		//panic(err)
 		return err
 	}
 	var event events2.InconsistentEvent
@@ -88,8 +87,12 @@ func (f *fn) Handle(ctx context.Context, msg *mqX.Message) error {
 	if err != nil {
 		return err
 	}
-	// 修复数据
-	err = ov.Fix(context.Background(), event.ID)
+	// P0-23: 修复数据。旧实现忽略 Fix 错误直接 return nil，导致修复失败的消息也被 ACK，
+	// 不一致数据被永久丢失（消息已提交）。改为返回 error，让上游不 ACK 以便重试。
+	if err := ov.Fix(context.Background(), event.ID); err != nil {
+		f.l.Error("修复不一致数据失败", logx.Int64("id", event.ID), logx.Error(err))
+		return err
+	}
 	f.l.Info("receive message success, 消费不一致数据", logx.Int64("value_id: ", event.ID), logx.Any("event: ", event))
 	return nil
 }
