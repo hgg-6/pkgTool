@@ -11,8 +11,13 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/reflection/grpc_reflection_v1alpha"
+	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/reflect/protodesc"
+	"google.golang.org/protobuf/reflect/protoreflect"
+	"google.golang.org/protobuf/reflect/protoregistry"
 	"google.golang.org/protobuf/types/descriptorpb"
+	"google.golang.org/protobuf/types/dynamicpb"
 )
 
 // GRPCTaskConfig gRPC任务配置
@@ -113,7 +118,7 @@ func (g *GRPCExecutor) Execute(ctx context.Context, job domain.CronJob) (*Execut
 	}
 
 	// 查找方法描述符
-	_, err = findMethodDescriptor(fileDescriptors, config.Service, config.Method)
+	methodDesc, err := findMethodDescriptor(fileDescriptors, config.Service, config.Method)
 	if err != nil {
 		endTime := time.Now()
 		return &ExecutionResult{
@@ -125,10 +130,42 @@ func (g *GRPCExecutor) Execute(ctx context.Context, job domain.CronJob) (*Execut
 		}, err
 	}
 
-	// 解析请求数据
-	request := make(map[string]interface{})
+	// P0-11 修复：旧实现把 map[string]interface{} 直接作为 conn.Invoke 的请求传给 gRPC，
+	// 但 Invoke 要求 proto.Message，map 在序列化阶段必然失败。
+	// 正确做法是基于反射拿到的 FileDescriptorProto 构造动态 message：
+	//   1) 用 protodesc 把 FileDescriptorProto 转成 protoreflect.FileDescriptor
+	//   2) 根据 methodDesc.InputType（全限定消息名）定位请求 message descriptor
+	//   3) dynamicpb.NewMessage 创建实例，用 protojson 把 RequestData(JSON) 反序列化进去
+	//   4) 同样为响应构造一个动态 message 实例供 Invoke 写入
+	files, err := protodesc.NewFiles(&descriptorpb.FileDescriptorSet{File: fileDescriptors})
+	if err != nil {
+		endTime := time.Now()
+		return &ExecutionResult{
+			Success:   false,
+			Message:   fmt.Sprintf("构造文件描述符失败: %v", err),
+			StartTime: startTime.Unix(),
+			EndTime:   endTime.Unix(),
+			Duration:  endTime.Sub(startTime).Milliseconds(),
+		}, err
+	}
+
+	inputTypeName := protoreflect.FullName(methodDesc.GetInputType())
+	inputDesc, err := findMessageDescriptor(files, inputTypeName)
+	if err != nil {
+		endTime := time.Now()
+		return &ExecutionResult{
+			Success:   false,
+			Message:   fmt.Sprintf("查找请求消息描述符失败: %v", err),
+			StartTime: startTime.Unix(),
+			EndTime:   endTime.Unix(),
+			Duration:  endTime.Sub(startTime).Milliseconds(),
+		}, err
+	}
+	requestMsg := dynamicpb.NewMessage(inputDesc)
 	if config.RequestData != "" {
-		if err := json.Unmarshal([]byte(config.RequestData), &request); err != nil {
+		// 用 protojson 解析 JSON（支持 protobuf 的 camelCase/字段映射），
+		// 而非 encoding/json（后者无法直接填充 protobuf message）。
+		if err := protojson.Unmarshal([]byte(config.RequestData), requestMsg); err != nil {
 			endTime := time.Now()
 			return &ExecutionResult{
 				Success:   false,
@@ -140,13 +177,23 @@ func (g *GRPCExecutor) Execute(ctx context.Context, job domain.CronJob) (*Execut
 		}
 	}
 
+	// 构造响应动态 message（output type）。
+	outputTypeName := protoreflect.FullName(methodDesc.GetOutputType())
+	outputDesc, err := findMessageDescriptor(files, outputTypeName)
+	if err != nil {
+		endTime := time.Now()
+		return &ExecutionResult{
+			Success:   false,
+			Message:   fmt.Sprintf("查找响应消息描述符失败: %v", err),
+			StartTime: startTime.Unix(),
+			EndTime:   endTime.Unix(),
+			Duration:  endTime.Sub(startTime).Milliseconds(),
+		}, err
+	}
+	responseMsg := dynamicpb.NewMessage(outputDesc)
+
 	// 调用gRPC方法
-	// 注意：这里使用conn.Invoke进行动态调用，不需要具体的消息类型
-	// 我们需要将JSON请求转换为protobuf消息
-	// 由于我们没有具体的消息类型，这里暂时使用map作为请求和响应
-	// 实际生产环境中应该使用反射创建具体的protobuf消息
-	var response interface{}
-	err = conn.Invoke(ctx, "/"+config.Service+"/"+config.Method, request, &response)
+	err = conn.Invoke(ctx, "/"+config.Service+"/"+config.Method, requestMsg, responseMsg)
 	if err != nil {
 		endTime := time.Now()
 		return &ExecutionResult{
@@ -163,10 +210,14 @@ func (g *GRPCExecutor) Execute(ctx context.Context, job domain.CronJob) (*Execut
 		logx.String("method", config.Method),
 	)
 
-	// 转换响应结果
-	responseJSON, err := json.Marshal(response)
+	// 转换响应结果：用 protojson 把动态 message 序列化为 JSON（保持字段名映射一致）。
+	responseJSON, err := protojson.Marshal(responseMsg)
 	if err != nil {
 		g.l.Warn("转换响应结果失败", logx.Error(err))
+	}
+	responseStr := string(responseJSON)
+	if responseStr == "" {
+		responseStr = "{}"
 	}
 
 	endTime := time.Now()
@@ -184,12 +235,26 @@ func (g *GRPCExecutor) Execute(ctx context.Context, job domain.CronJob) (*Execut
 			"target":   config.Target,
 			"service":  config.Service,
 			"method":   config.Method,
-			"response": string(responseJSON),
+			"response": responseStr,
 		},
 		StartTime: startTime.Unix(),
 		EndTime:   endTime.Unix(),
 		Duration:  duration,
 	}, nil
+}
+
+// findMessageDescriptor 在 protoregistry.Files 中按全限定名查找消息描述符。
+// gRPC reflection 返回的 InputType/OutputType 是全限定名（如 "helloworld.HelloRequest"）。
+func findMessageDescriptor(files *protoregistry.Files, fullName protoreflect.FullName) (protoreflect.MessageDescriptor, error) {
+	desc, err := files.FindDescriptorByName(fullName)
+	if err != nil {
+		return nil, err
+	}
+	md, ok := desc.(protoreflect.MessageDescriptor)
+	if !ok {
+		return nil, fmt.Errorf("%s 不是消息类型", fullName)
+	}
+	return md, nil
 }
 
 // Type 返回执行器类型
