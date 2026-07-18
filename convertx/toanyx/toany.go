@@ -139,6 +139,10 @@ func convertInt[T ~int | ~int8 | ~int16 | ~int32 | ~int64](src any) (T, bool) {
 
 // 无符号整数通用转换
 func convertUint[T ~uint | ~uint8 | ~uint16 | ~uint32 | ~uint64](src any) (T, bool) {
+	// maxT 是 T 的最大值转换为 uint64 表示。
+	// 注意：不能用 int64(^T(0))，当 T=uint64 时 ^T(0)=MaxUint64 强转 int64 会溢出为 -1，
+	// 导致后续上界判断恒为 false。统一用 uint64 作为比较基准。
+	maxT := uint64(^T(0))
 	switch v := src.(type) {
 	case T:
 		return v, true
@@ -159,7 +163,7 @@ func convertUint[T ~uint | ~uint8 | ~uint16 | ~uint32 | ~uint64](src any) (T, bo
 			return T(v), true
 		}
 	case int64:
-		if v >= 0 && v <= int64(^T(0)) {
+		if v >= 0 && uint64(v) <= maxT {
 			return T(v), true
 		}
 	case uint:
@@ -171,23 +175,23 @@ func convertUint[T ~uint | ~uint8 | ~uint16 | ~uint32 | ~uint64](src any) (T, bo
 	case uint32:
 		return T(v), true
 	case uint64:
-		if v <= uint64(^T(0)) {
+		if v <= maxT {
 			return T(v), true
 		}
 	case float32:
-		if v >= 0 {
+		if v >= 0 && uint64(v) <= maxT {
 			return T(v), true
 		}
 	case float64:
-		if v >= 0 && v <= float64(^T(0)) {
+		if v >= 0 && uint64(v) <= maxT {
 			return T(v), true
 		}
 	case string:
-		if u, err := strconv.ParseUint(v, 10, 64); err == nil && u <= uint64(^T(0)) {
+		if u, err := strconv.ParseUint(v, 10, 64); err == nil && u <= maxT {
 			return T(u), true
 		}
 	case json.Number:
-		if u, err := v.Int64(); err == nil && u >= 0 && u <= int64(^T(0)) {
+		if u, err := v.Int64(); err == nil && u >= 0 && uint64(u) <= maxT {
 			return T(u), true
 		}
 	}
