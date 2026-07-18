@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"sync"
+	"time"
 
 	"github.com/hgg-6/pkgTool/v2/logx"
 	"github.com/hgg-6/pkgTool/v2/syncX/lock/redisLock/redsyncx"
@@ -184,7 +185,43 @@ func (s *CronScheduler) createJobFunc(job domain.CronJob) func() {
 			)
 			return
 		}
+		// P0-8 修复：任务执行期间定期续约，避免长任务超过锁 TTL（默认 30s）
+		// 被 Redis 自动释放，导致另一节点抢到锁造成双机并发执行。
+		// 续约间隔取锁有效期的 1/3（与 redsync 推荐续约节奏一致），最低 1s。
+		renewInterval := mutex.Until().Sub(time.Now()) / 3
+		if renewInterval < time.Second {
+			renewInterval = time.Second
+		}
+		renewCtx, renewCancel := context.WithCancel(context.Background())
+		var renewWg sync.WaitGroup
+		renewWg.Add(1)
+		go func() {
+			defer renewWg.Done()
+			ticker := time.NewTicker(renewInterval)
+			defer ticker.Stop()
+			for {
+				select {
+				case <-renewCtx.Done():
+					return
+				case <-ticker.C:
+					// 续约失败说明锁已被释放（如 Redis 故障或被强制删除），
+					// 此时继续执行会有双机风险，记录错误并退出续约循环
+					// （任务本身仍会跑完，但日志可追踪异常）。
+					if ok, err := mutex.Extend(); err != nil || !ok {
+						s.l.Error("分布式锁续约失败",
+							logx.Int64("job_id", job.CronId),
+							logx.Bool("ok", ok),
+							logx.Error(err),
+						)
+						return
+					}
+				}
+			}
+		}()
 		defer func() {
+			// 先停止续约 goroutine，再释放锁，避免释放后续约又把锁加回去。
+			renewCancel()
+			renewWg.Wait()
 			if ok, err := mutex.Unlock(); !ok || err != nil {
 				s.l.Error("释放分布式锁失败",
 					logx.Int64("job_id", job.CronId),
