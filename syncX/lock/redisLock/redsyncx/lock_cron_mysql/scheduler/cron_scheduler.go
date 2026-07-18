@@ -104,7 +104,11 @@ func (s *CronScheduler) AddJob(job domain.CronJob) error {
 	}
 
 	// 解析Cron表达式
-	schedule, err := cron.ParseStandard(job.CronExpr)
+	// 注意：调度器用 cron.WithSeconds() 创建（6 字段），必须用 cron.Parse（6 字段）解析，
+	// 不能用 cron.ParseStandard（5 字段），否则用户写的 6 字段表达式会被拒绝、
+	// 5 字段表达式在 6 字段调度器里行为错乱（P0-9）。
+	parser := cron.NewParser(cron.Second | cron.Minute | cron.Hour | cron.Dom | cron.Month | cron.Dow | cron.Descriptor)
+	schedule, err := parser.Parse(job.CronExpr)
 	if err != nil {
 		s.l.Error("解析Cron表达式失败",
 			logx.Int64("job_id", job.CronId),
