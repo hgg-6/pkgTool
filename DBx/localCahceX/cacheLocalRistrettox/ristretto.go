@@ -29,16 +29,14 @@ func (c *CacheLocalRistrettoStr[K, V]) Set(key K, value V, ttl time.Duration, we
 }
 
 func (c *CacheLocalRistrettoStr[K, V]) Get(key K) (V, error) {
-	val, ok := c.cache.GetTTL(key)
-	if !ok || val <= time.Duration(0) {
+	// 先用 Get 判定 key 是否存在（GetTTL 对永久条目返回 (0, true)，
+	// 仅用 TTL 判定会把所有无 TTL 的永久缓存误判为不存在）。
+	value, ok := c.cache.Get(key)
+	if !ok {
 		var v V
 		return v, errors.New("查询缓存失败")
 	}
-	if value, isok := c.cache.Get(key); isok {
-		return value, nil
-	}
-	var v V
-	return v, errors.New("get localCache error, no key --> value, 查询缓存失败, Key不存在")
+	return value, nil
 }
 
 func (c *CacheLocalRistrettoStr[K, V]) Del(key K) error {
