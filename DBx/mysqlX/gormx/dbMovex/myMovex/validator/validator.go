@@ -86,8 +86,7 @@ func (v *Validator[T, Pdr]) validateBaseToTarget(ctx context.Context) error {
 			return nil
 		}
 		if err == gorm.ErrRecordNotFound {
-			// 你增量校验，要考虑一直运行的
-			// 这个就是咩有数据
+			// 增量校验要考虑一直运行：没数据就 sleep 后继续。
 			if v.sleepInterval <= 0 {
 				return nil
 			}
@@ -95,10 +94,11 @@ func (v *Validator[T, Pdr]) validateBaseToTarget(ctx context.Context) error {
 			continue
 		}
 		if err != nil {
-			// 查询出错了
+			// P0-22: 查询出错时不递增 offset，避免跳过该记录（瞬态错误重试同一逻辑位置）。
 			v.l.Error("base -> target 查询 base 失败", logx.Error(err))
-			// 在这里，
-			offset++
+			if v.sleepInterval > 0 {
+				time.Sleep(v.sleepInterval)
+			}
 			continue
 		}
 
@@ -161,13 +161,18 @@ func (v *Validator[T, Pdr]) fullFromBase(ctx context.Context, offset int) (T, er
 }
 
 func (v *Validator[T, Pdr]) incrFromBase(ctx context.Context, offset int) (T, error) {
+	// P0-22: 旧实现用 Offset(offset) + Where("utime > ?")，offset 每次++ 但 utime 窗口
+	// 随新数据到来在移动，offset 指向的逻辑行漂移，导致静默跳过/重复校验。
+	// 增量校验的正确语义是'按 utime 游标推进'：每次取 utime > v.utime 的第一条，
+	// 不再用 offset。utime 的推进由调用方通过 v.Utime() 设置（Entity 接口未暴露 Utime()）。
+	_ = offset
 	dbCtx, cancel := context.WithTimeout(ctx, time.Second)
 	defer cancel()
 	var src T
 	err := v.base.WithContext(dbCtx).
 		Where("utime > ?", v.utime).
 		Order("utime").
-		Offset(offset).First(&src).Error
+		First(&src).Error
 	return src, err
 }
 
@@ -177,25 +182,29 @@ func (v *Validator[T, Pdr]) validateTargetToBase(ctx context.Context) error {
 	for {
 		var ts []T
 		err := v.target.WithContext(ctx).Select("id").
-			//Where("utime > ?", v.utime).
 			Order("id").Offset(offset).Limit(v.batchSize).
 			Find(&ts).Error
 		if err == context.DeadlineExceeded || err == context.Canceled {
 			return nil
 		}
 		if err == gorm.ErrRecordNotFound || len(ts) == 0 {
+			// P0-22: 增量模式下扫到末尾应重置 offset 回到开头继续循环监控新数据，
+			// 否则 offset 无限增长导致 MySQL OFFSET(N) 二次方性能退化。
 			if v.sleepInterval <= 0 {
 				return nil
 			}
+			offset = 0
 			time.Sleep(v.sleepInterval)
 			continue
 		}
 		if err != nil {
+			// P0-22: 查询出错时不递增 offset，避免跳过该批次（瞬态错误重试）。
 			v.l.Error("target => base 查询 target 失败", logx.Error(err))
-			offset += len(ts)
+			if v.sleepInterval > 0 {
+				time.Sleep(v.sleepInterval)
+			}
 			continue
 		}
-		// 在这里
 		var srcTs []T
 		ids := sliceX.Map(ts, func(idx int, t T) int64 {
 			return t.ID()
@@ -203,29 +212,29 @@ func (v *Validator[T, Pdr]) validateTargetToBase(ctx context.Context) error {
 		err = v.base.WithContext(ctx).Select("id").
 			Where("id IN ?", ids).Find(&srcTs).Error
 		if err == gorm.ErrRecordNotFound || len(srcTs) == 0 {
-			// 都代表。base 里面一条对应的数据都没有
 			v.notifyBaseMissing(ts)
 			offset += len(ts)
 			continue
 		}
 		if err != nil {
 			v.l.Error("target => base 查询 base 失败", logx.Error(err))
-			// 保守起见，我都认为 base 里面没有数据
-			// v.notifyBaseMissing(ts)
 			offset += len(ts)
 			continue
 		}
-		// 找差集，diff 里面的，就是 target 有，但是 base 没有的
 		diff := sliceX.DiffSetFunc(ts, srcTs, func(src, dst T) bool {
 			return src.ID() == dst.ID()
 		})
 		v.notifyBaseMissing(diff)
-		// 说明也没了
+		// 这一批不足 batchSize：说明已扫到末尾。
 		if len(ts) < v.batchSize {
 			if v.sleepInterval <= 0 {
+				// 全量模式：扫完即结束。
 				return nil
 			}
+			// P0-22: 增量模式重置 offset 回到开头继续监控。
+			offset = 0
 			time.Sleep(v.sleepInterval)
+			continue
 		}
 		offset += len(ts)
 	}
