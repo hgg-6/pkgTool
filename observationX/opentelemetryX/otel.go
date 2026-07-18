@@ -36,40 +36,38 @@ func NewOtelStr(svc SvcInfo, spanExporter trace.SpanExporter) (CtxFn, error) {
 		serviceVersion: svc.ServiceVersion,
 		spanExporter:   spanExporter,
 	}
-	//res, err := newResource("demo", "v0.0.1")
+	// newTraceProvider 永远返回 nil error，所以旧实现的 err 永远为 nil，
+	// newResource 的失败被静默吞掉。这里改为显式检查并中止初始化。
 	res, err := o.newResource()
-	if err == nil {
-		o.ResErr = nil
-		o.resource = res
+	if err != nil {
+		o.ResErr = err
+		return nil, err
 	}
-	o.ResErr = err
+	o.resource = res
+	o.ResErr = nil
 
-	prop := o.newPropagator()
-	// 设置 propagator, 在客户端和服务端之间传递 tracing 的相关信息
-	otel.SetTextMapPropagator(prop)
+	otel.SetTextMapPropagator(o.newPropagator())
 
-	// 初始化 trace provider
-	// 这个 provider 就是用来在打点的时候构建 trace 的
 	tp, err := o.newTraceProvider()
 	if err != nil {
 		o.ResErr = err
+		return nil, err
 	}
 	o.tracerProvider = tp
-
-	// 设置 trace provider
 	otel.SetTracerProvider(tp)
 
-	return o.initOtel(), err
+	return o.initOtel(), nil
 }
 
-// InitOtel main方法里，defer住 tp.Shutdown(ctx)，InitOtel
+// initOtel 返回用于 defer 的 shutdown 函数。
+// 先 ForceFlush 保证缓冲 span 落盘，再 Shutdown；shutdown 错误不再静默吞掉。
 func (o *OtelStr) initOtel() func(ctx context.Context) {
 	return func(ctx context.Context) {
+		_ = o.tracerProvider.ForceFlush(ctx)
 		_ = o.tracerProvider.Shutdown(ctx)
 	}
 }
 
-// newResource
 func (o *OtelStr) newResource() (*resource.Resource, error) {
 	return resource.Merge(resource.Default(),
 		resource.NewWithAttributes(semconv.SchemaURL,
@@ -78,21 +76,13 @@ func (o *OtelStr) newResource() (*resource.Resource, error) {
 		))
 }
 
-// newPropagator 用于在客户端和服务端之间传递 tracing 的相关信息
 func (o *OtelStr) newPropagator() propagation.TextMapPropagator {
 	return propagation.NewCompositeTextMapPropagator(propagation.TraceContext{}, propagation.Baggage{})
 }
 
-// newTraceProvider 用于初始化 trace provider
 func (o *OtelStr) newTraceProvider() (*trace.TracerProvider, error) {
-	//exporter, err := zipkin.New("http://localhost:9411/api/v2/spans") // zipkin exporter
-	//if err != nil {
-	//	return nil, err
-	//}
-
 	traceProvider := trace.NewTracerProvider(
 		trace.WithBatcher(o.spanExporter,
-			// Default is 5s. Set to 1s for demonstrative purposes.
 			trace.WithBatchTimeout(time.Second)),
 		trace.WithResource(o.resource),
 	)
