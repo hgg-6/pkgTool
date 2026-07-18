@@ -22,9 +22,15 @@ type TokenBucketLimiter struct {
 }
 
 // NewTokenBucketLimiter 创建令牌桶限流算法
-//   - interval 令牌产生时间间隔
-//   - capacity 令牌桶容量
+//   - interval 令牌产生时间间隔（<=0 时取默认 100ms，避免 time.NewTicker(0) panic）
+//   - capacity 令牌桶容量（<=0 时取默认 1，避免无缓冲 channel 导致令牌永远发不进）
 func NewTokenBucketLimiter(interval time.Duration, capacity int) *TokenBucketLimiter {
+	if interval <= 0 {
+		interval = 100 * time.Millisecond
+	}
+	if capacity <= 0 {
+		capacity = 1
+	}
 	bucket := make(chan struct{}, capacity)
 	closec := make(chan struct{})
 	limiter := &TokenBucketLimiter{
@@ -33,7 +39,6 @@ func NewTokenBucketLimiter(interval time.Duration, capacity int) *TokenBucketLim
 		closeCh:  closec,
 		started:  false,
 	}
-	// 在构造函数中启动goroutine
 	limiter.startTokenGenerator()
 	return limiter
 }
