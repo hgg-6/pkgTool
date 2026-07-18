@@ -3,7 +3,6 @@ package otleTraceX
 import (
 	"context"
 	"github.com/hgg-6/pkgTool/v2/rpc/grpcx/observationX"
-	"github.com/go-kratos/kratos/v2/errors"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/codes"
@@ -11,6 +10,7 @@ import (
 	semconv "go.opentelemetry.io/otel/semconv/v1.21.0"
 	"go.opentelemetry.io/otel/trace"
 	"google.golang.org/grpc"
+	grpcstatus "google.golang.org/grpc/status"
 	"google.golang.org/grpc/metadata"
 )
 
@@ -59,11 +59,15 @@ func (b *OTELInterceptorBuilder) BuildUnaryServerInterceptor() grpc.UnaryServerI
 		defer func() {
 			if err != nil {
 				span.RecordError(err)
-				if e := errors.FromError(err); e != nil {
-					span.SetAttributes(semconv.RPCGRPCStatusCodeKey.Int64(int64(e.Code)))
+				// P0-26: 用 grpc/status 解析 gRPC 错误码。
+				// 旧实现用 kratos errors.FromError，纯 gRPC status error 会返回 Code=0，
+				// 导致 RPCGRPCStatusCodeKey 永远记 0，trace/metrics 的 grpc code 失真。
+				if st, ok := grpcstatus.FromError(err); ok {
+					span.SetAttributes(semconv.RPCGRPCStatusCodeKey.Int64(int64(st.Code())))
 				}
 				span.SetStatus(codes.Error, err.Error())
 			} else {
+				span.SetAttributes(semconv.RPCGRPCStatusCodeKey.Int64(int64(0))) // codes.OK
 				span.SetStatus(codes.Ok, "OK")
 			}
 		}()
@@ -97,11 +101,13 @@ func (b *OTELInterceptorBuilder) BuildUnaryClientInterceptor() grpc.UnaryClientI
 		defer func() {
 			if err != nil {
 				span.RecordError(err)
-				if e := errors.FromError(err); e != nil {
-					span.SetAttributes(semconv.RPCGRPCStatusCodeKey.Int64(int64(e.Code)))
+				// P0-26: 同 server 拦截器，用 grpc/status 解析 gRPC 错误码。
+				if st, ok := grpcstatus.FromError(err); ok {
+					span.SetAttributes(semconv.RPCGRPCStatusCodeKey.Int64(int64(st.Code())))
 				}
 				span.SetStatus(codes.Error, err.Error())
 			} else {
+				span.SetAttributes(semconv.RPCGRPCStatusCodeKey.Int64(int64(0)))
 				span.SetStatus(codes.Ok, "OK")
 			}
 			span.End()
