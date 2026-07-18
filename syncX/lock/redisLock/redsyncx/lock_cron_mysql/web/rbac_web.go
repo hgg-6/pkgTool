@@ -380,7 +380,9 @@ func (u *UserWeb) GetUserPermissions(ctx *gin.Context) {
 
 func (u *UserWeb) ChangePassword(ctx *gin.Context) {
 	var req struct {
-		UserId      int64  `json:"user_id"`
+		// P0-13 修复：移除请求体里的 user_id 字段。旧实现从 JSON body 读 user_id，
+		// 任何已登录用户都能传任意 user_id 改任意账户的密码（严重越权）。
+		// 现在统一从 JWT 中间件注入的 ctx 取当前登录用户 ID。
 		OldPassword string `json:"old_password"`
 		NewPassword string `json:"new_password"`
 	}
@@ -390,7 +392,15 @@ func (u *UserWeb) ChangePassword(ctx *gin.Context) {
 		return
 	}
 
-	if err := u.userSvc.ChangePassword(ctx.Request.Context(), req.UserId, req.OldPassword, req.NewPassword); err != nil {
+	// 从上下文取当前登录用户 ID（由 JWT 中间件写入），与 GetProfile 一致。
+	userIdValue, _ := ctx.Get("user_id")
+	userId, ok := userIdValue.(int64)
+	if !ok {
+		ctx.JSON(http.StatusUnauthorized, gin.H{"error": "未授权"})
+		return
+	}
+
+	if err := u.userSvc.ChangePassword(ctx.Request.Context(), userId, req.OldPassword, req.NewPassword); err != nil {
 		u.l.Error("修改密码失败", logx.Error(err))
 		ctx.JSON(500, gin.H{"error": "修改密码失败"})
 		return
