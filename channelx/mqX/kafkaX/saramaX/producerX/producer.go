@@ -58,6 +58,13 @@ func NewKafkaProducer(addrs []string, config *ProducerConfig) (mqX.Producer, err
 
 		kp.wg.Add(1)
 		go kp.handleAsyncResults()
+
+		// P0-20: 后台 flush goroutine。旧实现只在 SendBatch 调用时用非阻塞 select
+		// 顺带检查 timer，调用方停止发送后 buffer 消息永远不会被 flush（直到 Close）。
+		if config.BatchTimeout > 0 {
+			kp.wg.Add(1)
+			go kp.batchTimeoutLoop()
+		}
 	} else {
 		// === 同步模式：无缓冲，立即发送 ===
 		producer, err := sarama.NewSyncProducer(addrs, saramaCfg)
@@ -115,22 +122,15 @@ func (kp *KafkaProducer) SendBatch(ctx context.Context, msgs []*mqX.Message) err
 		})
 	}
 
-	// 首条消息：启动 timer
+	// 首条消息：启动 timer（由后台 batchTimeoutLoop 监听并 flush）
 	if len(kp.msgBuffer) == 1 && kp.config.BatchTimeout > 0 {
 		kp.timer = time.NewTimer(kp.config.BatchTimeout)
 		kp.timerC = kp.timer.C
 	}
 
-	// 触发条件1：达到批大小
+	// 达到批大小立即 flush；超时由后台 batchTimeoutLoop 负责（P0-20）。
 	if len(kp.msgBuffer) >= kp.config.BatchSize {
 		return kp.flushLocked()
-	}
-
-	// 触发条件2：超时（非阻塞检查）
-	select {
-	case <-kp.timerC:
-		return kp.flushLocked()
-	default:
 	}
 
 	return nil
@@ -162,6 +162,37 @@ func (kp *KafkaProducer) flushLocked() error {
 	}
 
 	return nil
+}
+
+// batchTimeoutLoop 后台监听 batchTimeout timer，到点 flush 缓冲区（P0-20）。
+func (kp *KafkaProducer) batchTimeoutLoop() {
+	defer kp.wg.Done()
+	for {
+		kp.mu.Lock()
+		timerC := kp.timerC
+		kp.mu.Unlock()
+
+		if timerC == nil {
+			select {
+			case <-kp.ctx.Done():
+				return
+			case <-time.After(10 * time.Millisecond):
+				continue
+			}
+		}
+
+		select {
+		case <-kp.ctx.Done():
+			return
+		case <-timerC:
+			kp.mu.Lock()
+			// 再次校验 timerC 仍是触发的那一个（避免已被 flush 重置后误 flush）。
+			if kp.timerC != nil {
+				_ = kp.flushLocked()
+			}
+			kp.mu.Unlock()
+		}
+	}
 }
 
 // handleAsyncResults 处理异步结果
