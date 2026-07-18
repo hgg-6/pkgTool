@@ -149,6 +149,7 @@ func (j *JwtxMiddlewareGinx) SetToken(ctx *gin.Context, userId int64, name strin
 		Ssid:      ssId,
 		UserAgent: userAgent,
 		TokenType: "access",
+		DeviceID:  deviceID, // P0-14: 记录会话绑定设备，供 RefreshToken/DeleteToken 精确清理
 		RegisteredClaims: jwt.RegisteredClaims{
 			ExpiresAt: jwt.NewNumericDate(now.Add(j.cfg.DurationExpiresIn)),
 		},
@@ -166,6 +167,7 @@ func (j *JwtxMiddlewareGinx) SetToken(ctx *gin.Context, userId int64, name strin
 		Ssid:      ssId,
 		UserAgent: userAgent,
 		TokenType: "refresh",
+		DeviceID:  deviceID,
 		RegisteredClaims: jwt.RegisteredClaims{
 			ExpiresAt: jwt.NewNumericDate(now.Add(j.cfg.LongDurationExpiresIn)),
 		},
@@ -189,10 +191,13 @@ func (j *JwtxMiddlewareGinx) SetToken(ctx *gin.Context, userId int64, name strin
 	}
 
 	// --- 更新设备会话映射 & 设备列表 ---
+	// P0-14 修复：devicesSetKey 的 TTL 与 deviceKey 一致（均用 LongDurationExpiresIn），
+	// 旧实现硬编码 30 天，与 deviceKey 的 LongDurationExpiresIn（默认 7 天）不一致，
+	// 导致 deviceKey 过期后 devicesSet 里残留幽灵设备最长 29 天。
 	devicePipe := j.cache.Pipeline()
 	devicePipe.Set(ctx, oldSsidKey, ssId, j.cfg.LongDurationExpiresIn)
 	devicePipe.SAdd(ctx, j.devicesSetKey(userId), deviceID)
-	devicePipe.Expire(ctx, j.devicesSetKey(userId), 30*24*time.Hour)
+	devicePipe.Expire(ctx, j.devicesSetKey(userId), j.cfg.LongDurationExpiresIn)
 	_, _ = devicePipe.Exec(ctx)
 
 	// --- 返回 Headers ---
@@ -268,7 +273,24 @@ func (j *JwtxMiddlewareGinx) LongVerifyToken(ctx *gin.Context) (*UserClaims, err
 	return claims, nil
 }
 
-// RefreshToken 刷新 Token（可选新设备）
+// revokeSessionScript 原子地撤销一个 ssid 对应的会话及其设备映射。
+// P0-14 修复：用 Lua CAS 保证 refresh 并发安全 —— 只有旧 refresh token 仍是当前
+// session 值时才执行删除（Compare-And-Delete），避免两个并发 refresh 请求互相覆盖。
+// KEYS[1] = refresh session key, KEYS[2] = access session key,
+// KEYS[3] = deviceKey(uid:deviceID), KEYS[4] = devicesSetKey(uid)
+// ARGV[1] = 期望的 refresh token 值, ARGV[2] = deviceID
+// 返回 1 表示已撤销，0 表示已被其他请求抢先撤销（调用方应中止）。
+const revokeSessionScript = `
+local cur = redis.call('GET', KEYS[1])
+if cur == false or cur ~= ARGV[1] then
+  return 0
+end
+redis.call('DEL', KEYS[1], KEYS[2], KEYS[3])
+redis.call('SREM', KEYS[4], ARGV[2])
+return 1
+`
+
+// RefreshToken 刷新 Token（可选新 ssid）
 func (j *JwtxMiddlewareGinx) RefreshToken(ctx *gin.Context, newSsid string) (*UserClaims, error) {
 	oldClaims, err := j.LongVerifyToken(ctx)
 	if err != nil {
@@ -280,20 +302,33 @@ func (j *JwtxMiddlewareGinx) RefreshToken(ctx *gin.Context, newSsid string) (*Us
 		ssid = newSsid
 	}
 
-	// 获取设备ID
-	deviceID := j.getDeviceID(ctx)
+	// P0-14 修复：旧实现用'当前请求'的 deviceID 删 deviceKey，但旧会话可能来自别的设备，
+	// 导致删除无意义、旧设备 deviceKey 残留形成幽灵映射；并发 refresh 是 TOCTOU。
+	// 现在用 oldClaims.DeviceID（旧会话绑定的真实设备）精确清理，并用 Lua CAS 保证
+	// 只有旧 refresh token 仍是当前 session 值时才撤销，消除并发竞态。
+	deviceID := oldClaims.DeviceID
+	if deviceID == "" {
+		// 兼容旧 token（无 DeviceID 字段）：退回到当前请求 deviceID，至少尽力清理。
+		deviceID = j.getDeviceID(ctx)
+	}
+	oldRefreshToken := j.ExtractToken(ctx)
 
-	// 删除旧 Token（安全最佳实践）
-	oldAccessKey := j.sessionKey(oldClaims.Ssid, "access")
-	oldRefreshKey := j.sessionKey(oldClaims.Ssid, "refresh")
-	j.cache.Del(ctx, oldAccessKey, oldRefreshKey)
+	keys := []string{
+		j.sessionKey(oldClaims.Ssid, "refresh"),
+		j.sessionKey(oldClaims.Ssid, "access"),
+		j.deviceKey(oldClaims.Uid, deviceID),
+		j.devicesSetKey(oldClaims.Uid),
+	}
+	revoked, err := j.cache.Eval(ctx, revokeSessionScript, keys, oldRefreshToken, deviceID).Int()
+	if err != nil {
+		return nil, fmt.Errorf("refresh: revoke old session failed: %w", err)
+	}
+	if revoked == 0 {
+		// 旧 session 已被另一个并发 refresh 撤销并替换，本次 refresh 应中止，
+		// 否则会用同一个 oldClaims 再签发一份，造成重复 session。
+		return nil, fmt.Errorf("refresh: session already refreshed by a concurrent request")
+	}
 
-	// 清理旧的deviceKey映射
-	oldDeviceKey := j.deviceKey(oldClaims.Uid, deviceID)
-	j.cache.Del(ctx, oldDeviceKey)
-
-	// 注意：这里复用 SetToken，会按新 ssid 创建会话（可能新设备）
-	// 如果希望保持设备绑定，应传入原 deviceID，但当前设计以 ssid 为单位
 	return j.SetToken(ctx, oldClaims.Uid, oldClaims.Name, ssid)
 }
 
@@ -310,8 +345,14 @@ func (j *JwtxMiddlewareGinx) DeleteToken(ctx *gin.Context) (*UserClaims, error) 
 	ctx.Header(j.cfg.HeaderJwtTokenKey, "")
 	ctx.Header(j.cfg.LongHeaderJwtTokenKey, "")
 
-	// 获取设备ID并清理deviceKey映射
-	deviceID := j.getDeviceID(ctx)
+	// P0-14 修复：优先用 claims 里记录的会话绑定设备精确清理 deviceKey。
+	// 旧实现用'当前请求'的 deviceID，与原登录设备可能不一致（如换 UA 调用登出），
+	// 会导致删错设备或残留原设备映射。
+	deviceID := claims.DeviceID
+	if deviceID == "" {
+		// 兼容旧 token（无 DeviceID 字段）。
+		deviceID = j.getDeviceID(ctx)
+	}
 	deviceKey := j.deviceKey(claims.Uid, deviceID)
 
 	err1 := j.cache.Del(ctx, accessKey).Err()

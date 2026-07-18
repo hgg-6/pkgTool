@@ -7,7 +7,8 @@ type UserClaims struct {
 	jwt.RegisteredClaims
 	Uid       int64  `json:"uid"`
 	Name      string `json:"name"`
-	Ssid      string `json:"ssid"` // 会话唯一 ID
+	Ssid      string `json:"ssid"`      // 会话唯一 ID
 	UserAgent string `json:"user_agent"`
 	TokenType string `json:"token_type"` // "access" 或 "refresh"
+	DeviceID  string `json:"device_id"`  // P0-14: 会话绑定的设备 ID，用于精确清理 deviceKey
 }
