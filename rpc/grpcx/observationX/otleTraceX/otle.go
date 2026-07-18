@@ -59,9 +59,7 @@ func (b *OTELInterceptorBuilder) BuildUnaryServerInterceptor() grpc.UnaryServerI
 		defer func() {
 			if err != nil {
 				span.RecordError(err)
-				// P0-26: 用 grpc/status 解析 gRPC 错误码。
-				// 旧实现用 kratos errors.FromError，纯 gRPC status error 会返回 Code=0，
-				// 导致 RPCGRPCStatusCodeKey 永远记 0，trace/metrics 的 grpc code 失真。
+				// 用 grpc/status 解析 gRPC 错误码记录到 span。
 				if st, ok := grpcstatus.FromError(err); ok {
 					span.SetAttributes(semconv.RPCGRPCStatusCodeKey.Int64(int64(st.Code())))
 				}
@@ -101,7 +99,6 @@ func (b *OTELInterceptorBuilder) BuildUnaryClientInterceptor() grpc.UnaryClientI
 		defer func() {
 			if err != nil {
 				span.RecordError(err)
-				// P0-26: 同 server 拦截器，用 grpc/status 解析 gRPC 错误码。
 				if st, ok := grpcstatus.FromError(err); ok {
 					span.SetAttributes(semconv.RPCGRPCStatusCodeKey.Int64(int64(st.Code())))
 				}

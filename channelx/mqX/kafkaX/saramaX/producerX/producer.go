@@ -59,8 +59,7 @@ func NewKafkaProducer(addrs []string, config *ProducerConfig) (mqX.Producer, err
 		kp.wg.Add(1)
 		go kp.handleAsyncResults()
 
-		// P0-20: 后台 flush goroutine。旧实现只在 SendBatch 调用时用非阻塞 select
-		// 顺带检查 timer，调用方停止发送后 buffer 消息永远不会被 flush（直到 Close）。
+		// 后台 flush goroutine：到 BatchTimeout 自动 flush，避免停止发送后 buffer 消息滞留。
 		if config.BatchTimeout > 0 {
 			kp.wg.Add(1)
 			go kp.batchTimeoutLoop()
@@ -128,7 +127,7 @@ func (kp *KafkaProducer) SendBatch(ctx context.Context, msgs []*mqX.Message) err
 		kp.timerC = kp.timer.C
 	}
 
-	// 达到批大小立即 flush；超时由后台 batchTimeoutLoop 负责（P0-20）。
+	// 达到批大小立即 flush；超时由后台 batchTimeoutLoop 负责。
 	if len(kp.msgBuffer) >= kp.config.BatchSize {
 		return kp.flushLocked()
 	}
@@ -137,8 +136,7 @@ func (kp *KafkaProducer) SendBatch(ctx context.Context, msgs []*mqX.Message) err
 }
 
 // flushLocked 异步模式下 flush 缓冲区（必须持有锁）。
-// 不响应 kp.ctx.Done()：Close 流程需先 flush 剩余消息再 cancel/关闭 producer，
-// 若 flush 响应 ctx，会在 Close 时被自己刚触发的 cancel 打断（P0-19）。
+// 不响应 kp.ctx.Done()，因为 Close 流程需要先 flush 剩余消息再关闭 producer。
 func (kp *KafkaProducer) flushLocked() error {
 	if len(kp.saramaBuffer) == 0 {
 		return nil
@@ -160,7 +158,7 @@ func (kp *KafkaProducer) flushLocked() error {
 	return nil
 }
 
-// batchTimeoutLoop 后台监听 batchTimeout timer，到点 flush 缓冲区（P0-20）。
+// batchTimeoutLoop 后台监听 batchTimeout timer，到点 flush 缓冲区。
 func (kp *KafkaProducer) batchTimeoutLoop() {
 	defer kp.wg.Done()
 	for {
@@ -209,9 +207,7 @@ func (kp *KafkaProducer) handleAsyncResults() {
 	}
 }
 
-// Close 关闭生产者。
-// P0-19: 先 flush 剩余消息再 cancel ctx。旧实现先 cancel 再 flush，flushLocked 里
-// select ctx.Done 立即触发，剩余缓冲消息被丢弃。
+// Close 关闭生产者。先 flush 剩余消息再 cancel ctx。
 func (kp *KafkaProducer) Close() error {
 	kp.mu.Lock()
 	if kp.closed {

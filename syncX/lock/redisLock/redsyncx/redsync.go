@@ -287,8 +287,8 @@ func (dl *LockRedsync) tryAcquireLock() error {
 
 	dl.logger.Info("尝试获取分布式锁", logx.String("lockName", dl.lockName))
 
-	// 尝试获取锁
-	if err := dl.rsMutex.Lock(); err != nil {
+	// 用 LockContext 传 dl.ctx，Stop 时 cancel 能中断阻塞的获取过程。
+	if err := dl.rsMutex.LockContext(dl.ctx); err != nil {
 		dl.updateStatus(LockStatusLost, err)
 		return fmt.Errorf("获取锁失败: %w", err)
 	}
@@ -304,7 +304,9 @@ func (dl *LockRedsync) tryAcquireLock() error {
 	return nil
 }
 
-// releaseLock 释放锁
+// releaseLock 释放锁。
+// 用独立的带超时 ctx 而非 dl.ctx：Stop 流程里会先 cancel(dl.ctx) 再调 releaseLock，
+// 若用 dl.ctx，UnlockContext 会立即返回 canceled，导致锁泄漏。
 func (dl *LockRedsync) releaseLock() error {
 	if dl.status != LockStatusAcquired {
 		return ErrLockNotAcquired
@@ -312,8 +314,9 @@ func (dl *LockRedsync) releaseLock() error {
 
 	dl.logger.Info("释放锁", logx.String("lockName", dl.lockName))
 
-	// 尝试解锁
-	if _, err := dl.rsMutex.Unlock(); err != nil {
+	ctx, cancel := context.WithTimeout(context.Background(), dl.config.Expiry)
+	defer cancel()
+	if _, err := dl.rsMutex.UnlockContext(ctx); err != nil {
 		dl.logger.Error("释放锁失败", logx.Error(err))
 		dl.updateStatus(LockStatusLost, err)
 		return fmt.Errorf("释放锁失败: %w", err)
@@ -405,8 +408,7 @@ func (dl *LockRedsync) doRenewal() error {
 		logx.TimeDuration("holdDuration", holdDuration),
 		logx.TimeDuration("expiry", dl.config.Expiry))
 
-	// 执行续约
-	if ok, err := dl.rsMutex.Extend(); err != nil || !ok {
+	if ok, err := dl.rsMutex.ExtendContext(dl.ctx); err != nil || !ok {
 		if err != nil {
 			return fmt.Errorf("锁续约失败: %w", err)
 		}

@@ -305,9 +305,7 @@ func (d *DoubleWritePool) ExecContext(ctx context.Context, query string, args ..
 		if d.Dst != nil {
 			_, err1 := d.execWithRetry(ctx, d.Dst, query, args...)
 			if err1 != nil {
-				// P0-21: src 已写、dst 写失败导致双写不一致。
-				// 旧实现在非严格模式下只 log 不返回 error，调用方感知不到。
-				// 现在无论严格与否都返回 error，让调用方能感知并补偿。
+				// src 已写、dst 写失败，返回 error 让调用方能感知双写不一致并补偿。
 				d.L.Error("双写写入目标库失败，存在双写不一致风险",
 					logx.Error(err1),
 					logx.String("sql", query),
@@ -344,7 +342,6 @@ func (d *DoubleWritePool) ExecContext(ctx context.Context, query string, args ..
 		if d.Src != nil {
 			_, err1 := d.execWithRetry(ctx, d.Src, query, args...)
 			if err1 != nil {
-				// 同 PatternSrcFirst，避免静默分歧。
 				d.L.Error("双写写入源库失败，存在双写不一致风险",
 					logx.Error(err1),
 					logx.String("sql", query),
@@ -519,8 +516,7 @@ func (d *DoubleWriteTx) Commit() error {
 
 		if d.dst != nil {
 			if err := d.dst.Commit(); err != nil {
-				// P0-21: src 已提交、dst 提交失败导致双写不一致。
-				// 旧实现在非严格模式下只 log 不返回 error，调用方感知不到。
+				// src 已提交、dst 提交失败，返回 error 让调用方感知双写不一致。
 				d.l.Error("目标库提交事务失败，存在双写不一致风险", logx.Error(err))
 				return fmt.Errorf("dst commit failed (src already committed, inconsistency risk): %w", err)
 			}
@@ -542,7 +538,6 @@ func (d *DoubleWriteTx) Commit() error {
 
 		if d.src != nil {
 			if err := d.src.Commit(); err != nil {
-				// 同 PatternSrcFirst，避免静默分歧。
 				d.l.Error("源库提交事务失败，存在双写不一致风险", logx.Error(err))
 				return fmt.Errorf("src commit failed (dst already committed, inconsistency risk): %w", err)
 			}
@@ -638,7 +633,6 @@ func (d *DoubleWriteTx) ExecContext(ctx context.Context, query string, args ...i
 		if d.dst != nil {
 			_, err1 := d.dst.ExecContext(ctx, query, args...)
 			if err1 != nil {
-				// P0-21: 同非事务路径，避免静默分歧。
 				d.l.Error("事务中双写写入目标库失败，存在双写不一致风险",
 					logx.Error(err1),
 					logx.String("sql", query))

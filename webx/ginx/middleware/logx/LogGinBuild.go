@@ -75,9 +75,7 @@ func (g *GinLogx) BuildGinHandlerLog() gin.HandlerFunc {
 						logx.Error(readErr))
 				}
 				al.ReqBody = string(bodyBytes)
-				// 关键修复：把已读部分与原始 Body 的剩余部分拼接回去，
-				// 保证下游 handler 能读到完整请求体（旧实现达到上限时把 Body 置空，
-				// 导致大文件上传/大 JSON 接口被破坏）。
+				// 把已读部分与原始 Body 的剩余部分拼接回去，保证下游 handler 能读到完整请求体。
 				c.Request.Body = io.NopCloser(io.MultiReader(bytes.NewReader(bodyBytes), c.Request.Body))
 			}
 		}
@@ -199,11 +197,8 @@ func (w *responseWriter) WriteHeader(statusCode int) {
 	w.ResponseWriter.WriteHeader(statusCode)
 }
 
-// ReqLogPrint 请求日志打印
-//
-// 请求阶段调用（在 c.Next() 之前），此时响应尚未产生、Status 必为 0。
-// 因此请求日志不按状态码分级（旧实现按 Status 分级，但 Status 永远为 0，
-// Warn/Error 分支是死代码、分级完全失效），统一以 Info 级别记录请求到达。
+// ReqLogPrint 请求日志打印。
+// 请求阶段（c.Next 之前）Status 必为 0，统一以 Info 记录请求到达；
 // 状态码分级在 RespLogPrint 中按真实响应状态完成。
 func (a *AccessLog) ReqLogPrint(log logx.Loggerx) {
 	log.Info("HTTP request", logx.String("log_id", a.LogId),

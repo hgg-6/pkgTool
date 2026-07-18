@@ -130,13 +130,9 @@ func (g *GRPCExecutor) Execute(ctx context.Context, job domain.CronJob) (*Execut
 		}, err
 	}
 
-	// P0-11 修复：旧实现把 map[string]interface{} 直接作为 conn.Invoke 的请求传给 gRPC，
-	// 但 Invoke 要求 proto.Message，map 在序列化阶段必然失败。
-	// 正确做法是基于反射拿到的 FileDescriptorProto 构造动态 message：
-	//   1) 用 protodesc 把 FileDescriptorProto 转成 protoreflect.FileDescriptor
-	//   2) 根据 methodDesc.InputType（全限定消息名）定位请求 message descriptor
-	//   3) dynamicpb.NewMessage 创建实例，用 protojson 把 RequestData(JSON) 反序列化进去
-	//   4) 同样为响应构造一个动态 message 实例供 Invoke 写入
+	// 基于反射拿到的 FileDescriptorProto 构造动态 message（Invoke 要求 proto.Message）：
+	// protodesc 注册描述符 → 按 methodDesc.InputType/OutputType 定位 message →
+	// dynamicpb.NewMessage 创建实例 → protojson 反序列化 RequestData。
 	files, err := protodesc.NewFiles(&descriptorpb.FileDescriptorSet{File: fileDescriptors})
 	if err != nil {
 		endTime := time.Now()

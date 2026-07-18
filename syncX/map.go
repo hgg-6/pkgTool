@@ -24,9 +24,7 @@ type future[V any] struct {
 }
 
 // do 执行初始化函数 fn，确保只调用一次。
-// P0-27: 旧实现 fn panic 时 sync.Once.Do 会传播 panic，调用方 LoadOrStoreFunc
-// 的清理（Delete future）不会执行，future 永久残留；后续同 key 调用拿到同 future，
-// once 已 done 直接返回零值。这里 recover panic 转 error，保证调用方能正常返回并清理。
+// fn panic 时 recover 转 error，保证调用方能正常返回并清理 future。
 func (f *future[V]) do(fn func() (V, error)) (val V, err error) {
 	f.once.Do(func() {
 		defer func() {

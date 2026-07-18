@@ -105,9 +105,8 @@ func (s *CronScheduler) AddJob(job domain.CronJob) error {
 	}
 
 	// 解析Cron表达式
-	// 注意：调度器用 cron.WithSeconds() 创建（6 字段），必须用 cron.Parse（6 字段）解析，
-	// 不能用 cron.ParseStandard（5 字段），否则用户写的 6 字段表达式会被拒绝、
-	// 5 字段表达式在 6 字段调度器里行为错乱（P0-9）。
+	// 调度器用 cron.WithSeconds() 创建（6 字段），必须用 6 字段 parser 解析，
+	// 不能用 cron.ParseStandard（5 字段）。
 	parser := cron.NewParser(cron.Second | cron.Minute | cron.Hour | cron.Dom | cron.Month | cron.Dow | cron.Descriptor)
 	schedule, err := parser.Parse(job.CronExpr)
 	if err != nil {
@@ -185,9 +184,8 @@ func (s *CronScheduler) createJobFunc(job domain.CronJob) func() {
 			)
 			return
 		}
-		// P0-8 修复：任务执行期间定期续约，避免长任务超过锁 TTL（默认 30s）
-		// 被 Redis 自动释放，导致另一节点抢到锁造成双机并发执行。
-		// 续约间隔取锁有效期的 1/3（与 redsync 推荐续约节奏一致），最低 1s。
+		// 任务执行期间定期续约，避免长任务超过锁 TTL 被自动释放导致双机并发。
+		// 续约间隔取锁有效期的 1/3，最低 1s。
 		renewInterval := mutex.Until().Sub(time.Now()) / 3
 		if renewInterval < time.Second {
 			renewInterval = time.Second
@@ -204,9 +202,7 @@ func (s *CronScheduler) createJobFunc(job domain.CronJob) func() {
 				case <-renewCtx.Done():
 					return
 				case <-ticker.C:
-					// 续约失败说明锁已被释放（如 Redis 故障或被强制删除），
-					// 此时继续执行会有双机风险，记录错误并退出续约循环
-					// （任务本身仍会跑完，但日志可追踪异常）。
+					// 续约失败说明锁已失效（Redis 故障或被强制删除），记录错误并退出续约。
 					if ok, err := mutex.Extend(); err != nil || !ok {
 						s.l.Error("分布式锁续约失败",
 							logx.Int64("job_id", job.CronId),
@@ -300,9 +296,7 @@ func (s *CronScheduler) executeJob(job domain.CronJob) error {
 		return nil
 	}
 
-	// P0-12 修复：旧实现在 result.Success==false 时只 Warn + 告警，最后 return nil，
-	// 导致上层 createJobFunc 的"执行失败"分支永远进不去，MaxRetry/失败计数等
-	// 对外可见的失败语义全部失效。改为返回 error，让上层正确感知失败。
+	// 执行结果失败时返回 error，让上层 createJobFunc 正确感知失败。
 	s.l.Warn("任务执行失败",
 		logx.Int64("job_id", job.CronId),
 		logx.String("job_name", job.Name),

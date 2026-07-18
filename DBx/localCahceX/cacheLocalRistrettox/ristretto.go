@@ -52,7 +52,6 @@ func (c *CacheLocalRistrettoStr[K, V]) WaitSet() {
 	c.cache.Wait()
 }
 
-// init方法会被自动调用
 func (c *CacheLocalRistrettoStr[K, V]) initClose() {
 	defer c.cache.Close()
 }

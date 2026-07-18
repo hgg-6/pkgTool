@@ -37,7 +37,7 @@ func (b *InterceptorBuilder) BuildServerUnaryInterceptor() grpc.UnaryServerInter
 				logx.String("peer_ip", b.PeerIP(ctx)),
 			}
 
-			// P0-25: recover 时收集 panic 堆栈并记入日志（旧实现收集了 stack 却从未使用）。
+			// recover 时收集 panic 堆栈并记入日志。
 			if rec := recover(); rec != nil {
 				switch re := rec.(type) {
 				case error:
@@ -52,9 +52,7 @@ func (b *InterceptorBuilder) BuildServerUnaryInterceptor() grpc.UnaryServerInter
 				err = status.New(codes.Internal, "panic, err "+err.Error()).Err()
 			}
 
-			// P0-25: 旧实现用 status.FromError(err) 判断，但 FromError(nil) 返回
-			// (status{Code:OK}, true)，st != nil 恒真，导致成功请求也走 Error 日志。
-			// 改为按 err 是否为 nil 判断：err != nil 才是真正的错误调用。
+			// 按 err 是否为 nil 判断日志级别（status.FromError(nil) 也返回非 nil）。
 			if err != nil {
 				if st, _ := status.FromError(err); st != nil {
 					fields = append(fields, logx.String("code", st.Code().String()))

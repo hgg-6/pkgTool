@@ -94,7 +94,7 @@ func (v *Validator[T, Pdr]) validateBaseToTarget(ctx context.Context) error {
 			continue
 		}
 		if err != nil {
-			// P0-22: 查询出错时不递增 offset，避免跳过该记录（瞬态错误重试同一逻辑位置）。
+			// 查询出错时不递增 offset，避免跳过该记录（瞬态错误重试同一位置）。
 			v.l.Error("base -> target 查询 base 失败", logx.Error(err))
 			if v.sleepInterval > 0 {
 				time.Sleep(v.sleepInterval)
@@ -102,7 +102,6 @@ func (v *Validator[T, Pdr]) validateBaseToTarget(ctx context.Context) error {
 			continue
 		}
 
-		// 这边就是正常情况
 		var dst T
 		err = v.target.WithContext(ctx).
 			Where("id = ?", src.ID()).
@@ -121,8 +120,6 @@ func (v *Validator[T, Pdr]) validateBaseToTarget(ctx context.Context) error {
 				v.l.Warn("base -> target 数据不一致", logx.Int64("id", src.ID()))
 			}
 		default:
-			// 记录日志，然后继续
-			// 做好监控
 			v.l.Error("base -> target 查询 target 失败",
 				logx.Int64("id", src.ID()),
 				logx.Error(err))
@@ -161,10 +158,8 @@ func (v *Validator[T, Pdr]) fullFromBase(ctx context.Context, offset int) (T, er
 }
 
 func (v *Validator[T, Pdr]) incrFromBase(ctx context.Context, offset int) (T, error) {
-	// P0-22: 旧实现用 Offset(offset) + Where("utime > ?")，offset 每次++ 但 utime 窗口
-	// 随新数据到来在移动，offset 指向的逻辑行漂移，导致静默跳过/重复校验。
-	// 增量校验的正确语义是'按 utime 游标推进'：每次取 utime > v.utime 的第一条，
-	// 不再用 offset。utime 的推进由调用方通过 v.Utime() 设置（Entity 接口未暴露 Utime()）。
+	// 增量校验按 utime 游标推进：每次取 utime > v.utime 的第一条，不再用 offset。
+	// utime 的推进由调用方通过 v.Utime() 设置（Entity 接口未暴露 Utime()）。
 	_ = offset
 	dbCtx, cancel := context.WithTimeout(ctx, time.Second)
 	defer cancel()
@@ -188,8 +183,7 @@ func (v *Validator[T, Pdr]) validateTargetToBase(ctx context.Context) error {
 			return nil
 		}
 		if err == gorm.ErrRecordNotFound || len(ts) == 0 {
-			// P0-22: 增量模式下扫到末尾应重置 offset 回到开头继续循环监控新数据，
-			// 否则 offset 无限增长导致 MySQL OFFSET(N) 二次方性能退化。
+			// 增量模式扫到末尾重置 offset 继续循环监控新数据，避免 offset 无限增长。
 			if v.sleepInterval <= 0 {
 				return nil
 			}
@@ -198,7 +192,7 @@ func (v *Validator[T, Pdr]) validateTargetToBase(ctx context.Context) error {
 			continue
 		}
 		if err != nil {
-			// P0-22: 查询出错时不递增 offset，避免跳过该批次（瞬态错误重试）。
+			// 查询出错时不递增 offset，避免跳过该批次。
 			v.l.Error("target => base 查询 target 失败", logx.Error(err))
 			if v.sleepInterval > 0 {
 				time.Sleep(v.sleepInterval)
@@ -231,7 +225,7 @@ func (v *Validator[T, Pdr]) validateTargetToBase(ctx context.Context) error {
 				// 全量模式：扫完即结束。
 				return nil
 			}
-			// P0-22: 增量模式重置 offset 回到开头继续监控。
+			// 增量模式重置 offset 回到开头继续监控。
 			offset = 0
 			time.Sleep(v.sleepInterval)
 			continue

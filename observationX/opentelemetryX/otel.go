@@ -36,8 +36,6 @@ func NewOtelStr(svc SvcInfo, spanExporter trace.SpanExporter) (CtxFn, error) {
 		serviceVersion: svc.ServiceVersion,
 		spanExporter:   spanExporter,
 	}
-	// newTraceProvider 永远返回 nil error，所以旧实现的 err 永远为 nil，
-	// newResource 的失败被静默吞掉。这里改为显式检查并中止初始化。
 	res, err := o.newResource()
 	if err != nil {
 		o.ResErr = err
@@ -59,8 +57,7 @@ func NewOtelStr(svc SvcInfo, spanExporter trace.SpanExporter) (CtxFn, error) {
 	return o.initOtel(), nil
 }
 
-// initOtel 返回用于 defer 的 shutdown 函数。
-// 先 ForceFlush 保证缓冲 span 落盘，再 Shutdown；shutdown 错误不再静默吞掉。
+// initOtel 返回用于 defer 的 shutdown 函数：先 ForceFlush 落盘再 Shutdown。
 func (o *OtelStr) initOtel() func(ctx context.Context) {
 	return func(ctx context.Context) {
 		_ = o.tracerProvider.ForceFlush(ctx)

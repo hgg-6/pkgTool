@@ -52,8 +52,6 @@ func (p *PrometheusStr) Register(c prometheus.Collector) error {
 }
 
 // registerOrGet 注册 collector，重复注册时返回已存在的 collector 和 ErrAlreadyRegistered。
-// 旧 Register 丢弃了 AlreadyRegisteredError.ExistingCollector，导致工厂方法返回
-// 未注册的新实例，Inc 等操作不会出现在 /metrics（指标静默丢失）。
 func (p *PrometheusStr) registerOrGet(c prometheus.Collector) (prometheus.Collector, error) {
 	reg := p.reg
 	if reg == nil {

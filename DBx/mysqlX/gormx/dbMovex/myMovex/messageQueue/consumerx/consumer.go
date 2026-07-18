@@ -87,8 +87,7 @@ func (f *fn) Handle(ctx context.Context, msg *mqX.Message) error {
 	if err != nil {
 		return err
 	}
-	// P0-23: 修复数据。旧实现忽略 Fix 错误直接 return nil，导致修复失败的消息也被 ACK，
-	// 不一致数据被永久丢失（消息已提交）。改为返回 error，让上游不 ACK 以便重试。
+	// 修复失败时返回 error，让上游不 ACK 以便重试。
 	if err := ov.Fix(context.Background(), event.ID); err != nil {
 		f.l.Error("修复不一致数据失败", logx.Int64("id", event.ID), logx.Error(err))
 		return err

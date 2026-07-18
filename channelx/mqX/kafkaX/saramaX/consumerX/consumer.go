@@ -126,8 +126,7 @@ func (a *consumerGroupHandlerAdapter) ConsumeClaim(sess sarama.ConsumerGroupSess
 			}
 		}()
 
-		// 用三路阻塞 select，确保 batchTimeout 到期能立即 flush，
-		// 不依赖'恰好又收到一条消息'才顺带检查 timer（旧实现的缺陷）。
+		// 三路阻塞 select，batchTimeout 到期能立即 flush，不依赖'恰好收到新消息'。
 		msgCh := claim.Messages()
 		for {
 			select {

@@ -36,14 +36,14 @@ func TestToAny(t *testing.T) {
 		assert.Equal(t, 12, v)
 	})
 
-	// int64 -> uint64（P0-2 回归）
+	// int64 -> uint64
 	t.Run("Int64ToUint64 ok", func(t *testing.T) {
 		v, ok := ToAny[uint64](int64(789))
 		assert.True(t, ok)
 		assert.Equal(t, uint64(789), v)
 	})
 
-	// json.Number -> uint64（P0-2 回归）
+	// json.Number -> uint64
 	t.Run("JSONNumberToUint64 ok", func(t *testing.T) {
 		v, ok := ToAny[uint64](json.Number("321"))
 		assert.True(t, ok)
@@ -97,13 +97,13 @@ func TestToAny(t *testing.T) {
 		assert.False(t, ok)
 	})
 
-	// int -> int8 边界（P0-4 修复后会校验，200 超过 int8 范围应失败）
+	// int -> int8 边界：200 超过 int8 范围应失败
 	t.Run("IntToInt8 overflow", func(t *testing.T) {
 		_, ok := ToAny[int8](int(200))
 		assert.False(t, ok, "200 超出 int8 范围应失败")
 	})
 
-	// int -> int8 正常（P0-4 修复后）
+	// int -> int8 正常
 	t.Run("IntToInt8 ok", func(t *testing.T) {
 		v, ok := ToAny[int8](int(100))
 		assert.True(t, ok)

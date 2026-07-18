@@ -97,11 +97,7 @@ func init() {
 
 // ========== 通用转换函数 ==========
 
-// 整数通用转换
-//
-// 与旧实现相比，增加了目标类型边界检查，避免静默截断/溢出。
-// 例如 ToAny[int8](int(200)) 旧实现会返回 -56 且 ok=true（静默溢出），
-// 现在会返回 ok=false。
+// 整数通用转换，带目标类型边界检查（超出范围返回 ok=false，避免静默截断/溢出）。
 func convertInt[T ~int | ~int8 | ~int16 | ~int32 | ~int64](src any) (T, bool) {
 	minT, maxT := int64Range[T]()
 	inRange := func(i int64) bool { return i >= minT && i <= maxT }
@@ -151,7 +147,7 @@ func convertInt[T ~int | ~int8 | ~int16 | ~int32 | ~int64](src any) (T, bool) {
 			return T(v), true
 		}
 	case float32:
-		// 截断转 int64（与旧实现 T(v) 的截断语义一致），仅做边界检查。
+		// 截断转 int64，仅做边界检查。
 		if fv := int64(v); inRange(fv) {
 			return T(fv), true
 		}
